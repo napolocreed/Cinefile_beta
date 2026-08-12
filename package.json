@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node server.mjs",
     "start": "node server.mjs",
-    "test": "node --test"
+    "test": "node --test test/*.test.mjs",
+    "extract:data": "node scripts/extract-cinema-data.mjs"
   },
   "engines": { "node": ">=20" }
 }
