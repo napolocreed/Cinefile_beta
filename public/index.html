@@ -6,11 +6,25 @@
     <meta name="theme-color" content="#090b10" />
     <meta name="description" content="Ciné-Fil — le jeu de culture cinéma et de bluff à plusieurs." />
     <title>Ciné-Fil — Le dernier à l’écran</title>
-    <link rel="icon" href="/favicon.ico" />
-    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="icon" href="favicon.ico" />
+    <link rel="stylesheet" href="src/styles.css" />
+    <script>
+      (function (l) {
+        if (l.search[1] === "/") {
+          var decoded = l.search
+            .slice(1)
+            .split("&")
+            .map(function (s) {
+              return s.replace(/~and~/g, "&");
+            })
+            .join("?");
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+        }
+      })(window.location);
+    </script>
   </head>
   <body>
     <div id="app" aria-live="polite"></div>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="src/main.js"></script>
   </body>
 </html>

@@ -12,7 +12,8 @@ import { createStorage, recordFinishedGame } from "./game/storage.js";
 
 const root = document.querySelector("#app");
 const storage = createStorage();
-const data = await fetch("/src/data/cinema-database.json").then((response) => response.json());
+const BASE_PATH = new URL(".", import.meta.url).pathname.replace(/\/src\/?$/, "");
+const data = await fetch(new URL("./data/cinema-database.json", import.meta.url)).then((response) => response.json());
 const database = createDatabase(data);
 
 const state = {
@@ -29,7 +30,12 @@ const state = {
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character]);
 const html = (strings, ...values) => strings.reduce((result, string, index) => `${result}${string}${values[index] ?? ""}`, "");
-const path = () => window.location.pathname.replace(/\/$/, "") || "/";
+const href = (target) => `${BASE_PATH}${target}`;
+const path = () => {
+  const pathname = window.location.pathname;
+  const relative = BASE_PATH && pathname.startsWith(BASE_PATH) ? pathname.slice(BASE_PATH.length) : pathname;
+  return relative.replace(/\/$/, "") || "/";
+};
 
 function livesMarkup(lives, large = false) {
   const count = Math.max(1, lives);
@@ -37,16 +43,16 @@ function livesMarkup(lives, large = false) {
 }
 
 function brandMarkup(compact = false) {
-  return `<a class="brand ${compact ? "brand--compact" : ""}" href="/" data-nav><span class="brand__seal">✦</span><span class="brand__words"><b>CINÉ</b><em>FIL</em></span></a>`;
+  return `<a class="brand ${compact ? "brand--compact" : ""}" href="${href("/")}" data-nav><span class="brand__seal">✦</span><span class="brand__words"><b>CINÉ</b><em>FIL</em></span></a>`;
 }
 
 function shell(content, { back = null, eyebrow = "Ciné-Fil Pictures" } = {}) {
-  return `<main class="page"><div class="film-grain" aria-hidden="true"></div><header class="topbar">${back ? `<a class="back-link" href="${back}" data-nav>← ${back === "/" ? "Accueil" : "Retour"}</a>` : "<span></span>"}${brandMarkup(true)}<span class="topbar__eyebrow">${eyebrow}</span></header><div class="page__body">${content}</div></main>`;
+  return `<main class="page"><div class="film-grain" aria-hidden="true"></div><header class="topbar">${back ? `<a class="back-link" href="${href(back)}" data-nav>← ${back === "/" ? "Accueil" : "Retour"}</a>` : "<span></span>"}${brandMarkup(true)}<span class="topbar__eyebrow">${eyebrow}</span></header><div class="page__body">${content}</div></main>`;
 }
 
 function navigate(target) {
   stopTimer();
-  history.pushState({}, "", target);
+  history.pushState({}, "", href(target));
   state.phase = "pass";
   state.pending = null;
   state.revealChallenged = false;
@@ -57,7 +63,7 @@ function navigate(target) {
 
 function renderHome() {
   const hasGame = state.game?.status === "in-progress";
-  root.innerHTML = `<main class="hero"><div class="hero__backdrop" aria-hidden="true"></div><div class="film-grain" aria-hidden="true"></div><div class="hero__content"><div class="studio-stamp">${brandMarkup()}</div><p class="kicker">Un jeu de culture cinéma · deux à dix joueurs</p><h1>Le dernier<br><span>à l’écran.</span></h1><p class="hero__intro">Reliez chaque acteur au précédent par un film commun. Bluffez, démasquez, survivez : la culture ciné décide du dernier debout.</p><div class="hero__actions"><a class="button button--gold" href="/setup" data-nav>Nouvelle partie <span>→</span></a>${hasGame ? `<a class="button button--ghost" href="/play" data-nav>Reprendre la partie <span>↗</span></a>` : ""}<a class="button button--text" href="/profiles" data-nav>Profils &amp; succès</a></div><p class="hero__fineprint">Sans compte · sans connexion · sauvegardé sur cet appareil</p></div><div class="hero__credits">CINÉFIL PICTURES · PRÉSENTE</div></main>`;
+  root.innerHTML = `<main class="hero"><div class="hero__backdrop" aria-hidden="true"></div><div class="film-grain" aria-hidden="true"></div><div class="hero__content"><div class="studio-stamp">${brandMarkup()}</div><p class="kicker">Un jeu de culture cinéma · deux à dix joueurs</p><h1>Le dernier<br><span>à l’écran.</span></h1><p class="hero__intro">Reliez chaque acteur au précédent par un film commun. Bluffez, démasquez, survivez : la culture ciné décide du dernier debout.</p><div class="hero__actions"><a class="button button--gold" href="${href("/setup")}" data-nav>Nouvelle partie <span>→</span></a>${hasGame ? `<a class="button button--ghost" href="${href("/play")}" data-nav>Reprendre la partie <span>↗</span></a>` : ""}<a class="button button--text" href="${href("/profiles")}" data-nav>Profils &amp; succès</a></div><p class="hero__fineprint">Sans compte · sans connexion · sauvegardé sur cet appareil</p></div><div class="hero__credits">CINÉFIL PICTURES · PRÉSENTE</div></main>`;
 }
 
 function setupMarkup() {
@@ -249,7 +255,7 @@ function stopTimer() {
 function renderResults() {
   const game = state.game ?? storage.loadCurrent();
   if (!game || game.status !== "finished") {
-    root.innerHTML = shell(`<section class="empty-state"><p class="kicker">Salle vide</p><h1>Aucune partie terminée.</h1><a class="button button--gold" href="/setup" data-nav>Tourner une partie</a></section>`, { back: "/" });
+    root.innerHTML = shell(`<section class="empty-state"><p class="kicker">Salle vide</p><h1>Aucune partie terminée.</h1><a class="button button--gold" href="${href("/setup")}" data-nav>Tourner une partie</a></section>`, { back: "/" });
     return;
   }
   state.game = game;
@@ -258,7 +264,7 @@ function renderResults() {
   const ordered = [...game.players].sort((left, right) => (right.id === game.winnerId) - (left.id === game.winnerId) || right.score - left.score);
   const winner = game.players.find((player) => player.id === game.winnerId);
   const newAchievements = state.newAchievements.map((id) => ACHIEVEMENTS.find((achievement) => achievement.id === id)).filter(Boolean);
-  root.innerHTML = shell(`<section class="results-page"><div class="credits-card"><p class="kicker">Ciné-Fil Pictures présente</p><small>Dans le rôle du vainqueur</small><h1>${escapeHtml(winner?.name ?? "Personne")}</h1><p>Une chaîne de ${game.chain.length} acteurs</p><div class="credits-card__line"></div><small>Réalisé par</small><b>Vous tous</b></div><section class="panel panel--ranking"><div class="panel__title"><span class="panel__number">01</span><div><h2>Le classement</h2><p>Le générique défile, les scores restent.</p></div></div><ol class="ranking">${ordered.map((player, index) => `<li class="ranking__row ${player.id === game.winnerId ? "ranking__row--winner" : ""}"><span class="ranking__place">#${index + 1}</span><strong>${escapeHtml(player.name)}</strong><span>${player.filmsFound} films · ${player.score} pts · série ${player.bestStreak}</span></li>`).join("")}</ol></section>${newAchievements.length ? `<section class="panel"><div class="panel__title"><span class="panel__number">02</span><div><h2>Nouveau succès</h2><p>Une nouvelle ligne au palmarès.</p></div></div><div class="achievement-list">${newAchievements.map((achievement) => `<div class="achievement"><span>${achievement.icon}</span><div><b>${achievement.label}</b><small>${achievement.description}</small></div></div>`).join("")}</div></section>` : ""}<section class="panel"><div class="panel__title"><span class="panel__number">03</span><div><h2>Chaîne complète</h2><p>La bobine entière, sans coupure.</p></div></div><p class="chain-line">${game.chain.map((actor, index) => `<span>${escapeHtml(actor)}</span>${index < game.chain.length - 1 ? " <b>→</b> " : ""}`).join("")}</p></section><div class="results-actions"><button class="button button--gold" data-replay>Rejouer <span>↗</span></button><a class="button button--ghost" href="/" data-nav>Accueil</a></div></section>`, { back: "/", eyebrow: "End credits" });
+  root.innerHTML = shell(`<section class="results-page"><div class="credits-card"><p class="kicker">Ciné-Fil Pictures présente</p><small>Dans le rôle du vainqueur</small><h1>${escapeHtml(winner?.name ?? "Personne")}</h1><p>Une chaîne de ${game.chain.length} acteurs</p><div class="credits-card__line"></div><small>Réalisé par</small><b>Vous tous</b></div><section class="panel panel--ranking"><div class="panel__title"><span class="panel__number">01</span><div><h2>Le classement</h2><p>Le générique défile, les scores restent.</p></div></div><ol class="ranking">${ordered.map((player, index) => `<li class="ranking__row ${player.id === game.winnerId ? "ranking__row--winner" : ""}"><span class="ranking__place">#${index + 1}</span><strong>${escapeHtml(player.name)}</strong><span>${player.filmsFound} films · ${player.score} pts · série ${player.bestStreak}</span></li>`).join("")}</ol></section>${newAchievements.length ? `<section class="panel"><div class="panel__title"><span class="panel__number">02</span><div><h2>Nouveau succès</h2><p>Une nouvelle ligne au palmarès.</p></div></div><div class="achievement-list">${newAchievements.map((achievement) => `<div class="achievement"><span>${achievement.icon}</span><div><b>${achievement.label}</b><small>${achievement.description}</small></div></div>`).join("")}</div></section>` : ""}<section class="panel"><div class="panel__title"><span class="panel__number">03</span><div><h2>Chaîne complète</h2><p>La bobine entière, sans coupure.</p></div></div><p class="chain-line">${game.chain.map((actor, index) => `<span>${escapeHtml(actor)}</span>${index < game.chain.length - 1 ? " <b>→</b> " : ""}`).join("")}</p></section><div class="results-actions"><button class="button button--gold" data-replay>Rejouer <span>↗</span></button><a class="button button--ghost" href="${href("/")}" data-nav>Accueil</a></div></section>`, { back: "/", eyebrow: "End credits" });
   document.querySelector("[data-replay]")?.addEventListener("click", () => {
     const names = game.players.map((player) => player.name);
     state.game = createGame({ names, config: game.config });
@@ -305,7 +311,9 @@ document.addEventListener("click", (event) => {
   const link = event.target.closest("a[data-nav]");
   if (!link) return;
   event.preventDefault();
-  navigate(link.getAttribute("href"));
+  const rawHref = link.getAttribute("href");
+  const target = BASE_PATH && rawHref.startsWith(BASE_PATH) ? rawHref.slice(BASE_PATH.length) || "/" : rawHref;
+  navigate(target);
 });
 window.addEventListener("popstate", renderRoute);
 renderRoute();
