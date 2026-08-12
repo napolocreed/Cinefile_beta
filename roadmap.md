@@ -1,67 +1,73 @@
 # Ciné-Fil — feuille de route
 
-Cette feuille de route décrit les évolutions prévues après la reconstruction du jeu. Elles ne sont pas implémentées dans la version actuelle ; le socle actuel privilégie la fidélité au jeu public, une base locale déterministe et des tests de non-régression.
+Mise à jour le 13 août 2026. Les cinq phases prévues après la reconstruction ont été traitées. Les cases restantes nécessitent une ressource externe ou une décision éditoriale et ne bloquent pas le jeu local.
 
-## Socle livré
+## Socle autonome — livré
 
-- Reconstruction autonome des écrans accueil, configuration, partie, bluff, résultats et profils.
-- Refonte visuelle **Old School Hollywood** : générique, pellicule, studio, typographie éditoriale, or patiné et rouge cinéma.
-- Moteur de jeu indépendant de l’interface : chaînes, acteurs déjà utilisés, vies, scores, séries, défis, éliminations et chronomètre.
-- Base récupérée de 1 524 acteurs et 42 336 films, avec normalisation des accents et de la ponctuation.
-- Persistance locale et idempotente des parties, historiques, profils et succès.
-- Tests automatisés de la base, du moteur, du stockage et du serveur SPA.
+- [x] Écrans accueil, configuration, partie, bluff, résultats et profils.
+- [x] Direction artistique **Old School Hollywood**, responsive mobile et desktop.
+- [x] Moteur déterministe séparé de l’interface : chaînes, vies, scores, séries, défis, éliminations et chronomètre.
+- [x] Persistance locale idempotente, succès et reprise de partie.
 
-## Phase 1 — fiabiliser la connaissance cinéma
+## Phase 1 — connaissance cinéma — livrée
 
-1. **Enrichissement de la base**
-   - Croiser les sources publiques et les API autorisées.
-   - Conserver les identifiants externes, titres originaux, titres localisés, années, types d’œuvre et crédits.
-   - Distinguer acteurs, réalisateurs, scénaristes, compositeurs et caméos pour préparer les variantes de règles.
+- [x] Snapshot canonique versionné : 1 524 personnes, 41 914 œuvres et 84 501 crédits.
+- [x] Identifiants stables pour les personnes et les œuvres, schéma prêt à recevoir TMDb et IMDb.
+- [x] Déduplication stricte et prudente de 409 groupes, avec journal réversible dans `src/data/cinema-merge-log.json`.
+- [x] Dictionnaires d’alias pour noms d’usage, accents, ponctuation, translittérations et titres localisés.
+- [x] File de revue pour les 144 rapprochements incertains; aucune fusion floue silencieuse.
+- [x] Rapport reproductible dans `src/data/cinema-quality.json` et générateur `npm run build:data`.
+- [ ] Revoir humainement les 144 candidats incertains au fil de l’enrichissement éditorial.
 
-2. **Déduplication**
-   - Dédupliquer les personnes par identifiant externe, puis par rapprochement nom/date de naissance.
-   - Dédupliquer les films par identifiant, titre et année.
-   - Conserver un journal des fusions et une possibilité de revenir sur une décision automatique.
+## Phase 2 — saisie sans friction — livrée
 
-3. **Dictionnaires de synonymes**
-   - Accents, apostrophes, tirets, translittérations et ordre prénom/nom.
-   - Titres français, titres originaux, titres abrégés et variantes courantes.
-   - Noms d’usage et alias avec score de confiance, sans rendre les faux positifs silencieux.
+- [x] Autocomplétion sur toutes les personnes indexées et tous leurs alias.
+- [x] Classement par qualité textuelle, popularité et richesse de filmographie.
+- [x] Recherche hybride : index local immédiat, puis TMDb côté serveur.
+- [x] Désambiguïsation avec portrait, département artistique, œuvres connues et provenance.
+- [x] Hydratation de la filmographie à la sélection, sans exposer le secret TMDb au navigateur.
+- [x] Cache local et repli hors connexion explicite.
+- [x] Vote conservé pour un artiste réellement absent du catalogue.
 
-## Phase 2 — saisie sans friction
+## Phase 3 — couverture filmographique — infrastructure livrée
 
-- Étendre l’autocomplétion à **tous les artistes** présents dans la base, et non seulement au sous-ensemble actuellement embarqué.
-- Mettre en place une recherche hybride : index local instantané puis API distante pour les artistes absents.
-- Afficher une proposition de désambiguïsation quand plusieurs artistes ou œuvres correspondent.
-- Ajouter une validation explicite et lisible lorsqu’un nom est accepté par vote plutôt que par la base.
-- Prévoir un mode hors-ligne dégradé avec cache local et indicateur de fraîcheur des données.
+- [x] Adaptateur TMDb pour artistes, alias, profils, rôles, crédits films/séries et identifiants externes.
+- [x] Cache serveur à durée de vie limitée et cache navigateur persistant.
+- [x] Synchronisation incrémentale reprenable via `npm run sync:tmdb`.
+- [x] Correspondance automatique limitée aux identités exactes normalisées; ambiguïtés envoyées en revue.
+- [x] Métriques de couverture, œuvres orphelines et personnes sans crédit.
+- [x] Snapshots versionnés pour garder les validations rejouables.
+- [ ] Fournir `TMDB_API_TOKEN` sur l’hébergement, puis exécuter les vagues d’enrichissement. Aucun secret TMDb n’était disponible dans l’environnement de reconstruction.
+- [ ] Évaluer Allociné séparément après validation juridique de ses droits, quotas et conditions de redistribution.
 
-## Phase 3 — couverture filmographique maximale
+## Phase 4 — mode vocal passif — livrée en bêta jouable
 
-- Intégrer TMDb et/ou Allociné selon les droits, quotas, coûts et conditions de redistribution.
-- Construire une synchronisation incrémentale plutôt qu’un téléchargement complet à chaque partie.
-- Prioriser les chemins réellement jouables : acteurs populaires, cinéma français, œuvres récentes et passerelles entre communautés de films.
-- Ajouter des métriques de couverture : taux de liens trouvés, films orphelins, acteurs sans passerelle, ambiguïtés par langue.
-- Versionner les snapshots de données afin qu’une partie reste rejouable avec la base qui l’a validée.
+- [x] Variante dédiée à exactement deux joueurs.
+- [x] Deux sections de joueur avec vies, état actif et timer individuel.
+- [x] Écoute continue via Web Speech API après consentement explicite.
+- [x] Détection locale des entités, dictionnaires d’alias et complément TMDb si disponible.
+- [x] Plusieurs propositions classées avec niveau de confiance.
+- [x] Buzzer bluff central pendant la fenêtre de décision.
+- [x] Après buzzer, sélection indépendante des deux derniers noms avant résolution.
+- [x] Correction de la dernière identité sans corrompre la chaîne ni les statistiques.
+- [x] Arrêt immédiat du micro, indicateur d’écoute et saisie de secours si le micro ou le réseau manque.
+- [ ] Tester et calibrer les accents/bruits réels sur un panel de téléphones; la disponibilité de Web Speech dépend du navigateur et du système.
 
-## Phase 4 — mode vocal passif
+## Phase 5 — qualité produit — livrée
 
-Le mode vocal sera une variante dédiée, avec une interface volontairement réduite :
+- [x] 35 tests unitaires, d’intégration, de données et de propriétés, dont 250 parties pseudo-aléatoires.
+- [x] 6 parcours navigateur actifs sur desktop/mobile, plus un contrôle hors-ligne et un skip mobile volontaire.
+- [x] CI GitHub avec rapport Playwright en cas d’échec.
+- [x] PWA installable et shell complet disponible hors connexion.
+- [x] Navigation clavier, lien d’évitement, focus visible, régions live et libellés accessibles.
+- [x] Contraste renforcé, réduction des animations et option de texte agrandi.
+- [x] Export/import JSON validé des parties, profils, réglages et cache cinéma.
+- [x] Diagnostics locaux strictement opt-in, limités à 30 entrées et jamais envoyés.
 
-- deux sections d’écoute, une par joueur, avec timer individuel ;
-- détection continue des noms prononcés, sans bouton « valider » à chaque réplique ;
-- propositions candidates classées lorsqu’un nom est incertain ;
-- buzzer « bluff » central, accessible pendant la fenêtre de décision ;
-- après le buzzer, sélection des deux derniers noms parmi les propositions détectées ;
-- validation visuelle de la chaîne et possibilité de corriger une reconnaissance avant résolution ;
-- séparation stricte entre capture audio, transcription, résolution d’entités et moteur de jeu ;
-- consentement micro explicite, indicateur d’écoute, arrêt immédiat et fonctionnement dégradé si le micro ou le réseau disparaît.
+## Prochain cycle éditorial
 
-## Phase 5 — qualité produit
-
-- Tests navigateur sur mobile et desktop pour chaque route et chaque transition critique.
-- Tests de propriété du moteur : une chaîne ne contient jamais deux fois le même acteur normalisé ; un joueur éliminé ne reprend jamais la main ; une partie terminée ne change plus.
-- Tests de données sur des snapshots versionnés.
-- Instrumentation locale facultative des erreurs, sans collecte par défaut.
-- Accessibilité clavier, lecteurs d’écran, contrastes, réduction des animations et grands caractères.
-- Export/import local d’une partie pour jouer entre appareils sans compte.
+1. Configurer le jeton TMDb sur l’hébergement et lancer une première synchronisation contrôlée.
+2. Examiner les rapprochements ambigus et enrichir les dictionnaires de synonymes.
+3. Tester le vocal sur Chrome Android, Safari iOS et plusieurs environnements sonores.
+4. Mesurer les liens manquants observés en partie et prioriser les zones faibles de la base.
+5. Effectuer un audit juridique avant toute intégration Allociné ou redistribution massive de données tierces.

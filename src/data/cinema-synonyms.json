@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "people": [
+    { "canonical": "Leonardo DiCaprio", "aliases": ["Leonardo Di Caprio", "DiCaprio, Leonardo", "Leo DiCaprio"] },
+    { "canonical": "Robert De Niro", "aliases": ["Robert de Niro", "De Niro, Robert", "Bobby De Niro"] },
+    { "canonical": "Louis de Funès", "aliases": ["Louis de Funes", "De Funès, Louis"] },
+    { "canonical": "Timothée Chalamet", "aliases": ["Timothee Chalamet", "Chalamet, Timothée"] },
+    { "canonical": "Jean-Claude Van Damme", "aliases": ["JCVD", "Jean Claude Van Damme", "Van Damme, Jean-Claude"] },
+    { "canonical": "Arnold Schwarzenegger", "aliases": ["Schwarzenegger, Arnold", "Arnold Schwartzenegger"] },
+    { "canonical": "Dwayne Johnson", "aliases": ["The Rock", "Dwayne 'The Rock' Johnson"] },
+    { "canonical": "Marion Cotillard", "aliases": ["Cotillard, Marion"] },
+    { "canonical": "Omar Sy", "aliases": ["Sy, Omar"] },
+    { "canonical": "Catherine Deneuve", "aliases": ["Deneuve, Catherine"] },
+    { "canonical": "Bérénice Bejo", "aliases": ["Berenice Bejo", "Bejo, Bérénice"] },
+    { "canonical": "Benoît Magimel", "aliases": ["Benoit Magimel", "Magimel, Benoît"] },
+    { "canonical": "François Civil", "aliases": ["Francois Civil", "Civil, François"] },
+    { "canonical": "Léa Seydoux", "aliases": ["Lea Seydoux", "Seydoux, Léa"] },
+    { "canonical": "Adèle Exarchopoulos", "aliases": ["Adele Exarchopoulos", "Exarchopoulos, Adèle"] }
+  ],
+  "works": [
+    { "canonical": "Once Upon a Time in Hollywood", "aliases": ["Once Upon a Time in... Hollywood"] },
+    { "canonical": "Se7en", "aliases": ["Seven"] },
+    { "canonical": "Léon", "aliases": ["Leon: The Professional", "The Professional"] },
+    { "canonical": "Le Fabuleux Destin d'Amélie Poulain", "aliases": ["Amélie", "Amelie"] },
+    { "canonical": "Intouchables", "aliases": ["The Intouchables", "Untouchable"] },
+    { "canonical": "La Haine", "aliases": ["Hate"] },
+    { "canonical": "Le Dîner de cons", "aliases": ["The Dinner Game"] },
+    { "canonical": "Le Loup de Wall Street", "aliases": ["The Wolf of Wall Street"] },
+    { "canonical": "Les Infiltrés", "aliases": ["The Departed"] },
+    { "canonical": "Arrête-moi si tu peux", "aliases": ["Catch Me If You Can"] },
+    { "canonical": "Il faut sauver le soldat Ryan", "aliases": ["Saving Private Ryan"] },
+    { "canonical": "Le Voyage de Chihiro", "aliases": ["Spirited Away", "Sen to Chihiro no kamikakushi"] },
+    { "canonical": "Le Château ambulant", "aliases": ["Howl's Moving Castle", "Hauru no ugoku shiro"] }
+  ]
+}

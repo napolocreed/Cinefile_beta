@@ -1,0 +1,4529 @@
+{
+  "version": 1,
+  "snapshotId": "snapshot_175f860",
+  "generatedAt": "2026-08-12T22:17:44.333Z",
+  "entries": [
+    {
+      "entity": "work",
+      "canonicalId": "work_11gnkil",
+      "kept": "11'09\"01 September 11",
+      "merged": [
+        "11'09\"01 - September 11"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_186imgx",
+      "kept": "120 battements par minute",
+      "merged": [
+        "120 Battements par minute"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_07al5ni",
+      "kept": "13 Rue Madeleine",
+      "merged": [
+        "13, rue Madeleine"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_15yngyk",
+      "kept": "16 ans ou presque",
+      "merged": [
+        "16 ans... ou presque"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ley7ua",
+      "kept": "30 Jours max",
+      "merged": [
+        "30 jours max"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0a9d7ib",
+      "kept": "588 rue paradis",
+      "merged": [
+        "588, rue Paradis"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_126rk40",
+      "kept": "9 Mois ferme",
+      "merged": [
+        "9 mois ferme"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1mptvsv",
+      "kept": "À vif!",
+      "merged": [
+        "À vif"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0d6f25r",
+      "kept": "Adieu je t'aime",
+      "merged": [
+        "Adieu, je t'aime"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1f991xv",
+      "kept": "Alexandra David-Néel: J'irai au pays des neiges",
+      "merged": [
+        "Alexandra David-Néel - J'irai au pays des neiges"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0e34cly",
+      "kept": "Alice et le Maire",
+      "merged": [
+        "Alice et le maire"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0jeahc9",
+      "kept": "Alors voilà",
+      "merged": [
+        "Alors voilà,"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_06ff8du",
+      "kept": "Anton Tchekhov 1890",
+      "merged": [
+        "Anton Tchekhov-1890"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1fbbqi4",
+      "kept": "Are You There God? It's Me, Margaret",
+      "merged": [
+        "Are You There God? It’s Me, Margaret."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0yvwrhg",
+      "kept": "Arrête-moi si tu peux",
+      "merged": [
+        "Catch Me If You Can"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0f0jsri",
+      "kept": "Arrête ton cinéma",
+      "merged": [
+        "Arrête ton cinéma !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_16x02jw",
+      "kept": "As bestas",
+      "merged": [
+        "As Bestas"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ase63k",
+      "kept": "Assassins",
+      "merged": [
+        "Assassins..."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1vpt31o",
+      "kept": "Astérix et Obélix : l'Empire du Milieu",
+      "merged": [
+        "Astérix et Obélix : L'Empire du Milieu",
+        "Astérix et Obélix L'Empire du Milieu"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ikv9ty",
+      "kept": "Astérix et Obélix : Mission Cléopâtre",
+      "merged": [
+        "Astérix et Obélix Mission Cléopâtre"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1e8k14n",
+      "kept": "Attention bandits!",
+      "merged": [
+        "Attention bandits !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_14cxfy2",
+      "kept": "Attention ! Une femme peut en cacher une autre",
+      "merged": [
+        "Attention, une femme peut en cacher une autre !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1rni3l1",
+      "kept": "Au poste!",
+      "merged": [
+        "Au poste !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0l0r2s9",
+      "kept": "Au secours, j'ai 30 ans!",
+      "merged": [
+        "Au secours, j'ai 30 ans !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0sygcm4",
+      "kept": "Au suivant!",
+      "merged": [
+        "Au suivant !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1mv86p7",
+      "kept": "Avatar: The Way of Water",
+      "merged": [
+        "Avatar The Way of Water"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1edbyk7",
+      "kept": "Avengers: Age of Ultron",
+      "merged": [
+        "Avengers Age of Ultron"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0tv8k33",
+      "kept": "Avengers: Doomsday",
+      "merged": [
+        "Avengers : Doomsday"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_190bka2",
+      "kept": "Avengers: Endgame",
+      "merged": [
+        "Avengers Endgame"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_01g2xoh",
+      "kept": "Avengers: Infinity War",
+      "merged": [
+        "Avengers Infinity War"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0hmsnbx",
+      "kept": "BAC Nord",
+      "merged": [
+        "Bac Nord"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1sb91kh",
+      "kept": "Backfire",
+      "merged": [
+        "Backfire!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1apc8tq",
+      "kept": "Bad Luck",
+      "merged": [
+        "Bad Luck!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1rif6cq",
+      "kept": "Bandolero!",
+      "merged": [
+        "Bandolero !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1wjqzpx",
+      "kept": "Banlieue 13 : Ultimatum",
+      "merged": [
+        "Banlieue 13 Ultimatum"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1xdl4zx",
+      "kept": "Barbe-bleue",
+      "merged": [
+        "Barbe bleue"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1jhzp7g",
+      "kept": "Bel-Ami",
+      "merged": [
+        "Bel Ami"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0sa98sj",
+      "kept": "Belle de Jour",
+      "merged": [
+        "Belle de jour"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0d5vi18",
+      "kept": "Bienvenue à bord",
+      "merged": [
+        "Bienvenue à bord!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_11cfpn2",
+      "kept": "Bon Voyage",
+      "merged": [
+        "Bon voyage",
+        "Bon voyage !",
+        "Bon Voyage!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_00seb9x",
+      "kept": "Boom",
+      "merged": [
+        "Boom!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0uvbvcn",
+      "kept": "Burn",
+      "merged": [
+        "Burn!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1749zm2",
+      "kept": "Bye Bye",
+      "merged": [
+        "Bye-Bye"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0vkdsuk",
+      "kept": "C'est dimanche!",
+      "merged": [
+        "C'est dimanche !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1f72g7a",
+      "kept": "C'est la vie",
+      "merged": [
+        "C'est la vie !",
+        "C'est la vie!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0te9x9h",
+      "kept": "C'est Magnifique!",
+      "merged": [
+        "C'est magnifique !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0hbj6g9",
+      "kept": "Ça se soigne?",
+      "merged": [
+        "Ça se soigne ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0nsf11f",
+      "kept": "Call Me by Your Name",
+      "merged": [
+        "Call Me By Your Name"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_18pbgnr",
+      "kept": "Camille Claudel 1915",
+      "merged": [
+        "Camille Claudel, 1915"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_08vic62",
+      "kept": "Cannonball",
+      "merged": [
+        "Cannonball!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_04kzxqv",
+      "kept": "Captain America: Civil War",
+      "merged": [
+        "Captain America : Civil War",
+        "Captain America Civil War"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_064qkpp",
+      "kept": "Captain America: The First Avenger",
+      "merged": [
+        "Captain America The First Avenger"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1uojmg0",
+      "kept": "Captain America: The Winter Soldier",
+      "merged": [
+        "Captain America The Winter Soldier"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_08d5bbn",
+      "kept": "Catch-22",
+      "merged": [
+        "Catch 22"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_172t9vi",
+      "kept": "Cause toujours!",
+      "merged": [
+        "Cause toujours !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0eqz44l",
+      "kept": "Cause toujours... tu m'intéresses!",
+      "merged": [
+        "Cause toujours... tu m'intéresses !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0nfsnfq",
+      "kept": "Ce soir je dors chez toi",
+      "merged": [
+        "Ce soir, je dors chez toi"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1yyo4yh",
+      "kept": "Charles II: The Power and the Passion",
+      "merged": [
+        "Charles II : The Power and the Passion"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1qmjlx4",
+      "kept": "Che!",
+      "merged": [
+        "Che !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1n4plbi",
+      "kept": "Chi dice donna dice donna",
+      "merged": [
+        "Chi dice donna, dice donna"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_05gsxwd",
+      "kept": "Chic!",
+      "merged": [
+        "Chic !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1etypoj",
+      "kept": "Chouans!",
+      "merged": [
+        "Chouans !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_080n1xw",
+      "kept": "Chut",
+      "merged": [
+        "Chut !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0rw2sow",
+      "kept": "Coluche, l'histoire d'un mec",
+      "merged": [
+        "Coluche : L'Histoire d'un mec",
+        "Coluche l'histoire d'un mec"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0v0g7ru",
+      "kept": "Comme la lune",
+      "merged": [
+        "… Comme la lune"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1mv6ju6",
+      "kept": "Comme t'y es belle !",
+      "merged": [
+        "Comme t'y es belle"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0bbh9x1",
+      "kept": "Coup de jeune",
+      "merged": [
+        "Coup de jeune !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ovimcv",
+      "kept": "Coup de Torchon",
+      "merged": [
+        "Coup de torchon"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_130h4ca",
+      "kept": "Cours après moi... que je t'attrape",
+      "merged": [
+        "Cours après moi que je t'attrape"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_052gien",
+      "kept": "Cousin Cousine",
+      "merged": [
+        "Cousin, Cousine"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_18r3lfu",
+      "kept": "Crazy, Stupid, Love",
+      "merged": [
+        "Crazy, Stupid, Love."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_19pajmf",
+      "kept": "Cry \"Havoc\"",
+      "merged": [
+        "Cry Havoc"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0t7bgec",
+      "kept": "D'où viens-tu Johnny?",
+      "merged": [
+        "D'où viens-tu Johnny ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_03puobb",
+      "kept": "Dans l'eau qui fait des bulles",
+      "merged": [
+        "Dans l'eau... qui fait des bulles !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_16zb45g",
+      "kept": "Delphine 1, Yvan 0",
+      "merged": [
+        "Delphine 1 Yvan 0"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0am4wjj",
+      "kept": "Deux Moi",
+      "merged": [
+        "Deux moi"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1suv8o6",
+      "kept": "Die My Love",
+      "merged": [
+        "Die, My Love"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0cxbn3x",
+      "kept": "Dieumerci!",
+      "merged": [
+        "Dieumerci !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0wk0d0n",
+      "kept": "Don King: Only in America",
+      "merged": [
+        "Don King : Only in America"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1htel0v",
+      "kept": "Dormez, je le veux",
+      "merged": [
+        "Dormez, je le veux !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_19vcd7z",
+      "kept": "Dune: Part Two",
+      "merged": [
+        "Dune Part Two"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1yzi32b",
+      "kept": "Ecco noi per esempio",
+      "merged": [
+        "Ecco noi per esempio..."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1xdc3y1",
+      "kept": "Élisabeth - Ils sont tous nos enfants",
+      "merged": [
+        "Élisabeth : Ils sont tous nos enfants"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0otvbpa",
+      "kept": "Elle boit pas, elle fume pas, elle drague pas, mais... elle cause !",
+      "merged": [
+        "Elle boit pas, elle fume pas, elle drague pas, mais… elle cause !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_095au44",
+      "kept": "Emak Bakia",
+      "merged": [
+        "Emak-Bakia"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0fvwxhq",
+      "kept": "Emma",
+      "merged": [
+        "Emma."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1xsiyv6",
+      "kept": "En avoir (ou pas)",
+      "merged": [
+        "En avoir ou pas"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_01wqo2i",
+      "kept": "En liberté !",
+      "merged": [
+        "En liberté"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1ujauhs",
+      "kept": "Ensemble, c'est tout",
+      "merged": [
+        "Ensemble c'est tout"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_08hrxa6",
+      "kept": "Est-ce bien raisonnable?",
+      "merged": [
+        "Est-ce bien raisonnable ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ns7cml",
+      "kept": "Et la tendresse ? Bordel !",
+      "merged": [
+        "Et la tendresse?... Bordel!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0pnwcf9",
+      "kept": "Et qu'ça saute",
+      "merged": [
+        "Et qu'ça saute !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0xweike",
+      "kept": "F comme Fairbanks",
+      "merged": [
+        "F… comme Fairbanks"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0jxnshm",
+      "kept": "Face/Off",
+      "merged": [
+        "Face Off"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_00k4krr",
+      "kept": "Fail Safe",
+      "merged": [
+        "Fail-Safe"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_12uu96w",
+      "kept": "Fais-moi plaisir!",
+      "merged": [
+        "Fais-moi plaisir !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0bzibtj",
+      "kept": "Fallait pas !...",
+      "merged": [
+        "Fallait pas !…"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0jhmblx",
+      "kept": "Fantastic Beasts The Crimes of Grindelwald",
+      "merged": [
+        "Fantastic Beasts: The Crimes of Grindelwald"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_041pes3",
+      "kept": "Follow Me",
+      "merged": [
+        "Follow Me!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_18iqbef",
+      "kept": "Forever Lulu",
+      "merged": [
+        "Forever, Lulu"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1l89t7r",
+      "kept": "Friends with Benefits",
+      "merged": [
+        "Friends (With Benefits)"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1xyj3lu",
+      "kept": "Girl, Interrupted",
+      "merged": [
+        "Girl Interrupted"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0qaz5a6",
+      "kept": "Good Night and Good Luck",
+      "merged": [
+        "Good Night, and Good Luck."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_13iss51",
+      "kept": "Goodbye Columbus",
+      "merged": [
+        "Goodbye, Columbus"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0vxkn63",
+      "kept": "Grabuge!",
+      "merged": [
+        "Grabuge !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_006beh8",
+      "kept": "Grosse Fatigue",
+      "merged": [
+        "Grosse fatigue"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1kp8gig",
+      "kept": "Guilty",
+      "merged": [
+        "Guilty?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_08865l6",
+      "kept": "Gun Shy",
+      "merged": [
+        "Gun-shy"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0apckq2",
+      "kept": "Gung Ho",
+      "merged": [
+        "Gung Ho!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_18x5hdg",
+      "kept": "Habemus papam",
+      "merged": [
+        "Habemus Papam"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1q5718j",
+      "kept": "Hail, Caesar!",
+      "merged": [
+        "Hail Caesar"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_14yeesn",
+      "kept": "Harry Potter and the Deathly Hallows Part 1",
+      "merged": [
+        "Harry Potter and the Deathly Hallows – Part 1"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_158e0hm",
+      "kept": "Harry Potter and the Deathly Hallows Part 2",
+      "merged": [
+        "Harry Potter and the Deathly Hallows – Part 2"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_138ide3",
+      "kept": "Hatari!",
+      "merged": [
+        "Hatari !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1y9kmgu",
+      "kept": "Haut les cœurs!",
+      "merged": [
+        "Haut les cœurs !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0xc419t",
+      "kept": "Heads or Tails",
+      "merged": [
+        "Heads or Tails?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_17dye9p",
+      "kept": "Hénaut président",
+      "merged": [
+        "Hénaut Président"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_05h2n5c",
+      "kept": "Hiroshima mon amour",
+      "merged": [
+        "Hiroshima, mon amour"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0eov8br",
+      "kept": "Ho!",
+      "merged": [
+        "Ho !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0c579fy",
+      "kept": "Hollywood, Hollywood",
+      "merged": [
+        "Hollywood Hollywood"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1c2mynl",
+      "kept": "Holy Smoke",
+      "merged": [
+        "Holy Smoke!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1bzs8gm",
+      "kept": "Home Alone 2: Lost in New York",
+      "merged": [
+        "Home Alone 2 Lost in New York"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_16sbh0g",
+      "kept": "Home Sweet Home",
+      "merged": [
+        "Home, Sweet Home"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0qpmdxn",
+      "kept": "Hors-la-loi",
+      "merged": [
+        "Hors la loi"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1syijk5",
+      "kept": "Hors saison",
+      "merged": [
+        "Hors-saison"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_19yyoe0",
+      "kept": "HS - hors service",
+      "merged": [
+        "HS Hors Service"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0zddke8",
+      "kept": "I Got the Hook Up",
+      "merged": [
+        "I Got the Hook-Up"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0co6yii",
+      "kept": "I Tonya",
+      "merged": [
+        "I, Tonya"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1wqvco3",
+      "kept": "Il est génial papy!",
+      "merged": [
+        "Il est génial papy !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0rrbnh1",
+      "kept": "Il faut sauver le soldat Ryan",
+      "merged": [
+        "Saving Private Ryan"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0qve071",
+      "kept": "Il ne faut jurer de rien !",
+      "merged": [
+        "Il ne faut jurer de rien"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_17nhgl3",
+      "kept": "Ils sont grands ces petits",
+      "merged": [
+        "Ils sont grands, ces petits"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1h1jjou",
+      "kept": "In a World…",
+      "merged": [
+        "In a World..."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1etr699",
+      "kept": "Intouchables",
+      "merged": [
+        "The Intouchables",
+        "Untouchable"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1tco8td",
+      "kept": "It's Murder!",
+      "merged": [
+        "It's Murder !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1kyoem4",
+      "kept": "Jack Mimoun et les secrets de Val Verde",
+      "merged": [
+        "Jack Mimoun et les Secrets de Val Verde"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1u8512s",
+      "kept": "Jackie Chan: My Story",
+      "merged": [
+        "Jackie Chan : My Story"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0zkaybw",
+      "kept": "Jackpot",
+      "merged": [
+        "Jackpot!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0x8qrnr",
+      "kept": "Je préfère qu'on reste amis",
+      "merged": [
+        "Je préfère qu'on reste amis..."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1nlvpeb",
+      "kept": "Je t'aime, filme-moi!",
+      "merged": [
+        "Je t'aime, filme-moi !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0r8gkgf",
+      "kept": "Je Tu Il Elle",
+      "merged": [
+        "Je, tu, il, elle"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1u1e9ue",
+      "kept": "Je vous salue, mafia!",
+      "merged": [
+        "Je vous salue mafia"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0p4fapr",
+      "kept": "Jean de La Fontaine, le défi",
+      "merged": [
+        "Jean de La Fontaine - Le défi"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0u1stal",
+      "kept": "Jeanne Dielman, 23 quai du Commerce, 1080 Bruxelles",
+      "merged": [
+        "Jeanne Dielman, 23, quai du Commerce, 1080 Bruxelles"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1jgvnvv",
+      "kept": "Joe Strummer: The Future Is Unwritten",
+      "merged": [
+        "Joe Strummer : The Future is Unwritten"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0dpfdvs",
+      "kept": "John Wick Chapter 2",
+      "merged": [
+        "John Wick: Chapter 2"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0fdd01m",
+      "kept": "John Wick: Chapter 4",
+      "merged": [
+        "John Wick Chapter 4"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0l64go6",
+      "kept": "Joyeuse Retraite 2",
+      "merged": [
+        "Joyeuse retraite! 2"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1op1y4e",
+      "kept": "Jumanji: The Next Level",
+      "merged": [
+        "Jumanji The Next Level"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0bdpvgv",
+      "kept": "Jumanji: Welcome to the Jungle",
+      "merged": [
+        "Jumanji Welcome to the Jungle"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1ocntw6",
+      "kept": "Jump",
+      "merged": [
+        "Jump!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0sm6ae4",
+      "kept": "Kingsman: The Secret Service",
+      "merged": [
+        "Kingsman The Secret Service"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0dhky0i",
+      "kept": "Kiss Kiss Bang Bang",
+      "merged": [
+        "Kiss Kiss (Bang Bang)"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1mf6eoz",
+      "kept": "Kramer vs. Kramer",
+      "merged": [
+        "Kramer vs Kramer"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0s1v37o",
+      "kept": "Kung Fu Master",
+      "merged": [
+        "Kung-fu Master"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ezo1i7",
+      "kept": "L'Abbé Pierre - Une vie de combats",
+      "merged": [
+        "L'Abbé Pierre : Une vie de combats"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1gea3xj",
+      "kept": "L'amour dure trois ans",
+      "merged": [
+        "L'Amour dure trois ans"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ux9rex",
+      "kept": "L'aventure c'est l'aventure",
+      "merged": [
+        "L'aventure, c'est l'aventure"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ep6k6v",
+      "kept": "L'école buissonnière",
+      "merged": [
+        "L'École buissonnière"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_11v9auj",
+      "kept": "L'école est finie",
+      "merged": [
+        "L'École est finie"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0gzaeve",
+      "kept": "L'homme fidèle",
+      "merged": [
+        "L'Homme fidèle"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1oc6p8s",
+      "kept": "L'Incruste, fallait pas le laisser entrer!",
+      "merged": [
+        "L'Incruste, fallait pas le laisser entrer !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ibnvp0",
+      "kept": "La Cage aux Folles",
+      "merged": [
+        "La Cage aux folles"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_06gmgzi",
+      "kept": "La Ch'tite famille",
+      "merged": [
+        "La Ch'tite Famille"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0v3zyna",
+      "kept": "La Clinique de l'amour",
+      "merged": [
+        "La clinique de l'amour!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_01ult79",
+      "kept": "La Folie des grandeurs",
+      "merged": [
+        "La Folie des Grandeurs"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1nj4m20",
+      "kept": "La folle histoire de Max et Léon",
+      "merged": [
+        "La Folle histoire de Max et Léon"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_03rsoge",
+      "kept": "La grande maffia...",
+      "merged": [
+        "La Grande Maffia"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1i3aeta",
+      "kept": "La grande vie",
+      "merged": [
+        "La Grande Vie !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1ye6esi",
+      "kept": "La Haine",
+      "merged": [
+        "Hate"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1n1ilvt",
+      "kept": "La Joconde, histoire d'une obsession",
+      "merged": [
+        "La Joconde : Histoire d'une obsession"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_13zkjga",
+      "kept": "...la main à couper",
+      "merged": [
+        "La Main à couper"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1wxilvq",
+      "kept": "La Totale!",
+      "merged": [
+        "La Totale !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0813ssg",
+      "kept": "La Tour Montparnasse infernale",
+      "merged": [
+        "La Tour Montparnasse Infernale"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1fg9p1p",
+      "kept": "La vengeance du serpent à plumes",
+      "merged": [
+        "La Vengeance du serpent à plumes"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1nmukyu",
+      "kept": "La Vérité si je mens !",
+      "merged": [
+        "La Vérité si je mens"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1kj8oxs",
+      "kept": "La Vérité si je mens ! 2",
+      "merged": [
+        "La Vérité si je mens 2"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1kt8amr",
+      "kept": "La Vérité si je mens ! 3",
+      "merged": [
+        "La Vérité si je mens 3"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0xsg0qo",
+      "kept": "La vie est à nous !",
+      "merged": [
+        "La vie est à nous"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0efhi80",
+      "kept": "La Voleuse de Saint Lubin",
+      "merged": [
+        "La Voleuse de Saint-Lubin"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1birr1e",
+      "kept": "Lady L",
+      "merged": [
+        "Lady L."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1lgtfxy",
+      "kept": "Lagourdette gentleman cambrioleur",
+      "merged": [
+        "Lagourdette, gentleman cambrioleur"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1jkvn4x",
+      "kept": "Lara Croft: Tomb Raider",
+      "merged": [
+        "Lara Croft Tomb Raider"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0k0zpsb",
+      "kept": "Le Château ambulant",
+      "merged": [
+        "Hauru no ugoku shiro",
+        "Howl's Moving Castle"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0j9rmhb",
+      "kept": "Le code a changé",
+      "merged": [
+        "Le Code a changé"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1erbgff",
+      "kept": "Le crime est notre affaire",
+      "merged": [
+        "Le Crime est notre affaire"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0766k16",
+      "kept": "Le Dîner de cons",
+      "merged": [
+        "Le Dîner de Cons",
+        "The Dinner Game"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1cp9n6m",
+      "kept": "Le Droit de tuer ?",
+      "merged": [
+        "Le Droit de tuer"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0laxnnp",
+      "kept": "Le Fabuleux Destin d'Amélie Poulain",
+      "merged": [
+        "Amelie",
+        "Amélie"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0cqb1kb",
+      "kept": "Le gendre de ma vie",
+      "merged": [
+        "Le Gendre de ma vie"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1420y5g",
+      "kept": "Le Juge et l'Assassin",
+      "merged": [
+        "Le Juge et l'assassin"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0zro2h2",
+      "kept": "Le Juge Fayard dit Le Shériff",
+      "merged": [
+        "Le Juge Fayard dit « le Shériff »"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_12pw8hp",
+      "kept": "Le Loup de Wall Street",
+      "merged": [
+        "The Wolf of Wall Street"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1q0fxns",
+      "kept": "Le monde est à toi",
+      "merged": [
+        "Le Monde est à toi"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1qhg61e",
+      "kept": "Le monde ne suffit pas",
+      "merged": [
+        "Le Monde ne suffit pas"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0cpb5rz",
+      "kept": "Le Nouveau Protocole",
+      "merged": [
+        "Le Nouveau protocole"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_181c0h7",
+      "kept": "Le Père Noël est une ordure",
+      "merged": [
+        "Le père Noël est une ordure"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0js3rly",
+      "kept": "Le prince du Pacifique",
+      "merged": [
+        "Le Prince du Pacifique"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ggtik5",
+      "kept": "Le Scaphandre et le Papillon",
+      "merged": [
+        "Le Scaphandre et le papillon"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0d15x2o",
+      "kept": "Le Secret de l'enfant fourmi",
+      "merged": [
+        "Le secret de l'enfant-fourmi"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_08yymll",
+      "kept": "Le Sens de la fête",
+      "merged": [
+        "Le sens de la fête"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1xyfznc",
+      "kept": "Le téléphone sonne toujours deux fois!!",
+      "merged": [
+        "Le téléphone sonne toujours deux fois"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1dngsl3",
+      "kept": "Le vieux fusil",
+      "merged": [
+        "Le Vieux Fusil"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_05dw1e3",
+      "kept": "Le Voyage de Chihiro",
+      "merged": [
+        "Sen to Chihiro no kamikakushi",
+        "Spirited Away"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_14z5zgo",
+      "kept": "Léon",
+      "merged": [
+        "Leon: The Professional",
+        "The Professional"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0q1c26k",
+      "kept": "Les Babas Cool",
+      "merged": [
+        "Les Babas-cool"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0wn71be",
+      "kept": "Les cinéphiles 3 - Les ruses de Frédéric",
+      "merged": [
+        "Les Cinéphiles 3 : Les Ruses de Frédéric"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_02c6ggf",
+      "kept": "Les gamins",
+      "merged": [
+        "Les Gamins"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_109lq5p",
+      "kept": "Les Garçons et Guillaume, à table !",
+      "merged": [
+        "Les Garçons et Guillaume à table !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_133c9ui",
+      "kept": "Les Infiltrés",
+      "merged": [
+        "The Departed"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0xv6j77",
+      "kept": "Les Premiers, les Derniers",
+      "merged": [
+        "Les Premiers les Derniers"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_14ef3qv",
+      "kept": "Les Saintes Nitouches",
+      "merged": [
+        "Les Saintes-Nitouches"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_10zuvsw",
+      "kept": "Les souvenirs",
+      "merged": [
+        "Les Souvenirs"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0xmeton",
+      "kept": "Les têtes de l'emploi",
+      "merged": [
+        "Les Têtes de l'emploi"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0tg831i",
+      "kept": "Les Tuche 3 Liberté égalité fraternituche",
+      "merged": [
+        "Les Tuche 3 : Liberté, Égalité, FraterniTuche"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1ionac4",
+      "kept": "Les Vacances de Mr Bean",
+      "merged": [
+        "Les Vacances de Mr. Bean"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1efupkt",
+      "kept": "Life Size",
+      "merged": [
+        "Life-Size"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_17mi2gl",
+      "kept": "Lily aime-moi",
+      "merged": [
+        "Lily, aime-moi"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_06ge1vg",
+      "kept": "Live!",
+      "merged": [
+        "Live !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_04j49ob",
+      "kept": "Louise Michel",
+      "merged": [
+        "Louise-Michel"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_14tow4g",
+      "kept": "Lumière",
+      "merged": [
+        "Lumière!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1ydrvp5",
+      "kept": "Mais qui a tué Pamela Rose?",
+      "merged": [
+        "Mais qui a tué Pamela Rose",
+        "Mais qui a tué Pamela Rose ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ovyzpn",
+      "kept": "Maleficent: Mistress of Evil",
+      "merged": [
+        "Maleficent Mistress of Evil"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_001ydx8",
+      "kept": "Maman",
+      "merged": [
+        "Maman !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0a31a9g",
+      "kept": "Mamma Mia!",
+      "merged": [
+        "Mamma Mia"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0xoaq3s",
+      "kept": "Mamma Mia! Here We Go Again",
+      "merged": [
+        "Mamma Mia Here We Go Again"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_11o7e8x",
+      "kept": "Manon des Sources",
+      "merged": [
+        "Manon des sources"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0qr7nx9",
+      "kept": "Mariages!",
+      "merged": [
+        "Mariages !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1gcwb6n",
+      "kept": "Marie Antoinette",
+      "merged": [
+        "Marie-Antoinette"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1n7n91o",
+      "kept": "Marthe Richard au service de la France",
+      "merged": [
+        "Marthe Richard, au service de la France"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_046htie",
+      "kept": "Mary, Queen of Scots",
+      "merged": [
+        "Mary Queen of Scots"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0otjj5i",
+      "kept": "Max, Mon Amour",
+      "merged": [
+        "Max mon amour"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_01dpus1",
+      "kept": "Meilleur Espoir féminin",
+      "merged": [
+        "Meilleur Espoir Féminin"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1hrwdpf",
+      "kept": "Mince alors!",
+      "merged": [
+        "Mince alors !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1touvtx",
+      "kept": "Mirage d'amour avec fanfare",
+      "merged": [
+        "Mirage d’amour avec fanfare"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0yhevog",
+      "kept": "Mirror Mirror",
+      "merged": [
+        "Mirror, Mirror"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ul5qe1",
+      "kept": "Mission: Impossible",
+      "merged": [
+        "Mission impossible",
+        "Mission Impossible"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ly86sr",
+      "kept": "Mission impossible 2",
+      "merged": [
+        "Mission: Impossible 2"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_12onwjx",
+      "kept": "Mission impossible : Protocole Fantôme",
+      "merged": [
+        "Mission Impossible Protocole Fantôme"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0z0pd57",
+      "kept": "Mommy",
+      "merged": [
+        "Mommy!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1f8p92y",
+      "kept": "Monsieur N.",
+      "merged": [
+        "Monsieur N"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_13qcg20",
+      "kept": "Monsieur Papa",
+      "merged": [
+        "Monsieur Papa..."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0251yoq",
+      "kept": "Mort, où est ta victoire?",
+      "merged": [
+        "Mort, où est ta victoire ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0a5zxs9",
+      "kept": "Mother",
+      "merged": [
+        "Mother!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1ea8tny",
+      "kept": "Moulin rouge",
+      "merged": [
+        "Moulin Rouge",
+        "Moulin Rouge!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_079twjg",
+      "kept": "Mourir? Plutôt crever!",
+      "merged": [
+        "Mourir ? Plutôt crever !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ck0ph1",
+      "kept": "Mrs. Mills",
+      "merged": [
+        "Mrs Mills"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_19w6qw9",
+      "kept": "My Sister's Keeper",
+      "merged": [
+        "My Sister’s Keeper"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0cprwxa",
+      "kept": "Napoléon II l'Aiglon",
+      "merged": [
+        "Napoléon II, l'aiglon"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ybyu38",
+      "kept": "Nathalie...",
+      "merged": [
+        "Nathalie"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1qwbhok",
+      "kept": "Ne fais pas ça",
+      "merged": [
+        "Ne fais pas ça!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0396igh",
+      "kept": "Ne quittez pas !",
+      "merged": [
+        "Ne quittez pas"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_19uwkdg",
+      "kept": "Neuilly sa mère!",
+      "merged": [
+        "Neuilly sa mère",
+        "Neuilly sa mère !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_04g82dg",
+      "kept": "Neuilly sa mère, sa mère !",
+      "merged": [
+        "Neuilly sa mère sa mère"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_08e8nbq",
+      "kept": "Ni avec toi ni sans toi",
+      "merged": [
+        "Ni avec toi, ni sans toi"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0nc2e0i",
+      "kept": "No Beast So Fierce",
+      "merged": [
+        "No Beast. So Fierce"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1it6s3w",
+      "kept": "Nom de code: DP",
+      "merged": [
+        "Nom de code : DP"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0zx76nc",
+      "kept": "Nuit noire 17 octobre 1961",
+      "merged": [
+        "Nuit noire, 17 octobre 1961"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_03gv2x5",
+      "kept": "O Brother, Where Art Thou?",
+      "merged": [
+        "O Brother Where Art Thou"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0dg93x1",
+      "kept": "Ocean's 8",
+      "merged": [
+        "Ocean’s 8"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1iezhe4",
+      "kept": "Off Season",
+      "merged": [
+        "Off-season"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_08n4mzb",
+      "kept": "Oh, God!",
+      "merged": [
+        "Oh God"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_02x73mn",
+      "kept": "Oh My God",
+      "merged": [
+        "Oh My God !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0iecgzw",
+      "kept": "Olé !",
+      "merged": [
+        "Olé"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0vqnpf4",
+      "kept": "Olly Olly Oxen Free",
+      "merged": [
+        "Olly, Olly, Oxen Free"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_05qiqpj",
+      "kept": "Once Upon a Time in Hollywood",
+      "merged": [
+        "Once Upon a Time in... Hollywood"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_19v0huw",
+      "kept": "OSS 117 Alerte rouge en Afrique noire",
+      "merged": [
+        "OSS 117 : Alerte rouge en Afrique noire"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_01re76j",
+      "kept": "OSS 117 : Le Caire, nid d'espions",
+      "merged": [
+        "OSS 117 Le Caire nid d'espions"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1wzkpff",
+      "kept": "OSS 117 Rio ne répond plus",
+      "merged": [
+        "OSS 117 : Rio ne répond plus"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1z0dggi",
+      "kept": "P.R.O.F.S",
+      "merged": [
+        "P.R.O.F.S."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0tdv4yp",
+      "kept": "Palais royal !",
+      "merged": [
+        "Palais Royal"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1d9b9z4",
+      "kept": "Papa ou Maman",
+      "merged": [
+        "Papa ou maman"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0owbxn9",
+      "kept": "Par Où T'es Rentré? On T'a Pas Vu Sortir",
+      "merged": [
+        "Par où t'es rentré ? On t'a pas vu sortir"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1ek9b11",
+      "kept": "Paris Manhattan",
+      "merged": [
+        "Paris-Manhattan"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0sgkfp3",
+      "kept": "Père fils thérapie!",
+      "merged": [
+        "Père fils thérapie !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_17bhnvy",
+      "kept": "Pétrole! Pétrole!",
+      "merged": [
+        "Pétrole ! Pétrole !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_141fkc6",
+      "kept": "Pirates of the Caribbean At World's End",
+      "merged": [
+        "Pirates of the Caribbean: At World's End"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1pqp6t1",
+      "kept": "Pirates of the Caribbean Dead Man's Chest",
+      "merged": [
+        "Pirates of the Caribbean: Dead Man's Chest"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1kr8ath",
+      "kept": "Pirates of the Caribbean: On Stranger Tides",
+      "merged": [
+        "Pirates of the Caribbean On Stranger Tides"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_14do4k1",
+      "kept": "Pirates of the Caribbean The Curse of the Black Pearl",
+      "merged": [
+        "Pirates of the Caribbean: The Curse of the Black Pearl"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1wsryv6",
+      "kept": "Plein les poches pour pas un rond",
+      "merged": [
+        "Plein les poches pour pas un rond..."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_197k95d",
+      "kept": "Pourquoi pas nous?",
+      "merged": [
+        "Pourquoi pas nous ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0g3q4zj",
+      "kept": "Première année",
+      "merged": [
+        "Première Année"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0kxl8vi",
+      "kept": "Prince and The Revolution Live",
+      "merged": [
+        "Prince and the Revolution: Live"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_102op2o",
+      "kept": "Promis…juré !",
+      "merged": [
+        "Promis... juré!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_14tz8ya",
+      "kept": "Qu'est-ce qu'on a encore fait au Bon Dieu ?",
+      "merged": [
+        "Qu'est-ce qu'on a encore fait au Bon Dieu"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_114iyay",
+      "kept": "Qu'est-ce qu'on a fait au Bon Dieu ?",
+      "merged": [
+        "Qu'est-ce qu'on a fait au Bon Dieu",
+        "Qu'est-ce qu'on a fait au Bon Dieu?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1q2o6m8",
+      "kept": "Qu'est-ce qui fait courir les crocodiles?",
+      "merged": [
+        "Qu'est-ce qui fait courir les crocodiles ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0kprq1n",
+      "kept": "Que la lumière soit",
+      "merged": [
+        "Que la lumière soit !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0njbcg7",
+      "kept": "Que les gros salaires lèvent le doigt!",
+      "merged": [
+        "Que les gros salaires lèvent le doigt !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_143lf4d",
+      "kept": "Quelle drôle de gosse!",
+      "merged": [
+        "Quelle drôle de gosse"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1njbv40",
+      "kept": "Qui a envie d'être aimé?",
+      "merged": [
+        "Qui a envie d'être aimé ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1r4gswo",
+      "kept": "Qui m'aime me suive",
+      "merged": [
+        "Qui m'aime me suive !",
+        "Qui m'aime me suive!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1cli7am",
+      "kept": "Qui trop embrasse",
+      "merged": [
+        "Qui trop embrasse..."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0d67tqr",
+      "kept": "R.P.M.",
+      "merged": [
+        "R. P. M."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1ktxe7m",
+      "kept": "Radin",
+      "merged": [
+        "Radin !",
+        "Radin!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0amlkmw",
+      "kept": "Raid dingue",
+      "merged": [
+        "Raid Dingue"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1sqqvbk",
+      "kept": "Ransom",
+      "merged": [
+        "Ransom!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0dy739k",
+      "kept": "Ready, Willing and Able",
+      "merged": [
+        "Ready, Willing, and Able"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1889ufq",
+      "kept": "Recto Verso",
+      "merged": [
+        "Recto/Verso"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0uv6ejx",
+      "kept": "Retenez Moi...Ou Je Fais Un Malheur",
+      "merged": [
+        "Retenez-moi... ou je fais un malheur !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1mnexqo",
+      "kept": "Revenge",
+      "merged": [
+        "Revenge!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_19t5ibh",
+      "kept": "Rock, Rock, Rock",
+      "merged": [
+        "Rock, Rock, Rock!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0zypkkn",
+      "kept": "Rois et Reine",
+      "merged": [
+        "Rois et reine"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_02vmluf",
+      "kept": "Roman de Gare",
+      "merged": [
+        "Roman de gare"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1dvjo4n",
+      "kept": "Romeo + Juliet",
+      "merged": [
+        "Romeo & Juliet"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_14v6kzr",
+      "kept": "Rose Marie",
+      "merged": [
+        "Rose-Marie"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1p6cars",
+      "kept": "Roubaix une lumière",
+      "merged": [
+        "Roubaix, une lumière"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0k3v5bz",
+      "kept": "Roulez jeunesse !",
+      "merged": [
+        "Roulez Jeunesse"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0vmxlw8",
+      "kept": "RRRrrrr!!!",
+      "merged": [
+        "RRRrrrr"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0nis02n",
+      "kept": "S.A.C., des hommes dans l'ombre",
+      "merged": [
+        "S.A.C.: Des hommes dans l'ombre"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0a720ju",
+      "kept": "Sabotage",
+      "merged": [
+        "Sabotage !",
+        "Sabotage!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_16uu940",
+      "kept": "Sage Femme",
+      "merged": [
+        "Sage femme",
+        "Sage-femme"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0weja6g",
+      "kept": "Sage homme",
+      "merged": [
+        "Sage-Homme"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1clh8xq",
+      "kept": "Saint-Jacques… La Mecque",
+      "merged": [
+        "Saint-Jacques... La Mecque"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0exazqc",
+      "kept": "San Antonio",
+      "merged": [
+        "San-Antonio"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_00plj7i",
+      "kept": "San Diego I Love You",
+      "merged": [
+        "San Diego, I Love You"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0vc3dv1",
+      "kept": "Sang froid",
+      "merged": [
+        "Sang-froid"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1kbbdmu",
+      "kept": "Sans arme, ni haine, ni violence",
+      "merged": [
+        "Sans arme ni haine ni violence"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1pm3zil",
+      "kept": "Sans rancune!",
+      "merged": [
+        "Sans rancune !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_08qkljl",
+      "kept": "Scotland, PA",
+      "merged": [
+        "Scotland, Pa."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1ij3h84",
+      "kept": "Se7en",
+      "merged": [
+        "Seven"
+      ],
+      "strategy": "curated-synonym",
+      "confidence": 1,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_03ugfkq",
+      "kept": "Selena Gomez: My Mind & Me",
+      "merged": [
+        "Selena Gomez : My Mind & Me"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1353no3",
+      "kept": "Shall We Dance?",
+      "merged": [
+        "Shall We Dance"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1btb5vv",
+      "kept": "Sharknado 3: Oh Hell No!",
+      "merged": [
+        "Sharknado 3 : Oh Hell No !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0rbzlc8",
+      "kept": "Sherlock Holmes: A Game of Shadows",
+      "merged": [
+        "Sherlock Holmes A Game of Shadows"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1i8x4td",
+      "kept": "Si ma gueule vous plaît...",
+      "merged": [
+        "Si ma gueule vous plaît"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0g0db5g",
+      "kept": "Simone, le voyage du siècle",
+      "merged": [
+        "Simone le voyage du siècle"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_09rrm10",
+      "kept": "Situation amoureuse c'est compliqué",
+      "merged": [
+        "Situation amoureuse : c'est compliqué"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_15rkkcr",
+      "kept": "Six-Pack",
+      "merged": [
+        "Six Pack"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0gl9els",
+      "kept": "Slapstick of Another Kind",
+      "merged": [
+        "Slapstick (Of Another Kind)"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0aouqht",
+      "kept": "Smith!",
+      "merged": [
+        "Smith !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0g6eb0p",
+      "kept": "Smoking/No Smoking",
+      "merged": [
+        "Smoking / No Smoking"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_15qcmwq",
+      "kept": "Sniper Special Ops",
+      "merged": [
+        "Sniper: Special Ops"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0b5i51y",
+      "kept": "So Big!",
+      "merged": [
+        "So Big"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_02qb1jd",
+      "kept": "So You Won't Squawk",
+      "merged": [
+        "So You Won't Squawk!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0uv0uq0",
+      "kept": "Sous Le Figuier",
+      "merged": [
+        "Sous le figuier"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1hu4n9b",
+      "kept": "Souviens-toi… l'été dernier",
+      "merged": [
+        "Souviens-toi... l'été dernier"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0xjuktp",
+      "kept": "Spider-Man: Far From Home",
+      "merged": [
+        "Spider-Man Far From Home"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1a7uold",
+      "kept": "Spider-Man: Homecoming",
+      "merged": [
+        "Spider-Man Homecoming"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0gjh2bw",
+      "kept": "Spider-Man: No Way Home",
+      "merged": [
+        "Spider-Man No Way Home"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_17nf2gq",
+      "kept": "SPL: Sha Po Lang",
+      "merged": [
+        "SPL : Sha po lang"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ujemyx",
+      "kept": "Star Trek: Insurrection",
+      "merged": [
+        "Star Trek : Insurrection"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_007y56o",
+      "kept": "Star Trek: Nemesis",
+      "merged": [
+        "Star Trek : Nemesis"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_05g91i4",
+      "kept": "Star Wars: Episode IV – A New Hope",
+      "merged": [
+        "Star Wars Episode IV A New Hope"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1levubj",
+      "kept": "Star Wars: Episode V – The Empire Strikes Back",
+      "merged": [
+        "Star Wars Episode V The Empire Strikes Back"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0o6dz45",
+      "kept": "Star Wars: Episode VI – Return of the Jedi",
+      "merged": [
+        "Star Wars Episode VI Return of the Jedi"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0mczmvt",
+      "kept": "Surrender Dorothy",
+      "merged": [
+        "Surrender, Dorothy"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0tz7cj8",
+      "kept": "T'es heureuse? Moi toujours...",
+      "merged": [
+        "T'es heureuse ? Moi, toujours..."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0sswxzb",
+      "kept": "Tableau d’honneur",
+      "merged": [
+        "Tableau d'honneur"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0l7rg2z",
+      "kept": "Tam Lin",
+      "merged": [
+        "Tam-Lin"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1a4q0ki",
+      "kept": "Taxi",
+      "merged": [
+        "Taxi!",
+        "Taxi!!!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1s59q3z",
+      "kept": "Te marre pas... c'est pour rire!",
+      "merged": [
+        "Te marre pas ... c'est pour rire !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1193z8x",
+      "kept": "Terminator 2: Judgment Day",
+      "merged": [
+        "Terminator 2 Judgment Day"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_076v2df",
+      "kept": "Terminator 3: Rise of the Machines",
+      "merged": [
+        "Terminator 3 Rise of the Machines"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_17at62t",
+      "kept": "Terminator: Dark Fate",
+      "merged": [
+        "Terminator Dark Fate"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0sbbc78",
+      "kept": "That's Life",
+      "merged": [
+        "That's Life!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0s6i3sl",
+      "kept": "The Bride",
+      "merged": [
+        "The Bride!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0vhdrjp",
+      "kept": "The Death of Superman Lives: What Happened?",
+      "merged": [
+        "The Death of \"Superman Lives\": What Happened?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1xji8k9",
+      "kept": "The Hobbit: An Unexpected Journey",
+      "merged": [
+        "The Hobbit An Unexpected Journey"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_06k8ni5",
+      "kept": "The Hobbit The Battle of the Five Armies",
+      "merged": [
+        "The Hobbit: The Battle of the Five Armies"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1iajenu",
+      "kept": "The Hobbit The Desolation of Smaug",
+      "merged": [
+        "The Hobbit: The Desolation of Smaug"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_05ha6dk",
+      "kept": "The Hunchback of Notre Dame",
+      "merged": [
+        "The Hunchback of Notre-Dame"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ea79o8",
+      "kept": "The Hunger Games: Catching Fire",
+      "merged": [
+        "The Hunger Games Catching Fire"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_10qjcn3",
+      "kept": "The Hunger Games: Mockingjay – Part 1",
+      "merged": [
+        "The Hunger Games Mockingjay Part 1"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_110iyc2",
+      "kept": "The Hunger Games: Mockingjay – Part 2",
+      "merged": [
+        "The Hunger Games Mockingjay Part 2"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1onkw6b",
+      "kept": "The Informant",
+      "merged": [
+        "The Informant!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1jz84xr",
+      "kept": "The Lord of the Rings The Fellowship of the Ring",
+      "merged": [
+        "The Lord of the Rings: The Fellowship of the Ring"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1neews5",
+      "kept": "The Lord of the Rings The Return of the King",
+      "merged": [
+        "The Lord of the Rings: The Return of the King"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1r32zy6",
+      "kept": "The Lord of the Rings The Two Towers",
+      "merged": [
+        "The Lord of the Rings: The Two Towers"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1hysmqq",
+      "kept": "The Round Up",
+      "merged": [
+        "The Round-Up"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_09f5h8e",
+      "kept": "Thor: Love and Thunder",
+      "merged": [
+        "Thor Love and Thunder"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1i2h17w",
+      "kept": "Thor: Ragnarok",
+      "merged": [
+        "Thor : Ragnarok",
+        "Thor Ragnarok"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_11ylfhw",
+      "kept": "Thor: The Dark World",
+      "merged": [
+        "Thor The Dark World"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0vpe9ny",
+      "kept": "Those Were the Days",
+      "merged": [
+        "Those Were the Days!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_08p7elb",
+      "kept": "Thunderbolt",
+      "merged": [
+        "Thunderbolt!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0hatpeo",
+      "kept": "Tire au flanc",
+      "merged": [
+        "Tire-au-flanc"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0yeihrv",
+      "kept": "Top Secret",
+      "merged": [
+        "Top Secret!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0g9di2g",
+      "kept": "Touristes? Oh yes!",
+      "merged": [
+        "Touristes ? Oh yes !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_12jbzxf",
+      "kept": "Tous vedettes!",
+      "merged": [
+        "Tous vedettes !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0327i8k",
+      "kept": "Tout ça… pour ça !",
+      "merged": [
+        "Tout ça... pour ça !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1ajvvur",
+      "kept": "Trop c'est trop",
+      "merged": [
+        "Trop, c'est trop !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0z3p0qb",
+      "kept": "Un Indien dans la ville",
+      "merged": [
+        "Un indien dans la ville"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0hrkktj",
+      "kept": "Un Mari c'est un Mari",
+      "merged": [
+        "Un mari, c'est un mari"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_06sxf5b",
+      "kept": "Un tour chez ma fille",
+      "merged": [
+        "Un Tour Chez Ma Fille..."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0kiyhvb",
+      "kept": "Underwater",
+      "merged": [
+        "Underwater!"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1gvorte",
+      "kept": "Une époque formidable…",
+      "merged": [
+        "Une époque formidable..."
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1kx5j8y",
+      "kept": "Victor Victoria",
+      "merged": [
+        "Victor/Victoria"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1cp4ooj",
+      "kept": "Vincent, François, Paul… et les autres",
+      "merged": [
+        "Vincent François Paul et les autres"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1o96jx8",
+      "kept": "Visiblement je vous aime",
+      "merged": [
+        "Visiblement, je vous aime"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0a94g18",
+      "kept": "Viva Maria!",
+      "merged": [
+        "Viva Maria !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1mi7yqj",
+      "kept": "Viva Zapata!",
+      "merged": [
+        "Viva Zapata !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1e7klar",
+      "kept": "Vive la sociale!",
+      "merged": [
+        "Vive la sociale !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_08pa0zx",
+      "kept": "Vive le Tour",
+      "merged": [
+        "Vive le Tour !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0474uwt",
+      "kept": "Vive les femmes!",
+      "merged": [
+        "Vive les femmes !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0dtyqtx",
+      "kept": "Vive nous!",
+      "merged": [
+        "Vive nous !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0m6xw9t",
+      "kept": "Voulez-vous un bébé Nobel?",
+      "merged": [
+        "Voulez-vous un bébé Nobel ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0349jxn",
+      "kept": "Vous êtes de la police?",
+      "merged": [
+        "Vous êtes de la police ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_05kd1gt",
+      "kept": "Vous habitez chez vos parents",
+      "merged": [
+        "Vous habitez chez vos parents ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0ehwf0t",
+      "kept": "Vous intéressez-vous à la chose?",
+      "merged": [
+        "Vous intéressez-vous à la chose ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_01rb5fa",
+      "kept": "Wahou!",
+      "merged": [
+        "Wahou !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_14kreqd",
+      "kept": "Waiting...",
+      "merged": [
+        "Waiting"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0kh4tzd",
+      "kept": "Whitney Houston: I Wanna Dance with Somebody",
+      "merged": [
+        "Whitney Houston : I Wanna Dance with Somebody"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0oxzkoh",
+      "kept": "X-Men: Apocalypse",
+      "merged": [
+        "X-Men Apocalypse"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0c8726f",
+      "kept": "X-Men: Days of Future Past",
+      "merged": [
+        "X-Men Days of Future Past"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_11k7x8w",
+      "kept": "X-Men: First Class",
+      "merged": [
+        "X-Men First Class"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_16bwj4n",
+      "kept": "X-Men: The Last Stand",
+      "merged": [
+        "X-Men The Last Stand"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_0tap5gu",
+      "kept": "Y a-t-il un pirate sur l'antenne?",
+      "merged": [
+        "Y a-t-il un pirate sur l'antenne ?"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "work",
+      "canonicalId": "work_1861bcd",
+      "kept": "Ya basta!",
+      "merged": [
+        "Ya basta !"
+      ],
+      "strategy": "strict-title",
+      "confidence": 0.98,
+      "reversible": true
+    }
+  ]
+}

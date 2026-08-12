@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createDatabase } from "../src/game/database.js";
-import { createGame, nextAliveIndex, proposeActor, resolvePending, timeoutPending } from "../src/game/engine.js";
+import { createGame, nextAliveIndex, proposeActor, replaceLastActor, resolvePending, timeoutPending } from "../src/game/engine.js";
 
 const data = JSON.parse(await readFile(new URL("../src/data/cinema-database.json", import.meta.url)));
 const database = createDatabase(data);
@@ -106,4 +106,24 @@ test("the game finishes as soon as one survivor remains", () => {
   game = resolvePending(result.game, result.pending, { challenged: true });
   assert.equal(game.status, "finished");
   assert.equal(game.winnerId, game.players[0].id);
+});
+
+test("the last accepted actor can be corrected before a voice challenge", () => {
+  let game = proposeActor(makeGame(), "Leonardo DiCaprio", database).game;
+  let result = proposeActor(game, "Kate Winslet", database);
+  game = resolvePending(result.game, result.pending, { challenged: false });
+  game = replaceLastActor(game, "Tom Hanks", database, { now: () => 456 });
+  assert.deepEqual(game.chain, ["Leonardo DiCaprio", "Tom Hanks"]);
+  assert.equal(game.turns.at(-1).method, "voice-correction");
+  assert.equal(game.turns.at(-1).sharedFilms.includes("Catch Me If You Can"), true);
+  assert.equal(game.turns.at(-1).correctedAt, 456);
+});
+
+test("a voice correction cannot silently break the previous known link", () => {
+  let game = proposeActor(makeGame(), "Leonardo DiCaprio", database).game;
+  const result = proposeActor(game, "Kate Winslet", database);
+  game = resolvePending(result.game, result.pending, { challenged: false });
+  const before = structuredClone(game);
+  assert.throws(() => replaceLastActor(game, "Louis de Funès", database), /casserait la liaison/);
+  assert.deepEqual(game, before);
 });

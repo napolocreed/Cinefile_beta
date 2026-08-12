@@ -23,8 +23,14 @@ test("the standalone server serves the app shell, source modules and SPA routes"
     assert.match(await response.text(), /Ciné-Fil/);
     assert.equal((await fetch(`http://127.0.0.1:${port}/setup`)).status, 200);
     assert.equal((await fetch(`http://127.0.0.1:${port}/src/main.js`)).status, 200);
+    assert.equal((await fetch(`http://127.0.0.1:${port}/manifest.webmanifest`)).status, 200);
+    assert.equal((await fetch(`http://127.0.0.1:${port}/sw.js`)).status, 200);
+    const catalogStatus = await (await fetch(`http://127.0.0.1:${port}/api/catalog/status`)).json();
+    assert.equal(catalogStatus.configured, false);
     const database = await (await fetch(`http://127.0.0.1:${port}/src/data/cinema-database.json`)).json();
     assert.equal(database.actors.length > 1000, true);
+    const snapshot = await (await fetch(`http://127.0.0.1:${port}/src/data/cinema-knowledge.json`)).json();
+    assert.equal(snapshot.people.length > 1000, true);
   } finally {
     server.kill();
   }

@@ -1,3 +1,8 @@
 node_modules/
 .DS_Store
 npm-debug.log*
+.env
+.cache/
+src/data/tmdb-overlay.local.json
+playwright-report/
+test-results/

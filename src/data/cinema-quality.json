@@ -1,0 +1,1744 @@
+{
+  "version": 1,
+  "snapshotId": "snapshot_175f860",
+  "generatedAt": "2026-08-12T22:17:44.333Z",
+  "people": 1524,
+  "works": 41914,
+  "credits": 84501,
+  "aliases": 459,
+  "automaticMerges": 396,
+  "curatedMerges": 13,
+  "reviewCandidates": 144,
+  "orphanWorks": 2,
+  "peopleWithoutCredits": 0,
+  "unresolvedTitleCandidates": [
+    [
+      {
+        "id": "work_02g72fl",
+        "title": "A demain",
+        "year": null
+      },
+      {
+        "id": "work_18mam8k",
+        "title": "À demain",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_16ueaty",
+        "title": "A mort l'arbitre",
+        "year": null
+      },
+      {
+        "id": "work_0c0qwbv",
+        "title": "À mort l'arbitre",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1kqp3k6",
+        "title": "A Mort la mort!",
+        "year": null
+      },
+      {
+        "id": "work_0gpjyx3",
+        "title": "À mort la mort !",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0hk0g6e",
+        "title": "Adios Sabata",
+        "year": null
+      },
+      {
+        "id": "work_1p5k5o2",
+        "title": "Adiós, Sabata",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_06ff8du",
+        "title": "Anton Tchekhov 1890",
+        "year": 1890
+      },
+      {
+        "id": "work_1jntlvy",
+        "title": "Anton Tchékhov 1890",
+        "year": 1890
+      }
+    ],
+    [
+      {
+        "id": "work_1olx264",
+        "title": "Apres Apres Demain",
+        "year": null
+      },
+      {
+        "id": "work_1mlv18k",
+        "title": "Après après-demain",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0wk9cgp",
+        "title": "Arsene Lupin, Detective",
+        "year": null
+      },
+      {
+        "id": "work_1t8o06e",
+        "title": "Arsène Lupin détective",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_07lyngx",
+        "title": "Atout coeur à Tokyo pour OSS 117",
+        "year": null
+      },
+      {
+        "id": "work_1ldtx6q",
+        "title": "Atout cœur à Tokyo pour OSS 117",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1c3xn8q",
+        "title": "Au-Dela de la Peur",
+        "year": null
+      },
+      {
+        "id": "work_1ur163b",
+        "title": "Au-delà de la peur",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1ho4wqg",
+        "title": "Beau temps, mais orageux, en fin de journee",
+        "year": null
+      },
+      {
+        "id": "work_1hal350",
+        "title": "Beau temps mais orageux en fin de journée",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0pypr29",
+        "title": "Bethsabee",
+        "year": null
+      },
+      {
+        "id": "work_0l63pyt",
+        "title": "Bethsabée",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1ac9sjz",
+        "title": "Blonde Venus",
+        "year": null
+      },
+      {
+        "id": "work_0b0b4wb",
+        "title": "Blonde Vénus",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_15yxdah",
+        "title": "Bolero",
+        "year": null
+      },
+      {
+        "id": "work_080bxet",
+        "title": "Boléro",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1ic38wd",
+        "title": "Braquage a l'Americaine",
+        "year": null
+      },
+      {
+        "id": "work_12t5ujs",
+        "title": "Braquage à l'américaine",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_040whgq",
+        "title": "Bruno",
+        "year": null
+      },
+      {
+        "id": "work_17aqkvd",
+        "title": "Brüno",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_196wdl0",
+        "title": "Cafe Metropole",
+        "year": null
+      },
+      {
+        "id": "work_0f08cmk",
+        "title": "Café Métropole",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0cu8h8p",
+        "title": "Cain de nulle part",
+        "year": null
+      },
+      {
+        "id": "work_0pfde93",
+        "title": "Caïn de nulle part",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1usw016",
+        "title": "Carne: l'Homme a la Camera",
+        "year": null
+      },
+      {
+        "id": "work_0c93p5d",
+        "title": "Carné, l'homme à la caméra",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1bpvh9z",
+        "title": "Caroline Cherie",
+        "year": null
+      },
+      {
+        "id": "work_1n4cuvv",
+        "title": "Caroline chérie",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1a9l63n",
+        "title": "Chloe",
+        "year": null
+      },
+      {
+        "id": "work_0e2xh8n",
+        "title": "Chloé",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1phsj7q",
+        "title": "Cocaine Cowboys",
+        "year": null
+      },
+      {
+        "id": "work_06hfdqk",
+        "title": "Cocaïne Cowboys",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_17r6q6f",
+        "title": "Coincidences",
+        "year": null
+      },
+      {
+        "id": "work_1k47va9",
+        "title": "Coïncidences",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0d5tw57",
+        "title": "Collateral",
+        "year": null
+      },
+      {
+        "id": "work_0g8sb5b",
+        "title": "Collatéral",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1f56rtr",
+        "title": "Creation",
+        "year": null
+      },
+      {
+        "id": "work_139lamr",
+        "title": "Création",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_05kcpc7",
+        "title": "Cuisine et Dependances",
+        "year": null
+      },
+      {
+        "id": "work_0lfmyl7",
+        "title": "Cuisine et Dépendances",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_13afkx0",
+        "title": "Delicieux",
+        "year": null
+      },
+      {
+        "id": "work_1utne4o",
+        "title": "Délicieux",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_02w6oly",
+        "title": "Demi soeurs",
+        "year": null
+      },
+      {
+        "id": "work_0z7qh2h",
+        "title": "Demi-sœurs",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0bxq194",
+        "title": "Desire",
+        "year": null
+      },
+      {
+        "id": "work_0pe899c",
+        "title": "Désiré",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0oje5bm",
+        "title": "Disgrace",
+        "year": null
+      },
+      {
+        "id": "work_0xks3j7",
+        "title": "Disgrâce",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0yjp122",
+        "title": "Doppelganger",
+        "year": null
+      },
+      {
+        "id": "work_1254o3d",
+        "title": "Doppelgänger",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_10x8m3b",
+        "title": "Double Zero",
+        "year": null
+      },
+      {
+        "id": "work_066ogor",
+        "title": "Double Zéro",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_100dkr2",
+        "title": "Elisa",
+        "year": null
+      },
+      {
+        "id": "work_0i6zwui",
+        "title": "Élisa",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_06opedu",
+        "title": "Enorme",
+        "year": null
+      },
+      {
+        "id": "work_0agdym6",
+        "title": "Énorme",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_19820xq",
+        "title": "Erotique",
+        "year": null
+      },
+      {
+        "id": "work_0h3q5xm",
+        "title": "Érotique",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0tq2weg",
+        "title": "Et ta soeur",
+        "year": null
+      },
+      {
+        "id": "work_0vjrxun",
+        "title": "Et ta sœur",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0vsnq1c",
+        "title": "Etoile",
+        "year": null
+      },
+      {
+        "id": "work_1vpn25o",
+        "title": "Étoile",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1wwpbnk",
+        "title": "Eve",
+        "year": null
+      },
+      {
+        "id": "work_0w52jpn",
+        "title": "Ève",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0c7wfbn",
+        "title": "Evolution",
+        "year": null
+      },
+      {
+        "id": "work_1dfvlcv",
+        "title": "Évolution",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0yprwfh",
+        "title": "Fantomas",
+        "year": null
+      },
+      {
+        "id": "work_0onck6a",
+        "title": "Fantômas",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1y4rb76",
+        "title": "Fantomas contre Scotland Yard",
+        "year": null
+      },
+      {
+        "id": "work_0w5d033",
+        "title": "Fantômas contre Scotland Yard",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0t2rhh7",
+        "title": "Fantomas se déchaîne",
+        "year": null
+      },
+      {
+        "id": "work_0l0gbik",
+        "title": "Fantômas se déchaîne",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0w4yrdv",
+        "title": "Fedora",
+        "year": null
+      },
+      {
+        "id": "work_1ycu35r",
+        "title": "Fédora",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0frkok7",
+        "title": "Frederica",
+        "year": null
+      },
+      {
+        "id": "work_0rt31yf",
+        "title": "Frédérica",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_160w8hh",
+        "title": "Freres",
+        "year": null
+      },
+      {
+        "id": "work_00iarpw",
+        "title": "Frères",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1bi6xvm",
+        "title": "Gloria",
+        "year": null
+      },
+      {
+        "id": "work_09agwa6",
+        "title": "Glória",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_009gtmu",
+        "title": "Grand Hotel",
+        "year": null
+      },
+      {
+        "id": "work_1wbp85h",
+        "title": "Grand Hôtel",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_173od3d",
+        "title": "Haifa",
+        "year": null
+      },
+      {
+        "id": "work_1d0ty3r",
+        "title": "Haïfa",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_106fgcb",
+        "title": "Helene",
+        "year": null
+      },
+      {
+        "id": "work_1k4q5n8",
+        "title": "Hélène",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0uzqyon",
+        "title": "Hotel Chevalier",
+        "year": null
+      },
+      {
+        "id": "work_1bdbo8s",
+        "title": "hôtel Chevalier",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1uyxtob",
+        "title": "Hotel Colonial",
+        "year": null
+      },
+      {
+        "id": "work_1a8p146",
+        "title": "Hôtel Colonial",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1ahu5k2",
+        "title": "Hotel Normandy",
+        "year": null
+      },
+      {
+        "id": "work_1pjfcfb",
+        "title": "Hôtel Normandy",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0fa5s7r",
+        "title": "Hotel Rwanda",
+        "year": null
+      },
+      {
+        "id": "work_1vlrdvy",
+        "title": "Hôtel Rwanda",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_071v1fw",
+        "title": "Intolerance",
+        "year": null
+      },
+      {
+        "id": "work_0f6qn60",
+        "title": "Intolérance",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_14uo8a5",
+        "title": "Irene",
+        "year": null
+      },
+      {
+        "id": "work_11lal9m",
+        "title": "Irène",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1bhw7cu",
+        "title": "Irreversible",
+        "year": null
+      },
+      {
+        "id": "work_0u0wfea",
+        "title": "Irréversible",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_01adf0y",
+        "title": "Ivanhoe",
+        "year": null
+      },
+      {
+        "id": "work_11wuqzi",
+        "title": "Ivanhoé",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0xrgssc",
+        "title": "Jerusalem",
+        "year": null
+      },
+      {
+        "id": "work_004w6tk",
+        "title": "Jérusalem",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_03p1yik",
+        "title": "Jesus",
+        "year": null
+      },
+      {
+        "id": "work_0cy98nk",
+        "title": "Jésus",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1hujded",
+        "title": "Josephine",
+        "year": null
+      },
+      {
+        "id": "work_06shg1d",
+        "title": "Joséphine",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1mo7s6h",
+        "title": "Koenigsmark",
+        "year": null
+      },
+      {
+        "id": "work_1mgmedm",
+        "title": "Kœnigsmark",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_11onbp7",
+        "title": "L' Emir prefere les blondes",
+        "year": null
+      },
+      {
+        "id": "work_1aclz04",
+        "title": "L'émir préfère les blondes",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0ro81ht",
+        "title": "L' Irresolu",
+        "year": null
+      },
+      {
+        "id": "work_0aqy27p",
+        "title": "L'Irrésolu",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1kkp9c3",
+        "title": "L'oeil du maître",
+        "year": null
+      },
+      {
+        "id": "work_0a5bkeu",
+        "title": "L'Œil du maître",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0plpzng",
+        "title": "La-bas...mon pays",
+        "year": null
+      },
+      {
+        "id": "work_1ot7az9",
+        "title": "Là-bas... mon pays",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0y51pin",
+        "title": "La Comedie du travail",
+        "year": null
+      },
+      {
+        "id": "work_1fss0qz",
+        "title": "La Comédie du travail",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1q2qu57",
+        "title": "La Maison de la Fléche",
+        "year": null
+      },
+      {
+        "id": "work_1a72jhy",
+        "title": "La Maison de la flèche",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1yv0mu8",
+        "title": "Le coeur à l'ouvrage",
+        "year": null
+      },
+      {
+        "id": "work_18yg64p",
+        "title": "Le Cœur à l'ouvrage",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1p3p7xh",
+        "title": "Le coeur sur la main",
+        "year": null
+      },
+      {
+        "id": "work_0ouztzo",
+        "title": "Le Cœur sur la main",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0gxufy6",
+        "title": "Le défroque",
+        "year": null
+      },
+      {
+        "id": "work_1fceycy",
+        "title": "Le Défroqué",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1h33cok",
+        "title": "Le Denomme",
+        "year": null
+      },
+      {
+        "id": "work_1wifs5o",
+        "title": "Le Dénommé",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1au4ads",
+        "title": "Le diable au coeur",
+        "year": null
+      },
+      {
+        "id": "work_1rdbpyf",
+        "title": "Le Diable au cœur",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0ek4lqu",
+        "title": "Le Sixieme Doigt",
+        "year": null
+      },
+      {
+        "id": "work_1b22fnt",
+        "title": "Le Sixième Doigt",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0yo4u50",
+        "title": "Legion",
+        "year": null
+      },
+      {
+        "id": "work_1upuhps",
+        "title": "Légion",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_12nlce1",
+        "title": "Les audaces de coeur",
+        "year": null
+      },
+      {
+        "id": "work_16283co",
+        "title": "Les Audaces de cœur",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0dwaw1y",
+        "title": "Les cinéphiles 2 - Eric a disparu",
+        "year": null
+      },
+      {
+        "id": "work_1ywkqui",
+        "title": "Les Cinéphiles 2 : Éric a disparu",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1ocmurv",
+        "title": "Les Collegues",
+        "year": null
+      },
+      {
+        "id": "work_1tk1ats",
+        "title": "Les Collègues",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1egiysx",
+        "title": "Les Heros Sont Fatigues",
+        "year": null
+      },
+      {
+        "id": "work_1umjrax",
+        "title": "Les héros sont fatigués",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1jcydgk",
+        "title": "Les hirondelles ne meurent pas à Jerusalem",
+        "year": null
+      },
+      {
+        "id": "work_1f3e0w0",
+        "title": "Les hirondelles ne meurent pas à Jérusalem",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0lln4xz",
+        "title": "Les Soeurs Soleil",
+        "year": null
+      },
+      {
+        "id": "work_0efjrd8",
+        "title": "Les Sœurs Soleil",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1kx5x5q",
+        "title": "Lulu",
+        "year": null
+      },
+      {
+        "id": "work_0kaol76",
+        "title": "Lulù",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0q8c9k9",
+        "title": "Madame Sans-Gene",
+        "year": null
+      },
+      {
+        "id": "work_1nvp6p4",
+        "title": "Madame Sans-Gêne",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1h3sz1o",
+        "title": "Maelstrom",
+        "year": null
+      },
+      {
+        "id": "work_1revfpl",
+        "title": "Maelström",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1wbd4cf",
+        "title": "Mais ou et donc Ornicar",
+        "year": null
+      },
+      {
+        "id": "work_1hsyxnf",
+        "title": "Mais où et donc Ornicar",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_081v1lc",
+        "title": "Marlene",
+        "year": null
+      },
+      {
+        "id": "work_0k0t7wr",
+        "title": "Marlène",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0693iic",
+        "title": "Medellin",
+        "year": null
+      },
+      {
+        "id": "work_1w1u3w8",
+        "title": "Medellín",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_06vjfb6",
+        "title": "Mission Zero",
+        "year": null
+      },
+      {
+        "id": "work_1vizgpa",
+        "title": "Mission zéro",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0qhnzk1",
+        "title": "Montreal Blues",
+        "year": null
+      },
+      {
+        "id": "work_061gv5h",
+        "title": "Montréal blues",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0cyfupu",
+        "title": "My Zoe",
+        "year": null
+      },
+      {
+        "id": "work_1dkx6oe",
+        "title": "My Zoé",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0c4f2aw",
+        "title": "Napoleon",
+        "year": null
+      },
+      {
+        "id": "work_0rnq8lg",
+        "title": "Napoléon",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0sdk19p",
+        "title": "New Delire",
+        "year": null
+      },
+      {
+        "id": "work_0y3ybcx",
+        "title": "New Délire",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0lzt4mk",
+        "title": "Noel",
+        "year": null
+      },
+      {
+        "id": "work_0mr7o0a",
+        "title": "Noël",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1fmv1fg",
+        "title": "Novocaine",
+        "year": null
+      },
+      {
+        "id": "work_17o0iva",
+        "title": "Novocaïne",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_199z8mh",
+        "title": "O Jerusalem",
+        "year": null
+      },
+      {
+        "id": "work_0nuudss",
+        "title": "Ô Jérusalem",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1fkezd9",
+        "title": "Oceans",
+        "year": null
+      },
+      {
+        "id": "work_0cdp4p5",
+        "title": "Océans",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_067zxwk",
+        "title": "Operation Casablanca",
+        "year": null
+      },
+      {
+        "id": "work_1yp1q00",
+        "title": "Opération Casablanca",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0onq1y5",
+        "title": "Operation Crossbow",
+        "year": null
+      },
+      {
+        "id": "work_10f0jlt",
+        "title": "Opération Crossbow",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1ny2jmg",
+        "title": "Ophelia",
+        "year": null
+      },
+      {
+        "id": "work_08596xw",
+        "title": "Ophélia",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0w42y6o",
+        "title": "Ou que tu sois",
+        "year": null
+      },
+      {
+        "id": "work_1uvvbno",
+        "title": "Où que tu sois",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0f09rwk",
+        "title": "Pamela",
+        "year": null
+      },
+      {
+        "id": "work_1iyowqo",
+        "title": "Paméla",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_03ke7g4",
+        "title": "Papicha",
+        "year": null
+      },
+      {
+        "id": "work_03zdf8k",
+        "title": "Papichaلللللاات",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0u6s6yp",
+        "title": "Paranoia",
+        "year": null
+      },
+      {
+        "id": "work_0kiyxsb",
+        "title": "Paranoïa",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0jknrf3",
+        "title": "Persecution",
+        "year": null
+      },
+      {
+        "id": "work_11jp2u3",
+        "title": "Persécution",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0a66jav",
+        "title": "Petite soeur",
+        "year": null
+      },
+      {
+        "id": "work_17vasca",
+        "title": "Petite Sœur",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0lk8bhq",
+        "title": "Phedre",
+        "year": null
+      },
+      {
+        "id": "work_1mkfzmv",
+        "title": "Phèdre",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1b6t44k",
+        "title": "Piégé",
+        "year": null
+      },
+      {
+        "id": "work_1fv15dn",
+        "title": "Piège",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_052rlrp",
+        "title": "Piégés",
+        "year": null
+      },
+      {
+        "id": "work_0jimu8o",
+        "title": "Pièges",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_01pulnr",
+        "title": "Poseidon",
+        "year": null
+      },
+      {
+        "id": "work_0l0myub",
+        "title": "Poséidon",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_13gjuvh",
+        "title": "Prejudice",
+        "year": null
+      },
+      {
+        "id": "work_0e2b4sh",
+        "title": "Préjudice",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0ev8uoj",
+        "title": "Premeditation",
+        "year": null
+      },
+      {
+        "id": "work_1qg8rzf",
+        "title": "Préméditation",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0yky0km",
+        "title": "President",
+        "year": null
+      },
+      {
+        "id": "work_1saq4g2",
+        "title": "Président",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0k8gff3",
+        "title": "Presidents",
+        "year": null
+      },
+      {
+        "id": "work_0h52tib",
+        "title": "Présidents",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1w62qna",
+        "title": "Promenades d'Ete",
+        "year": null
+      },
+      {
+        "id": "work_0i871xy",
+        "title": "Promenades d'été",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1yx4k55",
+        "title": "Protea",
+        "year": null
+      },
+      {
+        "id": "work_06wh57h",
+        "title": "Protéa",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1tb2dg7",
+        "title": "Redemption",
+        "year": null
+      },
+      {
+        "id": "work_0ck5nsr",
+        "title": "Rédemption",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_01qr5w9",
+        "title": "Remi",
+        "year": null
+      },
+      {
+        "id": "work_1gfr9n9",
+        "title": "Rémi",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0vzs62p",
+        "title": "Repulsion",
+        "year": null
+      },
+      {
+        "id": "work_0z4umcd",
+        "title": "Répulsion",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_15eq20v",
+        "title": "Resistance",
+        "year": null
+      },
+      {
+        "id": "work_0i3r4kr",
+        "title": "Résistance",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1ub5afm",
+        "title": "Resolution 819",
+        "year": null
+      },
+      {
+        "id": "work_1tw4uhy",
+        "title": "Résolution 819",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_08lbe55",
+        "title": "Resurrection",
+        "year": null
+      },
+      {
+        "id": "work_1qba6fp",
+        "title": "Résurrection",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1kt6agw",
+        "title": "Rhinoceros",
+        "year": null
+      },
+      {
+        "id": "work_04n6stg",
+        "title": "Rhinocéros",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0w9aevn",
+        "title": "Robinson Crusoe",
+        "year": null
+      },
+      {
+        "id": "work_002kiev",
+        "title": "Robinson Crusoé",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1vz89q2",
+        "title": "Sac de noeuds",
+        "year": null
+      },
+      {
+        "id": "work_1puzokd",
+        "title": "Sac de nœuds",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0tpqjbt",
+        "title": "Salome",
+        "year": null
+      },
+      {
+        "id": "work_1wk4ou5",
+        "title": "Salomé",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_06ra1go",
+        "title": "Samourais",
+        "year": null
+      },
+      {
+        "id": "work_08nc7m2",
+        "title": "Samouraïs",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0vz97ci",
+        "title": "Saraka Bo",
+        "year": null
+      },
+      {
+        "id": "work_02uh547",
+        "title": "Saraka bô",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0nll73a",
+        "title": "Secret Defense",
+        "year": null
+      },
+      {
+        "id": "work_16xaoiy",
+        "title": "Secret défense",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0wg71ct",
+        "title": "Serenade",
+        "year": null
+      },
+      {
+        "id": "work_07hc6n9",
+        "title": "Sérénade",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_05yxea3",
+        "title": "Shanghai Express",
+        "year": null
+      },
+      {
+        "id": "work_0ukb7up",
+        "title": "Shanghaï Express",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1o08m5b",
+        "title": "Shimkent Hotel",
+        "year": null
+      },
+      {
+        "id": "work_0360bws",
+        "title": "Shimkent hôtel",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0omtg3h",
+        "title": "Special Police",
+        "year": null
+      },
+      {
+        "id": "work_1qukbih",
+        "title": "Spécial Police",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1hlglnf",
+        "title": "Sphere",
+        "year": null
+      },
+      {
+        "id": "work_1ncd214",
+        "title": "Sphère",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0sloswb",
+        "title": "Star Trek Generations",
+        "year": null
+      },
+      {
+        "id": "work_19a92rn",
+        "title": "Star Trek : Générations",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1a5gqvk",
+        "title": "Supreme Confession",
+        "year": null
+      },
+      {
+        "id": "work_1rrgyj3",
+        "title": "Suprême Confession",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0zm31tp",
+        "title": "Tar",
+        "year": null
+      },
+      {
+        "id": "work_0zygm7x",
+        "title": "Tár",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1rd5g7c",
+        "title": "Teheran 43",
+        "year": null
+      },
+      {
+        "id": "work_1q7va5k",
+        "title": "Téhéran 43",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_119vwe4",
+        "title": "Tenor",
+        "year": null
+      },
+      {
+        "id": "work_1qw8qs8",
+        "title": "Ténor",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0dnz1wd",
+        "title": "Tout depend des filles",
+        "year": null
+      },
+      {
+        "id": "work_1joepdt",
+        "title": "Tout dépend des filles",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_1u9zg6l",
+        "title": "Tresor",
+        "year": null
+      },
+      {
+        "id": "work_1iyzwv5",
+        "title": "Trésor",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0d6edvj",
+        "title": "Un Balcon en foret",
+        "year": null
+      },
+      {
+        "id": "work_0gp6z3c",
+        "title": "Un balcon en forêt",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_14tinp7",
+        "title": "Un cœur a prendre",
+        "year": null
+      },
+      {
+        "id": "work_07g3vks",
+        "title": "Un cœur à prendre",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0gjx9do",
+        "title": "Universal Soldier: Regeneration",
+        "year": null
+      },
+      {
+        "id": "work_1l8hvzs",
+        "title": "Universal Soldier : Régénération",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0pk246m",
+        "title": "Utopia",
+        "year": null
+      },
+      {
+        "id": "work_0e4j9n6",
+        "title": "Utopía",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_025loek",
+        "title": "Vánocní príbeh",
+        "year": null
+      },
+      {
+        "id": "work_1m6t4zt",
+        "title": "Vánoční příběh",
+        "year": null
+      }
+    ],
+    [
+      {
+        "id": "work_0lca7vx",
+        "title": "Ville etrangere",
+        "year": null
+      },
+      {
+        "id": "work_1am3kjy",
+        "title": "Ville étrangère",
+        "year": null
+      }
+    ]
+  ]
+}

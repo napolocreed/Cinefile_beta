@@ -1,12 +1,13 @@
 import { normalizeText } from "./database.js";
 
-export const GAME_VERSION = 2;
+export const GAME_VERSION = 3;
 export const MAX_PLAYERS = 10;
 export const DEFAULT_CONFIG = Object.freeze({
   themeId: "classic",
   livesPerPlayer: 3,
   turnSeconds: 30,
   allowBluffChallenge: true,
+  mode: "classic",
 });
 
 const clone = (value) => structuredClone(value);
@@ -182,6 +183,39 @@ export function timeoutPending(game) {
     method: "timeout",
     forceInvalid: true,
   };
+}
+
+export function replaceLastActor(game, actorName, database, { now = Date.now } = {}) {
+  if (!game?.chain?.length) throw new Error("La chaîne est encore vide.");
+  if (game.status !== "in-progress") throw new Error("La partie est terminée.");
+  const actor = database?.findActor(actorName, game.config.themeId);
+  const replacement = actor?.name ?? String(actorName ?? "").trim();
+  if (!replacement) throw new Error("Choisis une identité pour la correction.");
+  const usedBeforeLast = new Set(game.chain.slice(0, -1).map(normalizeText));
+  if (usedBeforeLast.has(normalizeText(replacement))) throw new Error("Cet acteur a déjà été utilisé dans la chaîne.");
+  const next = clone(game);
+  const previousActor = next.chain.at(-2) ?? null;
+  for (let index = next.turns.length - 1; index >= 0; index -= 1) {
+    const turn = next.turns[index];
+    if (!turn.accepted) continue;
+    const sharedFilms = previousActor ? database?.sharedFilms(previousActor, replacement, next.config.themeId) ?? [] : [];
+    const knownPair = previousActor && database?.hasActor(previousActor, next.config.themeId) && database?.hasActor(replacement, next.config.themeId);
+    if (knownPair && !sharedFilms.length) throw new Error("Cette correction casserait la liaison précédente.");
+    const proposer = next.players.find((player) => player.id === turn.playerId);
+    if (previousActor && proposer) {
+      const previousCredit = turn.sharedFilms?.length || 1;
+      const correctedCredit = sharedFilms.length || 1;
+      proposer.filmsFound = Math.max(0, proposer.filmsFound - previousCredit + correctedCredit);
+    }
+    turn.proposedActor = replacement;
+    turn.sharedFilms = sharedFilms;
+    turn.wasValid = previousActor ? sharedFilms.length > 0 : true;
+    turn.method = "voice-correction";
+    turn.correctedAt = now();
+    break;
+  }
+  next.chain[next.chain.length - 1] = replacement;
+  return next;
 }
 
 export function serializeGame(game) {

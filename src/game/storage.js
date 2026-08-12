@@ -6,6 +6,7 @@ export const STORAGE_KEYS = Object.freeze({
   history: "cinelink.history.v1",
   profiles: "cinelink.profiles.v1",
   applied: "cinelink.applied.v1",
+  settings: "cinefil.settings.v1",
 });
 
 function safeRead(storage, key, fallback) {
@@ -31,11 +32,15 @@ export function createStorage(storage = globalThis.localStorage) {
     saveCurrent: (game) => safeWrite(storage, STORAGE_KEYS.current, game),
     clearCurrent: () => storage?.removeItem(STORAGE_KEYS.current),
     loadHistory: () => safeRead(storage, STORAGE_KEYS.history, []),
+    replaceHistory: (games) => safeWrite(storage, STORAGE_KEYS.history, Array.isArray(games) ? games.slice(0, 50) : []),
     appendHistory: (game) => safeWrite(storage, STORAGE_KEYS.history, [game, ...safeRead(storage, STORAGE_KEYS.history, [])].slice(0, 50)),
     loadProfiles: () => safeRead(storage, STORAGE_KEYS.profiles, {}),
     saveProfiles: (profiles) => safeWrite(storage, STORAGE_KEYS.profiles, profiles),
     loadApplied: () => safeRead(storage, STORAGE_KEYS.applied, []),
     markApplied: (gameId) => safeWrite(storage, STORAGE_KEYS.applied, [...new Set([gameId, ...safeRead(storage, STORAGE_KEYS.applied, [])])].slice(0, 100)),
+    replaceApplied: (gameIds) => safeWrite(storage, STORAGE_KEYS.applied, [...new Set(Array.isArray(gameIds) ? gameIds : [])].slice(0, 100)),
+    loadSettings: () => safeRead(storage, STORAGE_KEYS.settings, {}),
+    saveSettings: (settings) => safeWrite(storage, STORAGE_KEYS.settings, settings && typeof settings === "object" ? settings : {}),
   };
 }
 

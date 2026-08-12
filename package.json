@@ -5,9 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "node server.mjs",
+    "dev:env": "node --env-file=.env server.mjs",
     "start": "node server.mjs",
-    "test": "node --test test/*.test.mjs",
-    "extract:data": "node scripts/extract-cinema-data.mjs"
+    "test": "npm run test:unit",
+    "test:unit": "node --test test/*.test.mjs",
+    "test:e2e": "playwright test",
+    "test:all": "npm run test:unit && npm run test:e2e",
+    "extract:data": "node scripts/extract-cinema-data.mjs",
+    "build:data": "node scripts/build-knowledge-snapshot.mjs",
+    "sync:tmdb": "node scripts/sync-tmdb.mjs",
+    "sync:tmdb:env": "node --env-file=.env scripts/sync-tmdb.mjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@sparticuz/chromium": "149.0.0",
+    "tar-fs": "3.1.3"
+  }
 }
