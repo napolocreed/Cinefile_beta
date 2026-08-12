@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v3-snapshot-175f860";
+const CACHE_NAME = "cinefil-v4-snapshot-175f860";
 const CORE = [
   "/",
   "/index.html",
