@@ -1,0 +1,98 @@
+[
+  {
+    "url": "https://actor-chain-reaction.lovable.app/favicon.svg",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/robots.txt",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/manifest.json",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/site.webmanifest",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/manifest.webmanifest",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/apple-touch-icon.png",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/service-worker.js",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/sw.js",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/assets/play-CyN2Gsmd.js",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/index-BdTIKv4k.js.map",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/assets/results-CzeThPPP.js",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/assets/setup-C5hechbt.js",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/assets/routes-CDsWgTc1.js",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/assets/achievements-D-o0xuC7.js",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/assets/cinefil-logo.png.asset-CtoaSg73.js",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/assets/profiles-B4Cwg35M.js",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/assets/brand-mark-C5KtiH_W.js",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/cinefil-logo.png.asset-CtoaSg73.js.map",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/~flock.js.map",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/routes-CDsWgTc1.js.map",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/profiles-B4Cwg35M.js.map",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/brand-mark-C5KtiH_W.js.map",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/achievements-D-o0xuC7.js.map",
+    "error": "HTTP 404"
+  },
+  {
+    "url": "https://actor-chain-reaction.lovable.app/assets/setup-C5hechbt.js.map",
+    "error": "HTTP 404"
+  }
+]

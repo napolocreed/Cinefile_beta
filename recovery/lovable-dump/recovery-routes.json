@@ -1,0 +1,23 @@
+[
+  {
+    "route": "/",
+    "url": "https://actor-chain-reaction.lovable.app/",
+    "status": 200,
+    "bytes": 15272,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "route": "/profiles",
+    "url": "https://actor-chain-reaction.lovable.app/profiles",
+    "status": 200,
+    "bytes": 15738,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "route": "/setup",
+    "url": "https://actor-chain-reaction.lovable.app/setup",
+    "status": 200,
+    "bytes": 16791,
+    "content_type": "text/html; charset=utf-8"
+  }
+]
