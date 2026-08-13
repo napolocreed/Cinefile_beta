@@ -166,6 +166,34 @@ export function resolvePending(game, pending, { challenged = false } = {}) {
   return applyResolution(game, pending, { challenged });
 }
 
+export function applyLinkVerification(pending, verification) {
+  if (!pending) throw new Error("Aucun coup en attente.");
+  const next = clone(pending);
+  next.verification = clone(verification ?? { verdict: "UNKNOWN", source: "none", films: [], evidence: [] });
+  if (verification?.verdict === "CONFIRMED") {
+    next.wasValid = true;
+    next.forceInvalid = false;
+    next.sharedFilms = [...new Set((verification.films ?? []).map((film) => typeof film === "string" ? film : film?.title).filter(Boolean))];
+    next.method = verification.source ?? "external-verification";
+  }
+  return next;
+}
+
+export function adjudicatePending(pending, { valid, source = "var-human", films = null } = {}) {
+  if (!pending) throw new Error("Aucun coup en attente.");
+  if (typeof valid !== "boolean") throw new Error("La décision VAR doit être explicite.");
+  const next = clone(pending);
+  next.wasValid = valid;
+  next.forceInvalid = false;
+  next.method = source;
+  next.manualDecision = true;
+  const evidenceFilms = films ?? next.verification?.films ?? [];
+  next.sharedFilms = valid
+    ? [...new Set(evidenceFilms.map((film) => typeof film === "string" ? film : film?.title).filter(Boolean))]
+    : [];
+  return next;
+}
+
 export function timeoutTurn(game) {
   return applyResolution(game, timeoutPending(game), { challenged: false });
 }

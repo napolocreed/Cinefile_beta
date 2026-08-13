@@ -3,6 +3,16 @@ import { normalizeText } from "./identity.js";
 export const CATALOG_CACHE_KEY = "cinefil.catalog-cache.v1";
 const MAX_CACHED_PEOPLE = 80;
 
+export function createVerificationSearchLinks(left, right) {
+  const query = encodeURIComponent(`"${left}" "${right}" film`);
+  return {
+    google: `https://www.google.com/search?q=${query}`,
+    duckduckgo: `https://duckduckgo.com/?q=${query}`,
+    qwant: `https://www.qwant.com/?q=${query}`,
+    wikipedia: `https://fr.wikipedia.org/w/index.php?search=${query}`,
+  };
+}
+
 function readJson(storage, key, fallback) {
   try {
     return JSON.parse(storage?.getItem(key) ?? "null") ?? fallback;
@@ -144,9 +154,40 @@ export function createHybridCatalog({
     return person;
   }
 
+  async function verifyLink(left, right, { locale = "fr-FR", signal } = {}) {
+    const leftPerson = typeof left === "object" ? left : database.findActor(left);
+    const rightPerson = typeof right === "object" ? right : database.findActor(right);
+    const leftName = String(leftPerson?.name ?? left ?? "").trim();
+    const rightName = String(rightPerson?.name ?? right ?? "").trim();
+    const searchLinks = createVerificationSearchLinks(leftName, rightName);
+    const localFilms = database.sharedWorks(leftPerson ?? leftName, rightPerson ?? rightName).map((work) => ({
+      title: work.title,
+      year: work.year ?? null,
+      url: work.externalIds?.tmdbMovie ? `https://www.themoviedb.org/movie/${work.externalIds.tmdbMovie}` : null,
+      source: "local",
+    }));
+    if (localFilms.length) {
+      return { verdict: "CONFIRMED", source: "local", films: localFilms, evidence: localFilms, searchLinks, cached: true, durationMs: 0 };
+    }
+    if (!remoteEnabled || globalThis.navigator?.onLine === false) {
+      return { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks, offline: true };
+    }
+    try {
+      const parameters = new URLSearchParams({ left: leftName, right: rightName, locale });
+      if (leftPerson?.externalIds?.tmdb) parameters.set("leftTmdbId", leftPerson.externalIds.tmdb);
+      if (rightPerson?.externalIds?.tmdb) parameters.set("rightTmdbId", rightPerson.externalIds.tmdb);
+      const payload = await fetchJson(`/api/verify-link?${parameters}`, { signal });
+      return { ...payload, searchLinks: payload.searchLinks ?? searchLinks };
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      return { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks, error: "unavailable" };
+    }
+  }
+
   return {
     search,
     hydrate,
+    verifyLink,
     status,
     getState: () => ({ ...remoteState }),
     clearCache: cache.clear,

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createDatabase } from "../src/game/database.js";
-import { createGame, nextAliveIndex, proposeActor, replaceLastActor, resolvePending, timeoutPending } from "../src/game/engine.js";
+import { adjudicatePending, applyLinkVerification, createGame, nextAliveIndex, proposeActor, replaceLastActor, resolvePending, timeoutPending } from "../src/game/engine.js";
 
 const data = JSON.parse(await readFile(new URL("../src/data/cinema-database.json", import.meta.url)));
 const database = createDatabase(data);
@@ -126,4 +126,33 @@ test("a voice correction cannot silently break the previous known link", () => {
   const before = structuredClone(game);
   assert.throws(() => replaceLastActor(game, "Louis de Funès", database), /casserait la liaison/);
   assert.deepEqual(game, before);
+});
+
+test("a structured fallback confirmation upgrades a pending bluff with evidence", () => {
+  let game = proposeActor(makeGame(), "Leonardo DiCaprio", database).game;
+  const { pending } = proposeActor(game, "An Acteur Inventé", database);
+  const verified = applyLinkVerification(pending, {
+    verdict: "CONFIRMED",
+    source: "wikidata",
+    films: [{ title: "Recovered Film", year: 1999 }],
+    evidence: [],
+  });
+  assert.equal(verified.wasValid, true);
+  assert.equal(verified.method, "wikidata");
+  assert.deepEqual(verified.sharedFilms, ["Recovered Film"]);
+  assert.equal(pending.wasValid, false);
+});
+
+test("a probable result requires an explicit human VAR decision", () => {
+  let game = proposeActor(makeGame(), "Leonardo DiCaprio", database).game;
+  const { pending } = proposeActor(game, "An Acteur Inventé", database);
+  const probable = applyLinkVerification(pending, { verdict: "PROBABLE", source: "wikipedia", films: [{ title: "Possible Film" }] });
+  assert.equal(probable.wasValid, false);
+  assert.throws(() => adjudicatePending(probable, {}), /explicite/);
+  const accepted = adjudicatePending(probable, { valid: true });
+  const rejected = adjudicatePending(probable, { valid: false });
+  assert.equal(accepted.wasValid, true);
+  assert.deepEqual(accepted.sharedFilms, ["Possible Film"]);
+  assert.equal(rejected.wasValid, false);
+  assert.deepEqual(rejected.sharedFilms, []);
 });

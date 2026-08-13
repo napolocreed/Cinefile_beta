@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v6-lazy-shards";
+const CACHE_NAME = "cinefil-v7-universal-var";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [

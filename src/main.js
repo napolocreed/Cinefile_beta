@@ -2,7 +2,9 @@ import { createDatabase, normalizeText } from "./game/database.js";
 import { CATALOG_CACHE_KEY, createHybridCatalog } from "./game/catalog.js";
 import { createStaticOverlay } from "./game/static-overlay.js";
 import {
+  adjudicatePending,
   alivePlayers,
+  applyLinkVerification,
   createGame,
   currentPlayer,
   proposeActor,
@@ -77,6 +79,7 @@ const state = {
   searchTimer: null,
   searchAbort: null,
   catalogStatus: catalog.getState(),
+  verificationStatus: "idle",
   voice: createVoiceState(),
   transferNotice: null,
 };
@@ -84,6 +87,42 @@ const state = {
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character]);
 const html = (strings, ...values) => strings.reduce((result, string, index) => `${result}${string}${values[index] ?? ""}`, "");
 const path = () => logicalPath();
+
+const trustedExternalHosts = ["google.com", "www.google.com", "duckduckgo.com", "www.qwant.com", "fr.wikipedia.org", "en.wikipedia.org", "www.wikidata.org", "www.themoviedb.org"];
+function safeExternalHref(value) {
+  try {
+    const url = new URL(value);
+    const trusted = trustedExternalHosts.includes(url.hostname) || url.hostname.endsWith(".wikipedia.org");
+    return url.protocol === "https:" && trusted ? escapeHtml(url.href) : null;
+  } catch {
+    return null;
+  }
+}
+
+function verificationSourceLabel(source) {
+  return ({ local: "base Ciné-Fil", tmdb: "TMDb", wikidata: "Wikidata", wikipedia: "Wikipédia", none: "sources externes" })[source] ?? source ?? "sources externes";
+}
+
+function verificationPanelMarkup(verification) {
+  const candidateVerdict = verification?.verdict ?? "UNKNOWN";
+  const verdict = ["CONFIRMED", "PROBABLE", "NOT_FOUND", "UNKNOWN"].includes(candidateVerdict) ? candidateVerdict : "UNKNOWN";
+  const copy = {
+    PROBABLE: ["Indice trouvé", "Une page de film mentionne les deux artistes, mais la distribution structurée ne suffit pas à confirmer le lien. Vérifiez la preuve avant de trancher."],
+    NOT_FOUND: ["Aucun lien retrouvé", "La cascade a cherché sans résultat. Cela renforce le soupçon de bluff, mais une absence de résultat ne prouve jamais qu’un film n’existe pas."],
+    UNKNOWN: ["Vérification indisponible", "Le réseau ou une source externe n’a pas répondu. Le jugement humain reste prioritaire."],
+  }[verdict] ?? ["Lien confirmé", `Une œuvre commune a été retrouvée via ${verificationSourceLabel(verification?.source)}.`];
+  const evidence = (verification?.evidence ?? []).slice(0, 6).map((entry) => {
+    const href = safeExternalHref(entry.url);
+    const title = `${escapeHtml(entry.title ?? "Preuve")}${entry.year ? ` <small>(${escapeHtml(entry.year)})</small>` : ""}`;
+    return `<li>${href ? `<a href="${href}" target="_blank" rel="noopener noreferrer">${title}</a>` : `<span>${title}</span>`}${entry.snippet ? `<p>${escapeHtml(entry.snippet)}</p>` : ""}</li>`;
+  }).join("");
+  const labels = { google: "Google", duckduckgo: "DuckDuckGo", qwant: "Qwant", wikipedia: "Wikipédia" };
+  const links = Object.entries(verification?.searchLinks ?? {}).map(([key, value]) => {
+    const href = safeExternalHref(value);
+    return href ? `<a class="var-link" href="${href}" target="_blank" rel="noopener noreferrer">${labels[key] ?? escapeHtml(key)}</a>` : "";
+  }).join("");
+  return `<section class="var-panel var-panel--${verdict.toLowerCase()}"><span class="var-panel__status">${escapeHtml(copy[0])}</span><p>${escapeHtml(copy[1])}</p>${evidence ? `<div class="var-evidence"><small>Indices récoltés</small><ul>${evidence}</ul></div>` : ""}<div class="var-links" aria-label="Recherches manuelles">${links}</div></section>`;
+}
 
 function createVoiceState() {
   return {
@@ -106,13 +145,13 @@ function livesMarkup(lives, large = false) {
 }
 
 function brandMarkup(compact = false) {
-  return `<a class="brand ${compact ? "brand--compact" : ""}" href="${routeUrl("/")}" data-nav><span class="brand__seal">✦</span><span class="brand__words"><b>CINÉ</b><em>FIL</em></span></a>`;
+  return `<a class="brand ${compact ? "brand--compact" : ""}" href="${routeUrl("/")}" data-nav><span class="brand__seal">CF</span><span class="brand__words"><b>CINÉ</b><em>FIL</em></span></a>`;
 }
 
 function shell(content, { back = null, eyebrow = "Ciné-Fil Pictures" } = {}) {
   const wide = String(content).includes("voice-page") || String(content).includes("voice-review");
   const routedContent = String(content).replace(/href="(\/[^"#?]*)"/g, (_, route) => `href="${APP_BASE !== "/" && route.startsWith(APP_BASE) ? route : routeUrl(route)}"`);
-  return `<main class="page"><div class="film-grain" aria-hidden="true"></div><header class="topbar">${back ? `<a class="back-link" href="${routeUrl(back)}" data-nav>← ${back === "/" ? "Accueil" : "Retour"}</a>` : "<span></span>"}${brandMarkup(true)}<span class="topbar__eyebrow">${eyebrow}</span></header><div class="page__body ${wide ? "page__body--wide" : ""}">${routedContent}</div></main>`;
+  return `<main class="page"><div class="film-grain" aria-hidden="true"></div><header class="topbar">${back ? `<a class="back-link" href="${routeUrl(back)}" data-nav>Retour · ${back === "/" ? "Accueil" : "Jeu"}</a>` : "<span></span>"}${brandMarkup(true)}<span class="topbar__eyebrow">${eyebrow}</span></header><div class="page__body ${wide ? "page__body--wide" : ""}">${routedContent}</div></main>`;
 }
 
 function navigate(target) {
@@ -314,7 +353,9 @@ function compactVoiceCandidate(person, confidence = person.confidence ?? person.
 function voiceCandidateList(entry, { review = false, side = "" } = {}) {
   if (!entry?.candidates?.length) return `<p class="voice-empty">Aucune proposition</p>`;
   const selected = review ? state.voice.review?.selected?.[side] : entry.selected;
-  const editable = review || (entry === state.voice.entries.at(-1) && Boolean(state.pending));
+  const editable = review
+    ? !state.voice.review?.checking && !state.voice.review?.verification
+    : entry === state.voice.entries.at(-1) && Boolean(state.pending);
   return `<div class="voice-candidates">${entry.candidates.map((candidate, index) => `<button type="button" class="voice-candidate ${selected === index ? "voice-candidate--selected" : ""}" ${review ? `data-review-candidate="${index}" data-review-side="${side}"` : `data-voice-candidate="${index}" data-voice-entry="${entry.id}"`} ${editable ? "" : "disabled"}><span>${escapeHtml(candidate.name)}</span><small>${candidateConfidenceLabel(candidate.confidence)}</small></button>`).join("")}</div>`;
 }
 
@@ -326,7 +367,10 @@ function voiceReviewMarkup() {
   const review = state.voice.review;
   const left = review?.left;
   const right = review?.right;
-  return shell(`<section class="voice-review"><p class="kicker">Buzzer bluff</p><h1>Qu’avez-vous vraiment dit&nbsp;?</h1><p class="voice-review__intro">Sélectionnez les deux dernières identités, puis laissez le moteur vérifier la liaison.</p><div class="voice-review__grid"><article><small>Nom précédent · ${escapeHtml(left?.playerName ?? "Joueur")}</small><strong>${escapeHtml(left?.transcript ?? "")}</strong>${voiceCandidateList(left, { review: true, side: "left" })}</article><span class="voice-review__link">↔</span><article><small>Nom proposé · ${escapeHtml(right?.playerName ?? "Joueur")}</small><strong>${escapeHtml(right?.transcript ?? "")}</strong>${voiceCandidateList(right, { review: true, side: "right" })}</article></div>${state.voice.error ? `<p class="voice-error" role="alert">${escapeHtml(state.voice.error)}</p>` : ""}<div class="decision-grid"><button class="button button--ghost" data-cancel-voice-review>Reprendre l’écoute</button><button class="button button--red" data-resolve-voice-review>Vérifier le bluff</button></div></section>`, { back: "/", eyebrow: "Voice review" });
+  const decision = review?.verification
+    ? `${verificationPanelMarkup(review.verification)}<div class="decision-grid decision-grid--var"><button class="button button--gold" data-voice-var-valid>Le lien est valide</button><button class="button button--red" data-voice-var-invalid>Bluff confirmé</button><button class="button button--ghost" data-voice-var-pass>Laisser passer sans trancher</button></div>`
+    : `<div class="decision-grid"><button class="button button--ghost" data-cancel-voice-review ${review?.checking ? "disabled" : ""}>Reprendre l’écoute</button><button class="button button--red" data-resolve-voice-review ${review?.checking ? "disabled" : ""}>${review?.checking ? "Consultation des archives…" : "Vérifier le bluff"}</button></div>`;
+  return shell(`<section class="voice-review"><p class="kicker">Buzzer bluff</p><h1>Qu’avez-vous vraiment dit&nbsp;?</h1><p class="voice-review__intro">Sélectionnez les deux dernières identités, puis laissez le moteur vérifier la liaison.</p><div class="voice-review__grid"><article><small>Nom précédent · ${escapeHtml(left?.playerName ?? "Joueur")}</small><strong>${escapeHtml(left?.transcript ?? "")}</strong>${voiceCandidateList(left, { review: true, side: "left" })}</article><span class="voice-review__link">ET</span><article><small>Nom proposé · ${escapeHtml(right?.playerName ?? "Joueur")}</small><strong>${escapeHtml(right?.transcript ?? "")}</strong>${voiceCandidateList(right, { review: true, side: "right" })}</article></div>${state.voice.error ? `<p class="voice-error" role="alert">${escapeHtml(state.voice.error)}</p>` : ""}${decision}</section>`, { back: "/", eyebrow: "Voice review" });
 }
 
 function voicePlayerSection(player, index, activePlayer) {
@@ -473,10 +517,42 @@ function openVoiceReview() {
   renderRoute();
 }
 
+async function verifyPendingLink(game, pending) {
+  if (pending.wasValid) return pending;
+  const leftName = game.chain.at(-1);
+  const left = database.findActor(leftName, game.config.themeId) ?? leftName;
+  const right = database.findActor(pending.proposedActor, game.config.themeId) ?? pending.proposedActor;
+  const verification = await catalog.verifyLink(left, right);
+  return applyLinkVerification(pending, verification);
+}
+
+function completeVoiceReview(game, pending, { challenged }) {
+  const review = state.voice.review;
+  state.game = resolvePending(game, pending, { challenged });
+  if (review) {
+    review.left.selected = review.selected.left;
+    review.right.selected = review.selected.right;
+  }
+  state.voice.verdict = challenged
+    ? (pending.wasValid ? `Liaison valide${pending.sharedFilms.length ? ` · ${pending.sharedFilms.join(" · ")}` : ""}` : "Bluff confirmé · aucune œuvre commune")
+    : "Coup laissé passer sans décision VAR";
+  state.pending = null;
+  state.voice.review = null;
+  state.timeLeft = null;
+  storage.saveCurrent(state.game);
+  if (state.game.status === "finished") navigate("/results");
+  else {
+    startVoiceSession();
+    renderRoute();
+  }
+}
+
 async function resolveVoiceReview() {
   const review = state.voice.review;
-  if (!review) return;
+  if (!review || review.checking) return;
   state.voice.error = null;
+  review.checking = true;
+  renderRoute();
   try {
     const leftCandidate = review.left.candidates[review.selected.left];
     const rightCandidate = review.right.candidates[review.selected.right];
@@ -484,24 +560,28 @@ async function resolveVoiceReview() {
     const corrected = replaceLastActor(state.game, leftPerson?.name ?? leftCandidate.name, database);
     const result = proposeActor(corrected, rightPerson?.name ?? rightCandidate.name, database);
     if (result.type !== "pending") throw new Error("La liaison à vérifier est incomplète.");
-    const pending = result.pending;
-    state.game = resolvePending(result.game, pending, { challenged: true });
-    review.left.selected = review.selected.left;
-    review.right.selected = review.selected.right;
-    state.voice.verdict = pending.wasValid ? `Liaison valide · ${pending.sharedFilms.join(" · ")}` : "Bluff confirmé · aucune œuvre commune";
-    state.pending = null;
-    state.voice.review = null;
-    state.timeLeft = null;
-    storage.saveCurrent(state.game);
-    if (state.game.status === "finished") navigate("/results");
-    else {
-      startVoiceSession();
-      renderRoute();
+    const pending = await verifyPendingLink(result.game, result.pending);
+    if (pending.wasValid) {
+      completeVoiceReview(result.game, pending, { challenged: true });
+      return;
     }
+    review.game = result.game;
+    review.verification = pending.verification ?? { verdict: "UNKNOWN", source: "none", films: [], evidence: [] };
+    review.checking = false;
+    state.pending = pending;
+    renderRoute();
   } catch (error) {
+    review.checking = false;
     state.voice.error = error.message;
     renderRoute();
   }
+}
+
+function resolveVoiceVar(valid, challenged = true) {
+  const review = state.voice.review;
+  if (!review?.game || !state.pending) return;
+  const pending = challenged ? adjudicatePending(state.pending, { valid }) : state.pending;
+  completeVoiceReview(review.game, pending, { challenged });
 }
 
 async function selectCurrentVoiceCandidate(entryId, candidateIndex) {
@@ -567,6 +647,9 @@ function bindVoice() {
     renderRoute();
   });
   document.querySelector("[data-resolve-voice-review]")?.addEventListener("click", resolveVoiceReview);
+  document.querySelector("[data-voice-var-valid]")?.addEventListener("click", () => resolveVoiceVar(true));
+  document.querySelector("[data-voice-var-invalid]")?.addEventListener("click", () => resolveVoiceVar(false));
+  document.querySelector("[data-voice-var-pass]")?.addEventListener("click", () => resolveVoiceVar(false, false));
   ensureVoiceTimer();
 }
 
@@ -584,10 +667,19 @@ function playMarkup() {
   }
   if (state.phase === "challenge" && state.pending) {
     const challenger = game.players.find((candidate) => candidate.id === state.pending.challengerId);
-    return shell(`<section class="play-page play-page--center"><p class="kicker">${escapeHtml(player.name)} propose</p><h1 class="actor-reveal">${escapeHtml(state.pending.proposedActor)}</h1><p class="reveal-subtitle">pour relier à <b>${escapeHtml(previous)}</b></p><div class="scene-card scene-card--decision"><p><b>${escapeHtml(challenger?.name || "Le joueur suivant")}</b>, à toi de décider.</p><ul><li>Laisser passer : le coup est accepté.</li><li>Bluff : on vérifie dans la filmographie.</li></ul></div><div class="decision-grid"><button class="button button--ghost" data-pass-challenge>Laisser passer</button><button class="button button--red" data-call-bluff>Bluff !</button></div></section>`, { back: "/", eyebrow: "The courtroom" });
+    return shell(`<section class="play-page play-page--center"><p class="kicker">${escapeHtml(player.name)} propose</p><h1 class="actor-reveal">${escapeHtml(state.pending.proposedActor)}</h1><p class="reveal-subtitle">pour relier à <b>${escapeHtml(previous)}</b></p><div class="scene-card scene-card--decision"><p><b>${escapeHtml(challenger?.name || "Le joueur suivant")}</b>, à toi de décider.</p><ul><li>Laisser passer : le coup est accepté.</li><li>Bluff : Ciné-Fil consulte ses catalogues, puis ouvre la VAR si la preuve reste incertaine.</li></ul></div><div class="decision-grid"><button class="button button--ghost" data-pass-challenge>Laisser passer</button><button class="button button--red" data-call-bluff>Bluff !</button></div></section>`, { back: "/", eyebrow: "The courtroom" });
+  }
+  if (state.phase === "verifying" && state.pending) {
+    return shell(`<section class="play-page play-page--center archive-check" aria-busy="true"><div class="archive-reel" aria-hidden="true">CF</div><p class="kicker">VAR en cours</p><h1>Consultation des archives</h1><p>TMDb, Wikidata et Wikipédia recherchent une preuve positive. Une absence ne sera jamais transformée en verdict automatique.</p></section>`, { back: "/", eyebrow: "The archives" });
+  }
+  if (state.phase === "var" && state.pending) {
+    return shell(`<section class="play-page play-page--center var-page"><p class="kicker">Video Assistant Réalisateur</p><h1>La VAR vous rend la décision</h1><p class="connection connection--compact">${escapeHtml(previous)} <span>&mdash;</span> <em>${escapeHtml(state.pending.proposedActor)}</em></p>${verificationPanelMarkup(state.pending.verification)}<div class="decision-grid decision-grid--var"><button class="button button--gold" data-var-valid>Le lien est valide</button><button class="button button--red" data-var-invalid>Bluff confirmé</button><button class="button button--ghost" data-var-pass>Laisser passer sans trancher</button></div></section>`, { back: "/", eyebrow: "The VAR room" });
   }
   const valid = Boolean(state.pending?.wasValid);
-  return shell(`<section class="play-page play-page--center"><span class="verdict ${valid ? "verdict--valid" : "verdict--invalid"}">${valid ? "Valide" : "Invalide"}</span><h1 class="connection">${escapeHtml(previous)} <span>↔</span> <em>${escapeHtml(state.pending?.proposedActor)}</em></h1>${valid && state.pending.sharedFilms.length ? `<div class="film-proof"><small>Film${state.pending.sharedFilms.length > 1 ? "s" : ""} commun${state.pending.sharedFilms.length > 1 ? "s" : ""}</small><ul>${state.pending.sharedFilms.map((film) => `<li>${escapeHtml(film)}</li>`).join("")}</ul></div>` : ""}${state.revealChallenged ? `<p class="reveal-note">Bluff annoncé — ${valid ? "ce n’était pas un bluff." : "c’était bien un bluff."}</p>` : ""}${state.pending?.method === "timeout" ? `<p class="reveal-note">Le chrono a mangé la réplique.</p>` : ""}<button class="button button--gold button--wide" data-continue>Continuer <span>→</span></button></section>`, { back: "/", eyebrow: "The verdict" });
+  const provenance = state.pending?.verification?.source && state.pending.verification.source !== "none"
+    ? `<p class="reveal-note">Preuve issue de ${escapeHtml(verificationSourceLabel(state.pending.verification.source))}${state.pending.manualDecision ? ", décision finale des joueurs" : ""}.</p>`
+    : state.pending?.manualDecision ? `<p class="reveal-note">Décision finale rendue manuellement par les joueurs.</p>` : "";
+  return shell(`<section class="play-page play-page--center"><span class="verdict ${valid ? "verdict--valid" : "verdict--invalid"}">${valid ? "Valide" : "Invalide"}</span><h1 class="connection">${escapeHtml(previous)} <span>&mdash;</span> <em>${escapeHtml(state.pending?.proposedActor)}</em></h1>${valid && state.pending.sharedFilms.length ? `<div class="film-proof"><small>Film${state.pending.sharedFilms.length > 1 ? "s" : ""} commun${state.pending.sharedFilms.length > 1 ? "s" : ""}</small><ul>${state.pending.sharedFilms.map((film) => `<li>${escapeHtml(film)}</li>`).join("")}</ul></div>` : ""}${state.revealChallenged ? `<p class="reveal-note">Bluff annoncé — ${valid ? "ce n’était pas un bluff." : "c’était bien un bluff."}</p>` : ""}${provenance}${state.pending?.method === "timeout" ? `<p class="reveal-note">Le chrono a mangé la réplique.</p>` : ""}<button class="button button--gold button--wide" data-continue>Continuer <span>&gt;</span></button></section>`, { back: "/", eyebrow: "The verdict" });
 }
 
 function bindPlay() {
@@ -631,15 +723,46 @@ function bindPlay() {
   document.querySelector("[data-pass-challenge]")?.addEventListener("click", () => {
     commitResolved(resolvePending(state.game, state.pending, { challenged: false }));
   });
-  document.querySelector("[data-call-bluff]")?.addEventListener("click", () => {
-    state.revealChallenged = true;
-    state.phase = "reveal";
-    renderRoute();
-  });
+  document.querySelector("[data-call-bluff]")?.addEventListener("click", callBluff);
+  document.querySelector("[data-var-valid]")?.addEventListener("click", () => revealVarDecision(true));
+  document.querySelector("[data-var-invalid]")?.addEventListener("click", () => revealVarDecision(false));
+  document.querySelector("[data-var-pass]")?.addEventListener("click", () => commitResolved(resolvePending(state.game, state.pending, { challenged: false })));
   document.querySelector("[data-continue]")?.addEventListener("click", () => {
     commitResolved(resolvePending(state.game, state.pending, { challenged: state.revealChallenged }));
   });
   if (state.phase === "input") ensureTimer();
+}
+
+async function callBluff() {
+  if (!state.pending || state.verificationStatus === "loading") return;
+  state.revealChallenged = true;
+  if (state.pending.wasValid) {
+    state.phase = "reveal";
+    renderRoute();
+    return;
+  }
+  state.verificationStatus = "loading";
+  state.phase = "verifying";
+  renderRoute();
+  try {
+    state.pending = await verifyPendingLink(state.game, state.pending);
+    state.phase = state.pending.wasValid ? "reveal" : "var";
+  } catch (error) {
+    diagnostics.capture(error, { phase: "verify-link" });
+    state.pending = applyLinkVerification(state.pending, { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks: {} });
+    state.phase = "var";
+  } finally {
+    state.verificationStatus = "idle";
+    renderRoute();
+  }
+}
+
+function revealVarDecision(valid) {
+  if (!state.pending) return;
+  state.pending = adjudicatePending(state.pending, { valid });
+  state.revealChallenged = true;
+  state.phase = "reveal";
+  renderRoute();
 }
 
 async function submitActor() {
@@ -685,6 +808,7 @@ function commitResolved(game) {
   state.game = game;
   state.pending = null;
   state.revealChallenged = false;
+  state.verificationStatus = "idle";
   state.input = "";
   state.timeLeft = null;
   storage.saveCurrent(game);
