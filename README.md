@@ -63,10 +63,25 @@ Pour les rafraîchissements automatiques, créer dans GitHub `Settings → Secre
 
 Sur Pages, le navigateur charge un index TMDb initial d’environ 756 Ko puis uniquement la filmographie de l’artiste sélectionné. Chaque shard consulté rejoint le cache hors ligne; le fichier source complet reste réservé à la génération et à la cible Node.
 
+### Vérification universelle et VAR
+
+Lorsqu’un bluff porte sur un lien absent du catalogue chargé, la cible Node consulte une cascade sans LLM : TMDb, Wikidata/QLever avec repli WDQS, puis Wikipédia en français et en anglais. Le contrat distingue quatre résultats :
+
+- `CONFIRMED` : une œuvre structurée commune a été retrouvée ;
+- `PROBABLE` : une page de film contient les deux noms, sans preuve structurée suffisante ;
+- `NOT_FOUND` : toutes les sources disponibles ont répondu sans résultat ;
+- `UNKNOWN` : réseau, quota, timeout ou surcharge empêchent de conclure.
+
+Seul `CONFIRMED` tranche automatiquement. Tous les autres états ouvrent une salle **VAR** avec les indices disponibles, des liens de recherche et une décision humaine. Une absence de résultat n’est donc jamais assimilée à la preuve qu’un film n’existe pas.
+
+Les confirmations positives enrichissent `cinefil.verification-cache.v1` sur l’appareil et deviennent immédiatement rejouables hors connexion. Les résultats négatifs ne sont jamais appris. Sur GitHub Pages, aucune API d’exécution n’est appelée : la VAR humaine et ses recherches externes restent disponibles. Définir `VERIFY_LINK_NETWORK=0` désactive également la cascade sur la cible Node sans casser le jeu.
+
+Le cadrage, les alternatives étudiées et les écarts assumés sont consignés dans [le rapport de fallback universel](docs/rapport-fallback-universel.md).
+
 ## Tests
 
 ```bash
-npm test             # 46 tests unitaires, intégration, données et propriétés
+npm test             # 59 tests unitaires, intégration, données et propriétés
 npm run test:e2e     # desktop + mobile avec un Chromium reproductible
 npm run test:e2e:pages # mêmes parcours sous /Cinefile_beta/
 npm run test:all     # totalité de la quality gate
@@ -82,6 +97,7 @@ Toutes les données joueur restent dans le navigateur :
 - `cinelink.history.v1` : historique limité ;
 - `cinelink.profiles.v1` : profils et succès ;
 - `cinefil.catalog-cache.v1` : enrichissements cinéma consultés ;
+- `cinefil.verification-cache.v1` : liens positivement confirmés par la cascade ;
 - `cinefil.settings.v1` : réglages locaux ;
 - `cinefil.diagnostics.v1` : erreurs locales uniquement si l’utilisateur active cette option.
 
@@ -94,7 +110,7 @@ L’écran Profils permet d’exporter puis de restaurer ces données dans un JS
 - `src/game/engine.js` : règles déterministes et transitions immuables.
 - `src/game/database.js` : index canonique, alias, liens et recherche.
 - `src/game/catalog.js` : recherche hybride et cache navigateur.
-- `src/server/` : adaptateur TMDb et catalogue publié chargé à la demande côté serveur.
+- `src/server/` : adaptateurs TMDb, catalogue publié et vérification Wikidata/Wikipédia côté serveur.
 - `src/voice/` : capture vocale et résolution d’entités séparées.
 - `src/data/` : snapshot, synonymes, registre d’identités revues, overlay TMDb compact, journal de fusion et métriques.
 - `scripts/` : reconstruction des données, build Pages et synchronisation incrémentale.
@@ -107,7 +123,7 @@ La progression détaillée et les quelques tâches nécessitant un jeton ou une 
 ## Déploiements
 
 - **GitHub Pages** : `.github/workflows/pages.yml` construit une liste blanche statique compatible avec le sous-chemin du dépôt, génère les filmographies à la demande, teste le jeu et publie `dist/`. Aucun secret ni code serveur n’entre dans l’artefact.
-- **Serveur Node** : `npm start` respecte `PORT`, sert le fallback SPA et expose `/api/catalog/*` sans transmettre le jeton TMDb au navigateur. Cette cible est prête pour Railway, Render, Fly.io ou un hébergement équivalent dès qu’une fonction demande un backend permanent.
+- **Serveur Node** : `npm start` respecte `PORT`, sert le fallback SPA et expose `/api/catalog/*` ainsi que `/api/verify-link`, sans transmettre le jeton TMDb au navigateur. Cette cible est prête pour Railway, Render, Fly.io ou un hébergement équivalent dès qu’une fonction demande un backend permanent.
 
 GitHub Pages est donc un premier hébergement, pas une limite produit : le frontend et le moteur ne dépendent pas de cette plateforme.
 

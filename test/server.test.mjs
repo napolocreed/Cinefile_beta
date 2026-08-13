@@ -22,9 +22,13 @@ test("the standalone server serves the app shell, source modules and SPA routes"
     assert.equal(response?.status, 200);
     assert.match(await response.text(), /Ciné-Fil/);
     assert.equal((await fetch(`http://127.0.0.1:${port}/setup`)).status, 200);
-    assert.equal((await fetch(`http://127.0.0.1:${port}/src/main.js`)).status, 200);
+    const mainSource = await fetch(`http://127.0.0.1:${port}/src/main.js`);
+    assert.equal(mainSource.status, 200);
+    assert.equal(mainSource.headers.get("cache-control"), "no-cache");
     assert.equal((await fetch(`http://127.0.0.1:${port}/manifest.webmanifest`)).status, 200);
-    assert.equal((await fetch(`http://127.0.0.1:${port}/sw.js`)).status, 200);
+    const serviceWorker = await fetch(`http://127.0.0.1:${port}/sw.js`);
+    assert.equal(serviceWorker.status, 200);
+    assert.equal(serviceWorker.headers.get("cache-control"), "no-cache");
     const catalogStatus = await (await fetch(`http://127.0.0.1:${port}/api/catalog/status`)).json();
     assert.equal(catalogStatus.configured, false);
     assert.equal(catalogStatus.verification.enabled, true);

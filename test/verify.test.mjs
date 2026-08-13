@@ -138,3 +138,24 @@ test("search links are encoded and invalid pairs are rejected", async () => {
   await assert.rejects(() => verifier.verify({ left: "Alice", right: " alice " }), /doivent être différents/);
   await assert.rejects(() => verifier.verify({ left: "A", right: "Bob" }), /requis/);
 });
+
+test("upstream concurrency is bounded instead of amplifying public traffic", async () => {
+  let release;
+  const heldResponse = new Promise((resolve) => { release = () => resolve(jsonResponse({ search: [] })); });
+  let calls = 0;
+  const verifier = createLinkVerifier({
+    maxConcurrentUpstream: 1,
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) return heldResponse;
+      return jsonResponse({ search: [] });
+    },
+  });
+  const first = verifier.verify({ left: "Alice Artiste", right: "Bob Artiste" });
+  await new Promise((resolve) => setImmediate(resolve));
+  const second = await verifier.verify({ left: "Carole Artiste", right: "David Artiste" });
+  assert.equal(second.verdict, "UNKNOWN");
+  assert.equal(verifier.status().upstream.rejected > 0, true);
+  release();
+  await first;
+});

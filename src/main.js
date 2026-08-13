@@ -1,5 +1,5 @@
 import { createDatabase, normalizeText } from "./game/database.js";
-import { CATALOG_CACHE_KEY, createHybridCatalog } from "./game/catalog.js";
+import { CATALOG_CACHE_KEY, VERIFICATION_CACHE_KEY, createHybridCatalog } from "./game/catalog.js";
 import { createStaticOverlay } from "./game/static-overlay.js";
 import {
   adjudicatePending,
@@ -874,12 +874,12 @@ function renderProfiles() {
   bindProfileTools();
 }
 
-function readCatalogCache() {
-  try { return JSON.parse(localStorage.getItem(CATALOG_CACHE_KEY) ?? "null"); } catch { return null; }
+function readLocalJson(key) {
+  try { return JSON.parse(localStorage.getItem(key) ?? "null"); } catch { return null; }
 }
 
 function downloadBackup() {
-  const backup = createBackup(storage, { catalogCache: readCatalogCache() });
+  const backup = createBackup(storage, { catalogCache: readLocalJson(CATALOG_CACHE_KEY), verificationCache: readLocalJson(VERIFICATION_CACHE_KEY) });
   const blob = new Blob([`${JSON.stringify(backup, null, 2)}\n`], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -894,7 +894,7 @@ async function importBackupFile(file) {
   try {
     if (!file) return;
     const backup = parseBackup(await file.text());
-    const result = restoreBackup(backup, storage, { storage: localStorage, catalogCacheKey: CATALOG_CACHE_KEY });
+    const result = restoreBackup(backup, storage, { storage: localStorage, catalogCacheKey: CATALOG_CACHE_KEY, verificationCacheKey: VERIFICATION_CACHE_KEY });
     state.game = result.current;
     document.documentElement.toggleAttribute("data-large-text", storage.loadSettings().largeText === true);
     state.transferNotice = { type: "success", message: `${result.profiles} profil${result.profiles > 1 ? "s" : ""} et ${result.games} partie${result.games > 1 ? "s" : ""} restaurés.` };

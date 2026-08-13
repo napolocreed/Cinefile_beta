@@ -117,8 +117,13 @@ function serveStatic(request, response, url) {
   let target = join(base, relative);
   const insideBase = target === base || target.startsWith(`${base}${sep}`);
   if (!insideBase || !existsSync(target) || statSync(target).isDirectory()) target = join(publicRoot, "index.html");
-  response.setHeader("Content-Type", mime[extname(target)] || "application/octet-stream");
-  response.setHeader("Cache-Control", extname(target) === ".html" ? "no-cache" : "public, max-age=31536000, immutable");
+  const extension = extname(target);
+  const unversionedRuntime = relative === "sw.js" || relative === "manifest.webmanifest" || (relative.startsWith("src/") && !relative.startsWith("src/data/"));
+  const cacheControl = extension === ".html" || unversionedRuntime
+    ? "no-cache"
+    : relative.startsWith("src/data/") ? "public, max-age=3600" : "public, max-age=31536000, immutable";
+  response.setHeader("Content-Type", mime[extension] || "application/octet-stream");
+  response.setHeader("Cache-Control", cacheControl);
   response.setHeader("X-Content-Type-Options", "nosniff");
   if (request.method === "HEAD") return response.end();
   createReadStream(target).pipe(response);

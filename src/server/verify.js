@@ -168,6 +168,7 @@ export function createLinkVerifier({
   userAgent = DEFAULT_USER_AGENT,
   timeoutMs = 6_000,
   networkEnabled = process.env.VERIFY_LINK_NETWORK !== "0",
+  maxConcurrentUpstream = 12,
 } = {}) {
   const resultCache = createTtlCache({ now, max: 1_000 });
   const identityCache = createTtlCache({ now, max: 2_000 });
@@ -179,22 +180,34 @@ export function createLinkVerifier({
     verdicts: { CONFIRMED: 0, PROBABLE: 0, NOT_FOUND: 0, UNKNOWN: 0 },
     sources: { tmdb: 0, wikidata: 0, wikipedia: 0, none: 0 },
     upstreamErrors: { tmdb: 0, wikidata: 0, wikipedia: 0 },
+    upstreamRejected: 0,
     latencies: [],
   };
+  const upstreamLimit = Math.max(1, Math.min(50, Number(maxConcurrentUpstream) || 12));
+  let activeUpstream = 0;
 
   async function fetchJson(url, { accept = "application/json", timeout = timeoutMs } = {}) {
     if (!networkEnabled || !fetchImpl) throw Object.assign(new Error("network-disabled"), { code: "NETWORK_DISABLED" });
-    const response = await fetchImpl(url, {
-      headers: { Accept: accept, "User-Agent": userAgent },
-      signal: AbortSignal.timeout(timeout),
-    });
-    if (!response.ok) {
-      const error = new Error(`upstream-${response.status}`);
-      error.status = response.status;
-      error.retryAfter = response.headers?.get?.("retry-after") ?? null;
-      throw error;
+    if (activeUpstream >= upstreamLimit) {
+      metrics.upstreamRejected += 1;
+      throw Object.assign(new Error("upstream-overloaded"), { code: "UPSTREAM_OVERLOADED" });
     }
-    return response.json();
+    activeUpstream += 1;
+    try {
+      const response = await fetchImpl(url, {
+        headers: { Accept: accept, "User-Agent": userAgent },
+        signal: AbortSignal.timeout(timeout),
+      });
+      if (!response.ok) {
+        const error = new Error(`upstream-${response.status}`);
+        error.status = response.status;
+        error.retryAfter = response.headers?.get?.("retry-after") ?? null;
+        throw error;
+      }
+      return response.json();
+    } finally {
+      activeUpstream -= 1;
+    }
   }
 
   async function querySparql(query) {
@@ -231,9 +244,8 @@ export function createLinkVerifier({
     const candidates = (payload.search ?? [])
       .filter((candidate) => /^Q\d+$/.test(candidate.id))
       .slice(0, 5)
-      .map((candidate) => ({ id: candidate.id, label: candidate.label ?? name, description: candidate.description ?? null }));
-    const exactCandidates = candidates.filter((candidate) => normalizeText(candidate.label) === normalizeText(name));
-    const selectedCandidates = (exactCandidates.length ? exactCandidates : candidates).slice(0, 5);
+      .map((candidate) => ({ id: candidate.id, label: candidate.label ?? name, matchedText: candidate.match?.text ?? null, description: candidate.description ?? null }));
+    const selectedCandidates = candidates.filter((candidate) => [candidate.label, candidate.matchedText].some((value) => normalizeText(value) === normalizeText(name))).slice(0, 5);
     identityCache.set(key, selectedCandidates, 7 * 24 * 60 * 60_000);
     return selectedCandidates;
   }
@@ -457,6 +469,7 @@ export function createLinkVerifier({
       verdicts: { ...metrics.verdicts },
       sources: { ...metrics.sources },
       upstreamErrors: { ...metrics.upstreamErrors },
+      upstream: { active: activeUpstream, limit: upstreamLimit, rejected: metrics.upstreamRejected },
       latency: { averageMs, p95Ms: percentile(metrics.latencies, 0.95) },
     };
   }

@@ -144,3 +144,25 @@ test("static link verification stays offline and produces deterministic VAR link
   assert.equal(fetchCalls, 0);
   assert.deepEqual(Object.keys(createVerificationSearchLinks("Alice", "Bob")), ["google", "duckduckgo", "qwant", "wikipedia"]);
 });
+
+test("positive fallback evidence teaches the local catalogue across sessions", async () => {
+  const storage = memoryStorage();
+  const seed = { actors: [{ name: "Alice", films: [] }, { name: "Bob", films: [] }], films: [] };
+  const database = createDatabase(seed);
+  const catalog = createHybridCatalog({ database, storage, fetchImpl: async () => jsonResponse({
+    verdict: "CONFIRMED",
+    source: "wikidata",
+    films: [{ title: "Film retrouvé", year: 1999, qid: "Q999" }],
+    evidence: [],
+  }) });
+  const result = await catalog.verifyLink("Alice", "Bob");
+  assert.equal(result.verdict, "CONFIRMED");
+  assert.deepEqual(database.sharedFilms("Alice", "Bob"), ["Film retrouvé"]);
+  assert.match(storage.getItem("cinefil.verification-cache.v1"), /Film retrouvé/);
+
+  const reloadedDatabase = createDatabase(seed);
+  const offlineCatalog = createHybridCatalog({ database: reloadedDatabase, storage, remoteEnabled: false });
+  assert.deepEqual(reloadedDatabase.sharedFilms("Alice", "Bob"), ["Film retrouvé"]);
+  assert.equal((await offlineCatalog.verifyLink("Alice", "Bob")).source, "local");
+  assert.equal(offlineCatalog.getVerificationCache().links.length, 1);
+});
