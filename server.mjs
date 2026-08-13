@@ -2,11 +2,13 @@ import { createServer } from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname, join, normalize, sep } from "node:path";
 import { createTmdbClient } from "./src/server/tmdb.js";
+import { createPublishedCatalog } from "./src/server/published-catalog.js";
 
 const workspaceRoot = process.cwd();
 const publicRoot = join(workspaceRoot, "public");
 const port = Number(process.env.PORT || 4173);
 const tmdb = createTmdbClient();
+const publishedCatalog = createPublishedCatalog();
 const mime = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -68,6 +70,20 @@ async function handleApi(request, response, url) {
       sendJson(response, 200, { configured: true, source: "tmdb", person }, "public, max-age=86400, stale-while-revalidate=604800");
     } catch (error) {
       sendJson(response, error.status === 404 ? 404 : 502, { error: error.status === 404 ? "Artiste introuvable." : "La filmographie distante est momentanément indisponible." });
+    }
+    return true;
+  }
+  const localPersonMatch = url.pathname.match(/^\/api\/catalog\/people\/local\/(person_[a-z0-9]+)$/);
+  if (localPersonMatch) {
+    try {
+      const person = await publishedCatalog.getPerson(localPersonMatch[1]);
+      if (!person) {
+        sendJson(response, 404, { error: "Artiste local introuvable." });
+        return true;
+      }
+      sendJson(response, 200, { configured: tmdb.configured, source: "published-tmdb", person }, "public, max-age=86400, stale-while-revalidate=604800");
+    } catch {
+      sendJson(response, 503, { error: "Le catalogue publié est momentanément indisponible." });
     }
     return true;
   }

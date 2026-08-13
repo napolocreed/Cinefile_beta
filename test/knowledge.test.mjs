@@ -28,6 +28,8 @@ test("curated person and work aliases resolve to their canonical identities", ()
   const database = createDatabase(snapshot, { synonyms });
   assert.equal(database.findActor("The Rock")?.name, "Dwayne Johnson");
   assert.equal(database.findActor("DiCaprio, Leonardo")?.name, "Leonardo DiCaprio");
+  assert.equal(database.findActor("Pink")?.name, "P!nk");
+  assert.equal(database.findActor("Samir Nasseri")?.id, database.findActor("Samy Naceri")?.id);
   assert.equal(database.sharedFilms("Leonardo DiCaprio", "Tom Hanks").includes("Arrête-moi si tu peux"), true);
 });
 

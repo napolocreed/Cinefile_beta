@@ -14,10 +14,11 @@ test("TMDb search maps people without exposing credentials", async () => {
     requestedHeaders = options.headers;
     return response({ results: [{ id: 12, name: "Jane Doe", known_for_department: "Acting", profile_path: "/jane.jpg", popularity: 9, known_for: [{ title: "A Film" }] }] });
   } });
-  const results = await client.searchPeople("Jane");
+  const results = await client.searchPeople("Jane", { includeAdult: true });
   assert.equal(results[0].externalIds.tmdb, 12);
   assert.deepEqual(results[0].knownFor, ["A Film"]);
   assert.match(requestedUrl, /query=Jane/);
+  assert.match(requestedUrl, /include_adult=true/);
   assert.doesNotMatch(requestedUrl, /secret-token/);
   assert.equal(requestedHeaders.Authorization, "Bearer secret-token");
 });

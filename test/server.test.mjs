@@ -31,6 +31,11 @@ test("the standalone server serves the app shell, source modules and SPA routes"
     assert.equal(database.actors.length > 1000, true);
     const snapshot = await (await fetch(`http://127.0.0.1:${port}/src/data/cinema-knowledge.json`)).json();
     assert.equal(snapshot.people.length > 1000, true);
+    const publishedPerson = await (await fetch(`http://127.0.0.1:${port}/api/catalog/people/local/person_0rl93xi`)).json();
+    assert.equal(publishedPerson.source, "published-tmdb");
+    assert.equal(publishedPerson.person.localPersonId, "person_0rl93xi");
+    assert.equal(publishedPerson.person.credits.length > 100, true);
+    assert.equal(typeof publishedPerson.person.credits[0].title, "string");
   } finally {
     server.kill();
   }

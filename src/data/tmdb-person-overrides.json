@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "reviewedAt": "2026-08-13",
+  "matches": [
+    { "localPersonId": "person_0m464h0", "name": "Pauline Clément", "tmdbId": 2112198, "reason": "Doublons TMDb vides écartés; profil crédité retenu après revue." },
+    { "localPersonId": "person_13lkbp1", "name": "Valery Leontiev", "tmdbId": 2327235, "reason": "Translittération validée vers Валерий Леонтьев." },
+    { "localPersonId": "person_13a9tss", "name": "Sami Naceri", "tmdbId": 20666, "reason": "Identités locales Samy et Samir fusionnées; profil validé sur la saga Taxi." },
+    { "localPersonId": "person_10l0i8k", "name": "Alice Belaïdi", "tmdbId": 935241, "reason": "Doublon TMDb sans crédit écarté; profil principal retenu." },
+    { "localPersonId": "person_1nzudll", "name": "Laura Felpin", "tmdbId": 2832358, "reason": "Doublon TMDb sans crédit écarté; profil principal retenu." },
+    { "localPersonId": "person_1exj67z", "name": "Edita Piekha", "tmdbId": 586217, "reason": "Translittération validée vers Эдита Пьеха." },
+    { "localPersonId": "person_1kpzscj", "name": "Vincent Elbaz", "tmdbId": 54918, "reason": "Profil homonyme unique validé; titres locaux et TMDb diffèrent par localisation." },
+    { "localPersonId": "person_04rt6zf", "name": "Gwendoline Hamon", "tmdbId": 146492, "reason": "Profil homonyme unique validé après revue de la filmographie." },
+    { "localPersonId": "person_01pgh7o", "name": "Constance Labbé", "tmdbId": 1885445, "reason": "Profil homonyme unique validé après revue de la filmographie." },
+    { "localPersonId": "person_17guvui", "name": "Paul Belmondo", "tmdbId": 1098404, "reason": "Homonyme Jean-Paul Belmondo écarté; filmographie de Paul Belmondo validée." },
+    { "localPersonId": "person_1ez84k7", "name": "Grégory Gadebois", "tmdbId": 223532, "reason": "Profil homonyme unique validé; titres locaux et TMDb diffèrent par localisation." },
+    { "localPersonId": "person_1rt7sj8", "name": "Rayane Bensetti", "tmdbId": 1471466, "reason": "Profil homonyme unique validé après revue de la filmographie." },
+    { "localPersonId": "person_1y1lx3n", "name": "Grégory Fitoussi", "tmdbId": 1040850, "reason": "Profil homonyme unique validé; titres locaux et TMDb diffèrent par localisation." },
+    { "localPersonId": "person_1q9vise", "name": "Fadily Camara", "tmdbId": 2054701, "reason": "Profil homonyme unique validé après revue de la filmographie." },
+    { "localPersonId": "person_1av27pg", "name": "Alexandre Kominek", "tmdbId": 1935493, "reason": "Profil homonyme unique validé après revue de la filmographie." },
+    { "localPersonId": "person_087858m", "name": "Panayotis Pascot", "tmdbId": 1818580, "reason": "Profil homonyme unique validé après revue de la filmographie." }
+  ]
+}

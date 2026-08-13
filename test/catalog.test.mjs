@@ -51,6 +51,38 @@ test("hybrid search keeps local results when the remote catalogue is down", asyn
   assert.equal(result.remote.online, false);
 });
 
+test("a local artist is hydrated from the published server catalogue on demand", async () => {
+  const database = createDatabase({
+    people: [{ id: "person_alice", name: "Alice Local", credits: ["work:a"], source: "snapshot" }],
+    works: [{ id: "work:a", title: "Film A", type: "movie", source: "snapshot" }],
+  });
+  const requests = [];
+  const catalog = createHybridCatalog({
+    database,
+    storage: memoryStorage(),
+    fetchImpl: async (url) => {
+      requests.push(String(url));
+      return jsonResponse({
+        source: "published-tmdb",
+        person: {
+          id: "tmdb:42",
+          localPersonId: "person_alice",
+          name: "Alice Remote",
+          aliases: [],
+          externalIds: { tmdb: 42 },
+          credits: [{ id: "tmdb-movie:7", title: "Film B", type: "movie", externalIds: { tmdbMovie: 7 }, source: "tmdb" }],
+          source: "tmdb",
+        },
+      });
+    },
+  });
+  const hydrated = await catalog.hydrate(database.findActor("Alice Local"));
+  assert.equal(hydrated.name, "Alice Local");
+  assert.equal(hydrated.aliases.includes("Alice Remote"), true);
+  assert.deepEqual(hydrated.films.sort(), ["Film A", "Film B"]);
+  assert.deepEqual(requests, ["/api/catalog/people/local/person_alice"]);
+});
+
 test("static catalogue mode never calls a server API", async () => {
   const database = createDatabase({ actors: [{ name: "Alice Local", films: ["Film A"], tags: [] }], films: ["Film A"] });
   let fetchCalls = 0;

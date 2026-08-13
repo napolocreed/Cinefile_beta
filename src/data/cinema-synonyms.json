@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 4,
   "people": [
     { "canonical": "Leonardo DiCaprio", "aliases": ["Leonardo Di Caprio", "DiCaprio, Leonardo", "Leo DiCaprio"] },
     { "canonical": "Robert De Niro", "aliases": ["Robert de Niro", "De Niro, Robert", "Bobby De Niro"] },
@@ -15,7 +15,16 @@
     { "canonical": "Benoît Magimel", "aliases": ["Benoit Magimel", "Magimel, Benoît"] },
     { "canonical": "François Civil", "aliases": ["Francois Civil", "Civil, François"] },
     { "canonical": "Léa Seydoux", "aliases": ["Lea Seydoux", "Seydoux, Léa"] },
-    { "canonical": "Adèle Exarchopoulos", "aliases": ["Adele Exarchopoulos", "Exarchopoulos, Adèle"] }
+    { "canonical": "Adèle Exarchopoulos", "aliases": ["Adele Exarchopoulos", "Exarchopoulos, Adèle"] },
+    { "canonical": "Salma Hayek", "aliases": ["Salma Hayek Pinault"] },
+    { "canonical": "Christopher Lambert", "aliases": ["Christophe Lambert"] },
+    { "canonical": "Patrick Bruel", "aliases": ["Maurice Benguigui", "Patrick Maurice Benguigui"] },
+    { "canonical": "Ivan Mozzhukhin", "aliases": ["Иван Мозжухин", "Ivan Mosjoukine", "Ivan Moschuchin"] },
+    { "canonical": "Liu Yifei", "aliases": ["刘亦菲", "Liu Yi-Fei", "Yifei Liu", "Crystal Liu"] },
+    { "canonical": "P!nk", "aliases": ["Pink", "Alecia Beth Moore", "Alecia Moore"] },
+    { "canonical": "Sami Naceri", "aliases": ["Samy Naceri", "Samir Nasseri", "Saïd Naceri", "Said Naceri"] },
+    { "canonical": "Maria Callas", "aliases": ["Maria Meneghini Callas", "Μαρία Κάλλας"] },
+    { "canonical": "Edita Piekha", "aliases": ["Эдита Пьеха", "Edyta Piecha"] }
   ],
   "works": [
     { "canonical": "Once Upon a Time in Hollywood", "aliases": ["Once Upon a Time in... Hollywood"] },

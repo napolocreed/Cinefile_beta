@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "snapshotId": "snapshot_175f860",
-  "generatedAt": "2026-08-12T22:17:44.333Z",
+  "snapshotId": "snapshot_09h8lu0",
+  "generatedAt": "2026-08-13T01:14:14.109Z",
   "entries": [
     {
       "entity": "work",
@@ -4523,6 +4523,18 @@
       ],
       "strategy": "strict-title",
       "confidence": 0.98,
+      "reversible": true
+    },
+    {
+      "entity": "person",
+      "canonicalId": "person_13a9tss",
+      "kept": "Sami Naceri",
+      "merged": [
+        "Samir Nasseri",
+        "Samy Naceri"
+      ],
+      "strategy": "curated-person-synonym",
+      "confidence": 1,
       "reversible": true
     }
   ]

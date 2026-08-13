@@ -1,5 +1,6 @@
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, parse, resolve } from "node:path";
+import { buildTmdbShards } from "./build-tmdb-shards.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const argumentMap = new Map(process.argv.slice(2).map((argument) => {
@@ -41,13 +42,13 @@ const files = [
   "src/game/engine.js",
   "src/game/identity.js",
   "src/game/storage.js",
+  "src/game/static-overlay.js",
   "src/game/transfer.js",
   "src/voice/entity-resolver.js",
   "src/voice/speech-session.js",
   "src/data/cinema-database.json",
   "src/data/cinema-knowledge.json",
   "src/data/cinema-synonyms.json",
-  "src/data/tmdb-overlay.json",
 ];
 
 await rm(output, { recursive: true, force: true });
@@ -58,6 +59,11 @@ for (const relativePath of files) {
   await mkdir(dirname(destinationPath), { recursive: true });
   await copyFile(resolve(root, relativePath), destinationPath);
 }
+
+await buildTmdbShards({
+  inputPath: resolve(root, "src/data/tmdb-overlay.json"),
+  outputDirectory: resolve(output, "src/data"),
+});
 
 const sourceHtml = await readFile(resolve(root, "public/index.html"), "utf8");
 const appHtml = sourceHtml

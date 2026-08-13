@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v5-pages-overlay";
+const CACHE_NAME = "cinefil-v6-lazy-shards";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [
@@ -15,12 +15,12 @@ const CORE = [
   "src/game/engine.js",
   "src/game/identity.js",
   "src/game/storage.js",
+  "src/game/static-overlay.js",
   "src/game/transfer.js",
   "src/voice/entity-resolver.js",
   "src/voice/speech-session.js",
   "src/data/cinema-knowledge.json",
   "src/data/cinema-synonyms.json",
-  "src/data/tmdb-overlay.json",
   "assets/inter-latin-400-normal-C38fXH4l.woff2",
   "assets/inter-latin-600-normal-LgqL8muc.woff2",
   "assets/playfair-display-latin-700-normal-CuDiGg7c.woff2",
@@ -28,9 +28,17 @@ const CORE = [
   "__l5e/assets-v1/5ff43c75-eae3-43ba-80e0-f5b47be859df/cinema-seats.png",
   "__l5e/assets-v1/8a9f592b-23da-4698-8a14-e0016a7b6c74/cinefil-logo.png"
 ].map((path) => new URL(path, BASE_URL).href);
+const OPTIONAL = [
+  "src/data/tmdb-overlay-index.json",
+].map((path) => new URL(path, BASE_URL).href);
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE_NAME)
+    .then(async (cache) => {
+      await cache.addAll(CORE);
+      await Promise.allSettled(OPTIONAL.map((url) => cache.add(url)));
+    })
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (event) => {

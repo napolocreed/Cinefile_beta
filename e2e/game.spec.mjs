@@ -82,3 +82,27 @@ test("GitHub Pages keeps routes inside the repository subpath and makes no runti
   await expect(page.getByRole("heading", { name: "Nouvelle partie" })).toBeVisible();
   expect(apiRequests).toEqual([]);
 });
+
+test("GitHub Pages lazily fetches only the selected enriched filmography", async ({ page }, testInfo) => {
+  test.skip(!process.env.PAGES_E2E || testInfo.project.name !== "desktop", "One static browser project is sufficient.");
+  const shardRequests = [];
+  const monolithRequests = [];
+  page.on("request", (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (pathname.includes("/tmdb-shards/")) shardRequests.push(pathname);
+    if (pathname.endsWith("/tmdb-overlay.json")) monolithRequests.push(pathname);
+  });
+  await page.goto(appPath("/"));
+  expect(shardRequests).toEqual([]);
+  await page.getByRole("link", { name: /Nouvelle partie/i }).click();
+  await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
+  await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+  await page.getByRole("button", { name: /Je suis prêt/i }).click();
+  await page.getByLabel("Ton artiste").fill("Gérard Depardieu");
+  await page.getByRole("option", { name: /Gérard Depardieu/i }).first().click();
+  await page.getByRole("button", { name: /Valider/i }).click();
+  await expect.poll(() => shardRequests.length).toBe(1);
+  expect(shardRequests[0]).toMatch(/\/tmdb-shards\/person_0rl93xi\.json$/);
+  expect(monolithRequests).toEqual([]);
+});

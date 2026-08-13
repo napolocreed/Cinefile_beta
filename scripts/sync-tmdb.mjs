@@ -2,6 +2,7 @@ import { readFile, rename, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createTmdbClient } from "../src/server/tmdb.js";
+import { resolveTmdbCandidate } from "../src/server/tmdb-matcher.js";
 import { normalizeText } from "../src/game/identity.js";
 
 const root = resolve(import.meta.dirname, "..");
@@ -12,9 +13,11 @@ const argumentsMap = new Map(process.argv.slice(2).map((argument) => {
 const limit = Math.max(1, Number(argumentsMap.get("limit") ?? 50));
 const inputPath = resolve(root, String(argumentsMap.get("input") ?? "src/data/cinema-knowledge.json"));
 const outputPath = resolve(root, String(argumentsMap.get("output") ?? "src/data/tmdb-overlay.local.json"));
+const overridesPath = resolve(root, String(argumentsMap.get("overrides") ?? "src/data/tmdb-person-overrides.json"));
 const delayMs = Math.max(0, Number(argumentsMap.get("delay") ?? 260));
 const refreshAfterDays = Math.max(1, Number(argumentsMap.get("refresh-days") ?? 60));
 const onlyFailures = argumentsMap.has("only-failures");
+const acceptExactZeroOverlap = argumentsMap.has("accept-exact-zero-overlap");
 const tmdb = createTmdbClient();
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -22,6 +25,24 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 function ageInDays(value) {
   const time = Date.parse(value ?? "");
   return Number.isFinite(time) ? (Date.now() - time) / DAY_MS : Number.POSITIVE_INFINITY;
+}
+
+function existingCreditOverlap(localPerson, remotePerson, localWorksById, remoteWorksById) {
+  const localTitles = new Set((localPerson?.credits ?? [])
+    .flatMap((workId) => {
+      const work = localWorksById.get(workId);
+      return work ? [work.title, work.originalTitle, ...(work.aliases ?? [])] : [];
+    })
+    .map(normalizeText)
+    .filter(Boolean));
+  const remoteTitles = new Set((remotePerson?.credits ?? [])
+    .flatMap((workId) => {
+      const work = remoteWorksById.get(workId);
+      return work ? [work.title, work.originalTitle, ...(work.aliases ?? [])] : [];
+    })
+    .map(normalizeText)
+    .filter(Boolean));
+  return [...localTitles].filter((title) => remoteTitles.has(title)).length;
 }
 
 async function saveOverlay(overlay) {
@@ -66,36 +87,8 @@ async function saveOverlay(overlay) {
     credits: overlay.people.reduce((sum, person) => sum + (person.credits?.length ?? 0), 0),
   };
   const temporaryPath = `${outputPath}.tmp`;
-  await writeFile(temporaryPath, `${JSON.stringify(overlay, null, 2)}\n`);
+  await writeFile(temporaryPath, `${JSON.stringify(overlay)}\n`);
   await rename(temporaryPath, outputPath);
-}
-
-async function resolveExactCandidate(localPerson, exactCandidates, worksById) {
-  if (!exactCandidates.length) throw new Error("Aucune correspondance exacte; revue humaine requise.");
-  if (exactCandidates.length === 1) {
-    return { person: await tmdb.getPerson(exactCandidates[0].externalIds.tmdb, { locale: "fr-FR" }), matchedBy: "normalized-exact" };
-  }
-  const localTitles = new Set((localPerson.credits ?? [])
-    .map((workId) => worksById.get(workId))
-    .filter(Boolean)
-    .flatMap((work) => [work.title, work.originalTitle, ...(work.aliases ?? [])])
-    .map(normalizeText)
-    .filter(Boolean));
-  const scored = [];
-  for (const candidate of exactCandidates) {
-    const person = await tmdb.getPerson(candidate.externalIds.tmdb, { locale: "fr-FR" });
-    const titles = new Set((person.credits ?? [])
-      .flatMap((work) => [work.title, work.originalTitle, ...(work.aliases ?? [])])
-      .map(normalizeText)
-      .filter(Boolean));
-    const overlap = [...localTitles].filter((title) => titles.has(title)).length;
-    scored.push({ person, overlap });
-  }
-  scored.sort((left, right) => right.overlap - left.overlap || Number(right.person.popularity ?? 0) - Number(left.person.popularity ?? 0));
-  if (scored[0].overlap < 1 || scored[0].overlap === scored[1].overlap) {
-    throw new Error("Plusieurs identités exactes sans recouvrement filmographique décisif; revue humaine requise.");
-  }
-  return { person: scored[0].person, matchedBy: "normalized-exact-credit-overlap" };
 }
 
 if (!tmdb.configured) {
@@ -103,6 +96,10 @@ if (!tmdb.configured) {
   process.exitCode = 1;
 } else {
   const snapshot = JSON.parse(await readFile(inputPath, "utf8"));
+  const overrides = existsSync(overridesPath)
+    ? JSON.parse(await readFile(overridesPath, "utf8"))
+    : { version: 1, matches: [] };
+  const overrideByLocalId = new Map((overrides.matches ?? []).map((entry) => [entry.localPersonId, entry]));
   const overlay = existsSync(outputPath)
     ? JSON.parse(await readFile(outputPath, "utf8"))
     : { version: 1, baseSnapshotId: snapshot.snapshotId, generatedAt: null, people: [], failures: [] };
@@ -110,8 +107,37 @@ if (!tmdb.configured) {
   overlay.failures ??= [];
   overlay.baseSnapshotId = snapshot.snapshotId;
   const worksById = new Map((snapshot.works ?? []).map((work) => [work.id, work]));
+  const peopleById = new Map((snapshot.people ?? []).map((person) => [person.id, person]));
+  const overlayWorksById = new Map((overlay.works ?? []).map((work) => [work.id, work]));
   const enrichedByLocalId = new Map(overlay.people.map((person) => [person.localPersonId, person]));
   const failureByLocalId = new Map(overlay.failures.map((failure) => [failure.localPersonId, failure]));
+  for (const person of [...overlay.people]) {
+    const localPerson = peopleById.get(person.localPersonId);
+    if (!localPerson) {
+      overlay.people = overlay.people.filter((entry) => entry.localPersonId !== person.localPersonId);
+      enrichedByLocalId.delete(person.localPersonId);
+      failureByLocalId.delete(person.localPersonId);
+      console.warn(`[audit] ${person.name}: ancienne identité locale retirée après fusion canonique.`);
+      continue;
+    }
+    const manualOverride = overrideByLocalId.get(person.localPersonId);
+    if (manualOverride && String(person.externalIds?.tmdb) === String(manualOverride.tmdbId)) continue;
+    const overlap = existingCreditOverlap(localPerson, person, worksById, overlayWorksById);
+    if (overlap > 0) {
+      if (person.matchedBy === "normalized-exact") person.matchedBy = "normalized-exact-credit-overlap-audited";
+      continue;
+    }
+    overlay.people = overlay.people.filter((entry) => entry.localPersonId !== person.localPersonId);
+    enrichedByLocalId.delete(person.localPersonId);
+    failureByLocalId.set(person.localPersonId, {
+      localPersonId: person.localPersonId,
+      name: localPerson.name,
+      reason: "Correspondance précédente rejetée: aucun crédit commun.",
+      attemptedAt: new Date().toISOString(),
+    });
+    console.warn(`[audit] ${localPerson.name}: correspondance TMDb sans crédit commun retirée.`);
+  }
+  overlay.failures = [...failureByLocalId.values()];
   const queue = snapshot.people
     .filter((person) => !person.externalIds?.tmdb)
     .filter((person) => !onlyFailures || failureByLocalId.has(person.id))
@@ -133,9 +159,30 @@ if (!tmdb.configured) {
 
   for (const [index, localPerson] of queue.entries()) {
     try {
-      const results = await tmdb.searchPeople(localPerson.name, { locale: "fr-FR", limit: 5 });
-      const exactCandidates = results.filter((person) => normalizeText(person.name) === normalizeText(localPerson.name));
-      const resolved = await resolveExactCandidate(localPerson, exactCandidates, worksById);
+      const manualOverride = overrideByLocalId.get(localPerson.id);
+      let resolved;
+      if (manualOverride) {
+        resolved = {
+          person: await tmdb.getPerson(manualOverride.tmdbId, { locale: "fr-FR" }),
+          matchedBy: "manual-tmdb-id-review",
+        };
+      } else {
+        const results = await tmdb.searchPeople(localPerson.name, { locale: "fr-FR", limit: 5, includeAdult: true });
+        resolved = await resolveTmdbCandidate({
+          localPerson,
+          candidates: results,
+          worksById,
+          getPerson: (personId) => tmdb.getPerson(personId, { locale: "fr-FR" }),
+        }).catch(async (error) => {
+          if (!acceptExactZeroOverlap) throw error;
+          const exactCandidates = results.filter((candidate) => normalizeText(candidate.name) === normalizeText(localPerson.name));
+          if (exactCandidates.length !== 1) throw error;
+          return {
+            person: await tmdb.getPerson(exactCandidates[0].externalIds.tmdb, { locale: "fr-FR" }),
+            matchedBy: "manual-exact-review",
+          };
+        });
+      }
       const person = resolved.person;
       const enrichedPerson = { ...person, localPersonId: localPerson.id, matchedBy: resolved.matchedBy, syncedAt: new Date().toISOString() };
       const previousIndex = overlay.people.findIndex((entry) => entry.localPersonId === localPerson.id);

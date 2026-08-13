@@ -38,7 +38,13 @@ export function createCatalogCache(storage = globalThis.localStorage) {
   return { load, savePerson, clear: () => storage?.removeItem(CATALOG_CACHE_KEY) };
 }
 
-export function createHybridCatalog({ database, fetchImpl = globalThis.fetch, storage = globalThis.localStorage, remoteEnabled = true } = {}) {
+export function createHybridCatalog({
+  database,
+  fetchImpl = globalThis.fetch,
+  storage = globalThis.localStorage,
+  remoteEnabled = true,
+  staticHydrate = null,
+} = {}) {
   const cache = createCatalogCache(storage);
   const cached = cache.load();
   for (const person of cached.people) database.upsertPerson(person, { source: "tmdb" });
@@ -100,6 +106,31 @@ export function createHybridCatalog({ database, fetchImpl = globalThis.fetch, st
   async function hydrate(candidate, { signal } = {}) {
     if (!candidate) return null;
     const existing = database.findActor(candidate.id) ?? database.findActor(candidate.name);
+    if (!remoteEnabled && staticHydrate) {
+      try {
+        return await staticHydrate(candidate, { signal }) ?? existing ?? database.upsertPerson(candidate, { source: candidate.source ?? "tmdb" });
+      } catch (error) {
+        if (error?.name === "AbortError") throw error;
+        return existing ?? database.upsertPerson(candidate, { source: candidate.source ?? "tmdb" });
+      }
+    }
+    if (remoteEnabled && existing?.id?.startsWith("person_") && existing.source !== "tmdb") {
+      try {
+        const payload = await fetchJson(`/api/catalog/people/local/${encodeURIComponent(existing.id)}`, { signal });
+        const remotePerson = payload.person;
+        const person = database.upsertPerson({
+          ...remotePerson,
+          id: existing.id,
+          name: existing.name,
+          aliases: [...new Set([...(remotePerson.aliases ?? []), remotePerson.name !== existing.name ? remotePerson.name : null].filter(Boolean))],
+        }, { source: "tmdb" });
+        cache.savePerson({ ...remotePerson, id: existing.id, name: existing.name });
+        return person;
+      } catch (error) {
+        if (error?.name === "AbortError") throw error;
+        return existing;
+      }
+    }
     if (existing && existing.creditCount && !String(candidate.origin ?? "").includes("tmdb")) return existing;
     const tmdbId = candidate.externalIds?.tmdb;
     if (!tmdbId) return existing ?? database.upsertPerson(candidate, { source: candidate.source ?? "manual" });

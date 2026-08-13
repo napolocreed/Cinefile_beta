@@ -31,3 +31,11 @@ test("TMDb movie and TV identifiers occupy distinct namespaces", () => {
   assert.notEqual(movie.id, series.id);
   assert.equal(freshDatabase.stats().works, 2);
 });
+
+test("a higher-priority canonical name preserves the previous name as an alias", () => {
+  const database = createDatabase({ people: [{ id: "person:42", name: "Stage Name", credits: [], source: "snapshot" }], works: [] });
+  const person = database.upsertPerson({ id: "person:42", name: "Canonical Name", credits: [] }, { source: "tmdb" });
+  assert.equal(person.name, "Canonical Name");
+  assert.equal(person.aliases.includes("Stage Name"), true);
+  assert.equal(database.findActor("Stage Name")?.id, "person:42");
+});

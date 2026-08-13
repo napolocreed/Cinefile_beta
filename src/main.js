@@ -1,5 +1,6 @@
 import { createDatabase, normalizeText } from "./game/database.js";
 import { CATALOG_CACHE_KEY, createHybridCatalog } from "./game/catalog.js";
+import { createStaticOverlay } from "./game/static-overlay.js";
 import {
   alivePlayers,
   createGame,
@@ -41,25 +42,24 @@ const storage = createStorage();
 const diagnostics = createDiagnostics();
 diagnostics.install(window);
 document.documentElement.toggleAttribute("data-large-text", storage.loadSettings().largeText === true);
+const overlayAsset = "src/data/tmdb-overlay-index.json";
 const [data, synonyms, overlay] = await Promise.all([
   fetch(assetUrl("src/data/cinema-knowledge.json")).then((response) => response.ok ? response.json() : Promise.reject(new Error("snapshot"))).catch(() => fetch(assetUrl("src/data/cinema-database.json")).then((response) => response.json())),
   fetch(assetUrl("src/data/cinema-synonyms.json")).then((response) => response.json()).catch(() => ({ people: [], works: [] })),
-  fetch(assetUrl("src/data/tmdb-overlay.json")).then((response) => response.ok ? response.json() : Promise.reject(new Error("overlay"))).catch(() => ({ version: 2, people: [], works: [] })),
+  CATALOG_MODE === "static"
+    ? fetch(assetUrl(overlayAsset)).then((response) => response.ok ? response.json() : Promise.reject(new Error("overlay"))).catch(() => ({ version: 1, people: [] }))
+    : Promise.resolve({ version: 1, people: [] }),
 ]);
 const database = createDatabase(data, { synonyms });
-const tmdbFreshnessLimit = Date.now() - 180 * 24 * 60 * 60 * 1000;
-const overlayWorkIdMap = new Map();
-for (const work of overlay.works ?? []) {
-  const mergedWork = database.upsertWork(work, { source: "tmdb" });
-  if (mergedWork) overlayWorkIdMap.set(work.id, mergedWork.id);
+let staticOverlay = null;
+if (CATALOG_MODE === "static") {
+  staticOverlay = createStaticOverlay({ database, index: overlay, resolveAsset: assetUrl });
 }
-const freshOverlayPeople = Array.isArray(overlay.people)
-  ? overlay.people
-    .filter((person) => Number.isFinite(Date.parse(person.syncedAt)) && Date.parse(person.syncedAt) >= tmdbFreshnessLimit)
-    .map((person) => ({ ...person, credits: (person.credits ?? []).map((credit) => typeof credit === "string" ? overlayWorkIdMap.get(credit) ?? credit : credit) }))
-  : [];
-if (freshOverlayPeople.length) database.upsertPeople(freshOverlayPeople, { source: "tmdb" });
-const catalog = createHybridCatalog({ database, remoteEnabled: CATALOG_MODE === "remote" });
+const catalog = createHybridCatalog({
+  database,
+  remoteEnabled: CATALOG_MODE === "remote",
+  staticHydrate: staticOverlay?.hydrate,
+});
 
 const state = {
   game: storage.loadCurrent(),
@@ -407,9 +407,9 @@ async function voiceCandidatesFor(transcript) {
 }
 
 async function hydrateVoiceCandidate(candidate) {
-  if (!candidate?.externalIds?.tmdb || !String(candidate.origin).includes("tmdb")) return database.findActor(candidate?.name) ?? candidate;
+  if (!candidate) return null;
   try {
-    return await catalog.hydrate(candidate);
+    return await catalog.hydrate(candidate) ?? database.findActor(candidate.name) ?? candidate;
   } catch {
     state.catalogStatus = { ...catalog.getState(), online: false };
     return database.findActor(candidate.name) ?? candidate;
@@ -653,9 +653,9 @@ async function submitActor() {
   try {
     let person = state.selectedPerson;
     if (!person || normalizeText(person.name) !== normalizeText(state.input)) person = database.findActor(state.input, state.game.config.themeId);
-    if (person?.externalIds?.tmdb && String(person.origin ?? "").includes("tmdb")) {
+    if (person) {
       try {
-        person = await catalog.hydrate(person);
+        person = await catalog.hydrate(person) ?? person;
       } catch {
         state.catalogStatus = { ...catalog.getState(), online: false };
       }

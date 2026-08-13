@@ -52,11 +52,11 @@ export function createTmdbClient({ token = process.env.TMDB_API_TOKEN, apiKey = 
     return response.json();
   }
 
-  async function searchPeople(query, { locale = "fr-FR", limit = 8 } = {}) {
-    const cacheKey = `search:${locale}:${query.toLocaleLowerCase("fr")}:${limit}`;
+  async function searchPeople(query, { locale = "fr-FR", limit = 8, includeAdult = false } = {}) {
+    const cacheKey = `search:${locale}:${includeAdult}:${query.toLocaleLowerCase("fr")}:${limit}`;
     const previous = cache.get(cacheKey);
     if (previous) return previous;
-    const payload = await request("/search/person", { query, language: locale, include_adult: "false", page: 1 });
+    const payload = await request("/search/person", { query, language: locale, include_adult: String(includeAdult), page: 1 });
     const results = (payload.results ?? []).slice(0, limit).map((person) => ({
       id: `tmdb:${person.id}`,
       name: person.name,

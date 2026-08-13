@@ -26,13 +26,13 @@ Le micro ne démarre jamais sans action explicite et Ciné-Fil ne stocke aucun f
 
 Le socle canonique contient :
 
-- 1 524 personnes ;
+- 1 523 identités uniques ;
 - 41 914 œuvres canoniques ;
-- 84 501 crédits ;
-- 409 fusions de titres traçables et réversibles ;
+- 84 497 crédits ;
+- 409 fusions de titres et une fusion d’identité traçables et réversibles ;
 - 144 candidats ambigus maintenus en revue plutôt que fusionnés automatiquement.
 
-Une première vague TMDb publiée enrichit 100 de ces personnes avec 15 547 œuvres compactées et 20 233 crédits distants. Après fusion prudente, le catalogue utilisé en jeu atteint actuellement 49 585 œuvres et 97 278 crédits, sans dupliquer les identités locales.
+La couverture TMDb publiée atteint désormais les 1 523 identités locales : 75 547 œuvres compactées et 162 784 crédits distants. Après fusion prudente, le catalogue utilisé en jeu atteint 91 873 œuvres et 203 228 crédits. Chaque association automatique possède au moins une œuvre commune; 16 cas de translittération, pseudonyme ou doublon TMDb ont été revus et consignés dans `src/data/tmdb-person-overrides.json`.
 
 Le jeu fonctionne entièrement avec ce snapshot. Pour activer la recherche et l’enrichissement TMDb, copier `.env.example` vers `.env` et fournir l’une de ces variables :
 
@@ -59,18 +59,20 @@ npm run sync:tmdb:env -- --limit=100
 
 La sortie locale `src/data/tmdb-overlay.local.json` est ignorée par Git afin qu’une synchronisation soit contrôlée avant intégration. Le fichier publié `src/data/tmdb-overlay.json` utilise un schéma compact et référentiel; les homonymes ne sont acceptés qu’avec un recouvrement filmographique décisif.
 
-Pour les vagues automatiques, créer dans GitHub `Settings → Secrets and variables → Actions` un secret de dépôt nommé `TMDB_API_TOKEN`. Le workflow `Enrich TMDb catalogue` traite ensuite 100 personnes par semaine, rafraîchit les données avant six mois, rejoue les tests et redéploie Pages. Le jeton ayant été partagé hors du gestionnaire de secrets, le renouveler avant cette configuration est recommandé.
+Pour les rafraîchissements automatiques, créer dans GitHub `Settings → Secrets and variables → Actions` un secret de dépôt nommé `TMDB_API_TOKEN`. Le workflow `Enrich TMDb catalogue` rafraîchit ensuite le catalogue par lots de 100, rejoue les tests et redéploie Pages. Le jeton ayant été partagé hors du gestionnaire de secrets, le renouveler avant cette configuration est recommandé.
+
+Sur Pages, le navigateur charge un index TMDb initial d’environ 756 Ko puis uniquement la filmographie de l’artiste sélectionné. Chaque shard consulté rejoint le cache hors ligne; le fichier source complet reste réservé à la génération et à la cible Node.
 
 ## Tests
 
 ```bash
-npm test             # 39 tests unitaires, intégration, données et propriétés
+npm test             # 46 tests unitaires, intégration, données et propriétés
 npm run test:e2e     # desktop + mobile avec un Chromium reproductible
 npm run test:e2e:pages # mêmes parcours sous /Cinefile_beta/
 npm run test:all     # totalité de la quality gate
 ```
 
-La suite vérifie notamment le moteur de partie, 250 séquences pseudo-aléatoires, la déduplication, les alias, TMDb, le cache hors ligne, le vocal, l’export/import, le serveur, la PWA et les parcours critiques sur deux tailles d’écran. GitHub Actions rejoue cette quality gate à chaque push et pull request.
+La suite vérifie notamment le moteur de partie, 250 séquences pseudo-aléatoires, la déduplication, les alias, l’unicité TMDb, les preuves filmographiques, les shards différés, le cache hors ligne, le vocal, l’export/import, le serveur, la PWA et les parcours critiques sur deux tailles d’écran. GitHub Actions rejoue cette quality gate à chaque push et pull request.
 
 ## Données et confidentialité
 
@@ -92,9 +94,9 @@ L’écran Profils permet d’exporter puis de restaurer ces données dans un JS
 - `src/game/engine.js` : règles déterministes et transitions immuables.
 - `src/game/database.js` : index canonique, alias, liens et recherche.
 - `src/game/catalog.js` : recherche hybride et cache navigateur.
-- `src/server/tmdb.js` : adaptateur TMDb côté serveur.
+- `src/server/` : adaptateur TMDb et catalogue publié chargé à la demande côté serveur.
 - `src/voice/` : capture vocale et résolution d’entités séparées.
-- `src/data/` : snapshot, synonymes, overlay TMDb compact, journal de fusion et métriques.
+- `src/data/` : snapshot, synonymes, registre d’identités revues, overlay TMDb compact, journal de fusion et métriques.
 - `scripts/` : reconstruction des données, build Pages et synchronisation incrémentale.
 - `test/` et `e2e/` : non-régression logique et navigateur.
 
@@ -104,7 +106,7 @@ La progression détaillée et les quelques tâches nécessitant un jeton ou une 
 
 ## Déploiements
 
-- **GitHub Pages** : `.github/workflows/pages.yml` construit une liste blanche statique compatible avec le sous-chemin du dépôt, teste le jeu et publie `dist/`. Aucun secret ni code serveur n’entre dans l’artefact.
+- **GitHub Pages** : `.github/workflows/pages.yml` construit une liste blanche statique compatible avec le sous-chemin du dépôt, génère les filmographies à la demande, teste le jeu et publie `dist/`. Aucun secret ni code serveur n’entre dans l’artefact.
 - **Serveur Node** : `npm start` respecte `PORT`, sert le fallback SPA et expose `/api/catalog/*` sans transmettre le jeton TMDb au navigateur. Cette cible est prête pour Railway, Render, Fly.io ou un hébergement équivalent dès qu’une fonction demande un backend permanent.
 
 GitHub Pages est donc un premier hébergement, pas une limite produit : le frontend et le moteur ne dépendent pas de cette plateforme.

@@ -171,8 +171,9 @@ export function createDatabase(data = {}, options = {}) {
     if (candidate) {
       const currentPriority = sourcePriority.get(candidate.source) ?? 0;
       const incomingPriority = sourcePriority.get(source) ?? 0;
+      const previousName = candidate.name;
       if (incomingPriority > currentPriority && name) candidate.name = name;
-      candidate.aliases = unique([...candidate.aliases, ...aliases]).filter((alias) => alias !== candidate.name);
+      candidate.aliases = unique([...candidate.aliases, ...aliases, previousName !== candidate.name ? previousName : null]).filter((alias) => alias !== candidate.name);
       candidate.roles = unique([...candidate.roles, ...(rawPerson.roles ?? [rawPerson.knownForDepartment?.toLowerCase()].filter(Boolean))]);
       candidate.tags = unique([...candidate.tags, ...(rawPerson.tags ?? [])]);
       candidate.credits = unique([...candidate.credits, ...credits]);

@@ -23,7 +23,10 @@ for (const entry of synonyms.works ?? []) {
   for (const value of values) workAliasToCanonical.set(strictIdentityKey(value), canonicalKey);
 }
 
-const personSynonyms = new Map((synonyms.people ?? []).map((entry) => [normalizeText(entry.canonical), entry]));
+const personSynonyms = new Map();
+for (const entry of synonyms.people ?? []) {
+  for (const value of [entry.canonical, ...(entry.aliases ?? [])]) personSynonyms.set(normalizeText(value), entry);
+}
 const filmOccurrences = new Map();
 for (const actor of legacy.actors ?? []) {
   for (const title of actor.films ?? []) filmOccurrences.set(title, (filmOccurrences.get(title) ?? 0) + 1);
@@ -89,11 +92,13 @@ for (const [groupKey, group] of [...workGroups].sort(([left], [right]) => left.l
 
 const peopleGroups = new Map();
 for (const rawPerson of legacy.actors ?? []) {
-  const key = normalizeText(rawPerson.name);
+  const synonym = personSynonyms.get(normalizeText(rawPerson.name));
+  const key = normalizeText(synonym?.canonical ?? rawPerson.name);
   if (!key) continue;
   const previous = peopleGroups.get(key);
-  if (!previous) peopleGroups.set(key, { ...rawPerson, films: new Set(rawPerson.films ?? []), tags: new Set(rawPerson.tags ?? []) });
+  if (!previous) peopleGroups.set(key, { ...rawPerson, names: new Set([rawPerson.name]), films: new Set(rawPerson.films ?? []), tags: new Set(rawPerson.tags ?? []) });
   else {
+    previous.names.add(rawPerson.name);
     for (const title of rawPerson.films ?? []) previous.films.add(title);
     for (const tag of rawPerson.tags ?? []) previous.tags.add(tag);
   }
@@ -103,7 +108,8 @@ const people = [];
 for (const [key, rawPerson] of peopleGroups) {
   const synonym = personSynonyms.get(key);
   const name = synonym?.canonical ?? rawPerson.name;
-  const aliases = [...new Set([...(synonym?.aliases ?? []), ...(name !== rawPerson.name ? [rawPerson.name] : [])])]
+  const sourceNames = [...rawPerson.names];
+  const aliases = [...new Set([...(synonym?.aliases ?? []), ...sourceNames])]
     .filter((alias) => normalizeText(alias) !== normalizeText(name) || alias !== name);
   const credits = [...rawPerson.films]
     .map((title) => workIdBySourceTitle.get(strictIdentityKey(title)))
@@ -122,6 +128,17 @@ for (const [key, rawPerson] of peopleGroups) {
     credits: [...new Set(credits)],
     source: "lovable-recovery",
   });
+  if (sourceNames.length > 1) {
+    mergeLog.push({
+      entity: "person",
+      canonicalId: stableId("person", key),
+      kept: name,
+      merged: sourceNames.filter((sourceName) => sourceName !== name),
+      strategy: "curated-person-synonym",
+      confidence: 1,
+      reversible: true,
+    });
+  }
 }
 
 const fuzzyTitleGroups = new Map();
@@ -145,7 +162,7 @@ const quality = {
   credits: people.reduce((sum, person) => sum + person.credits.length, 0),
   aliases: people.reduce((sum, person) => sum + person.aliases.length, 0) + works.reduce((sum, work) => sum + work.aliases.length, 0),
   automaticMerges: mergeLog.filter((entry) => entry.strategy === "strict-title").length,
-  curatedMerges: mergeLog.filter((entry) => entry.strategy === "curated-synonym").length,
+  curatedMerges: mergeLog.filter((entry) => entry.strategy === "curated-synonym" || entry.strategy === "curated-person-synonym").length,
   reviewCandidates: reviewCandidates.length,
   orphanWorks: orphanWorks.size,
   peopleWithoutCredits: people.filter((person) => !person.credits.length).length,
