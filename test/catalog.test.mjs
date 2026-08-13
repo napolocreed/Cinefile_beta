@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createDatabase } from "../src/game/database.js";
-import { createHybridCatalog } from "../src/game/catalog.js";
+import { createHybridCatalog, createVerificationSearchLinks } from "../src/game/catalog.js";
 
 function memoryStorage() {
   const values = new Map();
@@ -101,4 +101,68 @@ test("static catalogue mode never calls a server API", async () => {
   assert.equal(status.source, "snapshot");
   assert.deepEqual(result.results.map((person) => person.name), ["Alice Local"]);
   assert.equal(fetchCalls, 0);
+});
+
+test("link verification prefers local evidence and never calls the remote cascade", async () => {
+  const database = createDatabase({ actors: [{ name: "Alice", films: ["Film A"] }, { name: "Bob", films: ["Film A"] }], films: ["Film A"] });
+  let fetchCalls = 0;
+  const catalog = createHybridCatalog({ database, storage: memoryStorage(), fetchImpl: async () => { fetchCalls += 1; } });
+  const result = await catalog.verifyLink("Alice", "Bob");
+  assert.equal(result.verdict, "CONFIRMED");
+  assert.equal(result.source, "local");
+  assert.deepEqual(result.films.map((film) => film.title), ["Film A"]);
+  assert.equal(fetchCalls, 0);
+});
+
+test("remote link verification sends stable IDs and preserves human search links", async () => {
+  const database = createDatabase({
+    people: [
+      { id: "person_a", name: "Alice", externalIds: { tmdb: 10 }, credits: [] },
+      { id: "person_b", name: "Bob", externalIds: { tmdb: 20 }, credits: [] },
+    ],
+    works: [],
+  });
+  let requestedUrl;
+  const catalog = createHybridCatalog({ database, storage: memoryStorage(), fetchImpl: async (url) => {
+    requestedUrl = String(url);
+    return jsonResponse({ verdict: "NOT_FOUND", source: "none", films: [], evidence: [] });
+  } });
+  const result = await catalog.verifyLink("Alice", "Bob");
+  assert.equal(result.verdict, "NOT_FOUND");
+  assert.equal(new URL(requestedUrl, "https://cinefil.test").searchParams.get("leftTmdbId"), "10");
+  assert.equal(new URL(requestedUrl, "https://cinefil.test").searchParams.get("rightTmdbId"), "20");
+  assert.match(result.searchLinks.google, /Alice/);
+});
+
+test("static link verification stays offline and produces deterministic VAR links", async () => {
+  const database = createDatabase({ actors: [{ name: "Alice", films: [] }, { name: "Bob", films: [] }], films: [] });
+  let fetchCalls = 0;
+  const catalog = createHybridCatalog({ database, storage: memoryStorage(), remoteEnabled: false, fetchImpl: async () => { fetchCalls += 1; } });
+  const result = await catalog.verifyLink("Alice", "Bob");
+  assert.equal(result.verdict, "UNKNOWN");
+  assert.equal(result.offline, true);
+  assert.equal(fetchCalls, 0);
+  assert.deepEqual(Object.keys(createVerificationSearchLinks("Alice", "Bob")), ["google", "duckduckgo", "qwant", "wikipedia"]);
+});
+
+test("positive fallback evidence teaches the local catalogue across sessions", async () => {
+  const storage = memoryStorage();
+  const seed = { actors: [{ name: "Alice", films: [] }, { name: "Bob", films: [] }], films: [] };
+  const database = createDatabase(seed);
+  const catalog = createHybridCatalog({ database, storage, fetchImpl: async () => jsonResponse({
+    verdict: "CONFIRMED",
+    source: "wikidata",
+    films: [{ title: "Film retrouvé", year: 1999, qid: "Q999" }],
+    evidence: [],
+  }) });
+  const result = await catalog.verifyLink("Alice", "Bob");
+  assert.equal(result.verdict, "CONFIRMED");
+  assert.deepEqual(database.sharedFilms("Alice", "Bob"), ["Film retrouvé"]);
+  assert.match(storage.getItem("cinefil.verification-cache.v1"), /Film retrouvé/);
+
+  const reloadedDatabase = createDatabase(seed);
+  const offlineCatalog = createHybridCatalog({ database: reloadedDatabase, storage, remoteEnabled: false });
+  assert.deepEqual(reloadedDatabase.sharedFilms("Alice", "Bob"), ["Film retrouvé"]);
+  assert.equal((await offlineCatalog.verifyLink("Alice", "Bob")).source, "local");
+  assert.equal(offlineCatalog.getVerificationCache().links.length, 1);
 });

@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v6-lazy-shards";
+const CACHE_NAME = "cinefil-v8-universal-learning";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [
@@ -56,6 +56,14 @@ self.addEventListener("fetch", (event) => {
       caches.open(CACHE_NAME).then((cache) => cache.put(APP_SHELL, copy));
       return response;
     }).catch(() => caches.match(APP_SHELL)));
+    return;
+  }
+  const runtimeSource = /\/src\/.*\.(?:js|css)$/.test(url.pathname);
+  if (runtimeSource) {
+    event.respondWith(fetch(request, { cache: "no-cache" }).then((response) => {
+      if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
+      return response;
+    }).catch(() => caches.match(request)));
     return;
   }
   event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {

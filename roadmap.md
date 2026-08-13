@@ -1,6 +1,6 @@
 # Ciné-Fil — feuille de route
 
-Mise à jour le 13 août 2026. La reconstruction, le déploiement statique et la couverture TMDb de toutes les identités locales sont traités. Les cases restantes demandent surtout une validation éditoriale ou des essais sur appareils réels.
+Mise à jour le 13 août 2026. La reconstruction, le déploiement statique, la couverture TMDb et le fallback universel de vérification sont traités. Les cases restantes demandent surtout une validation éditoriale, juridique ou des essais sur appareils réels.
 
 ## Socle autonome — livré
 
@@ -64,8 +64,8 @@ Mise à jour le 13 août 2026. La reconstruction, le déploiement statique et la
 
 ## Phase 5 — qualité produit — livrée
 
-- [x] 46 tests unitaires, d’intégration, de données et de propriétés, dont 250 parties pseudo-aléatoires.
-- [x] 7 parcours navigateur locaux et 10 parcours Pages réussis sur desktop/mobile, avec contrôles hors-ligne, sous-chemin et chargement différé.
+- [x] 59 tests unitaires, d’intégration, de données et de propriétés, dont 250 parties pseudo-aléatoires.
+- [x] 8 parcours navigateur locaux et 11 parcours Pages réussis sur desktop/mobile, avec contrôles hors-ligne, sous-chemin, chargement différé et VAR.
 - [x] CI GitHub avec rapport Playwright en cas d’échec.
 - [x] Déploiement GitHub Pages depuis Actions, artefact sur liste blanche et garde anti-secret.
 - [x] PWA installable et shell complet disponible hors connexion.
@@ -74,11 +74,27 @@ Mise à jour le 13 août 2026. La reconstruction, le déploiement statique et la
 - [x] Export/import JSON validé des parties, profils, réglages et cache cinéma.
 - [x] Diagnostics locaux strictement opt-in, limités à 30 entrées et jamais envoyés.
 
+## Phase 6 — fallback universel et VAR — livrée
+
+- [x] Endpoint serveur unique `/api/verify-link` et contrat explicite `CONFIRMED` / `PROBABLE` / `NOT_FOUND` / `UNKNOWN`.
+- [x] TMDb prioritaire lorsqu’il est configuré, sans exposition du secret au navigateur.
+- [x] Résolution multilingue des identités Wikidata puis intersection SPARQL sur acteurs, réalisateurs, scénaristes, compositeurs, producteurs, directeurs photo et monteurs.
+- [x] QLever primaire, WDQS en secours, préfixes SPARQL explicites, timeout court et respect du `User-Agent` Wikimedia.
+- [x] Recherche Wikipédia fr/en classée comme indice probable, jamais comme validation automatique.
+- [x] Cache LRU serveur avec durée longue pour les preuves positives et courte pour les absences.
+- [x] Coalescence des requêtes identiques, concurrence amont bornée et métriques anonymes dans `/api/catalog/status`.
+- [x] Salle VAR Old School Hollywood avec preuves internes, recherches Google/DuckDuckGo/Qwant/Wikipédia et arbitrage humain.
+- [x] Même arbitrage dans le mode classique et le mode vocal passif.
+- [x] Apprentissage local réservé aux confirmations positives, persistant hors connexion et inclus dans l’export/import.
+- [x] Repli statique Pages sans appel API et sans verdict négatif automatique.
+- [x] Tests simulant réponses, timeouts, panne QLever, repli WDQS, cooccurrence Wikipédia, cache, surcharge, moteur, sauvegarde et parcours navigateur.
+- [ ] Mesurer sur des parties réelles la distribution des sources, les latences P95 et les liens encore introuvables avant d’envisager IMDb local.
+
 ## Prochain cycle éditorial
 
 1. Ajouter le secret GitHub `TMDB_API_TOKEN`, puis laisser les vagues hebdomadaires rafraîchir la couverture complète.
 2. Examiner les 144 rapprochements de titres historiques et enrichir les dictionnaires de synonymes.
 3. Tester le vocal sur Chrome Android, Safari iOS et plusieurs environnements sonores.
-4. Mesurer les liens manquants observés en partie et prioriser les zones faibles de la base.
+4. Déployer la cible Node pour mesurer les verdicts anonymes, les latences et les liens manquants observés en partie ; prioriser ensuite les zones faibles de la base.
 5. Choisir un hébergement Node/Postgres dès qu’une fonction exige du temps réel, des comptes ou un traitement vocal serveur.
 6. Effectuer un audit juridique avant toute intégration Allociné ou redistribution massive de données tierces.

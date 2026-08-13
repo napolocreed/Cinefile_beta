@@ -106,3 +106,38 @@ test("GitHub Pages lazily fetches only the selected enriched filmography", async
   expect(shardRequests[0]).toMatch(/\/tmdb-shards\/person_0rl93xi\.json$/);
   expect(monolithRequests).toEqual([]);
 });
+
+test("an uncertain bluff opens the human VAR without treating absence as proof", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "One browser project covers the VAR decision flow.");
+  await page.route("**/api/verify-link?*", async (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      verdict: "NOT_FOUND",
+      source: "none",
+      films: [],
+      evidence: [],
+      searchLinks: {
+        google: "https://www.google.com/search?q=cinema",
+        wikipedia: "https://fr.wikipedia.org/w/index.php?search=cinema",
+      },
+    }),
+  }));
+  await page.goto(appPath("/setup"));
+  await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
+  await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+  await page.getByRole("button", { name: /Je suis prêt/i }).click();
+  await page.getByLabel("Ton artiste").fill("Leonardo DiCaprio");
+  await page.getByRole("option", { name: /Leonardo DiCaprio/i }).first().click();
+  await page.getByRole("button", { name: /Valider/i }).click();
+  await page.getByRole("button", { name: /Je suis prêt/i }).click();
+  await page.getByLabel("Ton artiste").fill("Artiste Totalement Inconnu");
+  await page.getByRole("button", { name: /Valider/i }).click();
+  await page.getByRole("button", { name: /Bluff !/i }).click();
+  await expect(page.getByRole("heading", { name: /La VAR vous rend la décision/i })).toBeVisible();
+  await expect(page.getByText(/ne prouve jamais|jugement humain reste prioritaire/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: /Google/i })).toBeVisible();
+  await page.getByRole("button", { name: /Bluff confirmé/i }).click();
+  await expect(page.locator(".verdict--invalid")).toContainText("Invalide");
+});

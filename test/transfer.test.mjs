@@ -31,7 +31,11 @@ test("a validated backup round-trips game, profiles, history, settings and catal
   source.saveProfiles({ alice: { name: "Alice", games: 2 } });
   source.replaceApplied(["old-game"]);
   source.saveSettings({ localDiagnostics: true });
-  const backup = createBackup(source, { catalogCache: { version: 1, people: [{ name: "Remote Artist" }] }, now: () => 0 });
+  const backup = createBackup(source, {
+    catalogCache: { version: 1, people: [{ name: "Remote Artist" }] },
+    verificationCache: { version: 1, links: [{ left: { name: "Alice" }, right: { name: "Bob" }, films: [{ title: "Film retrouvé" }] }] },
+    now: () => 0,
+  });
   const parsed = parseBackup(JSON.stringify(backup));
 
   const targetStorage = memoryStorage();
@@ -42,12 +46,20 @@ test("a validated backup round-trips game, profiles, history, settings and catal
   assert.equal(target.loadCurrent().id, "portable-game");
   assert.equal(target.loadSettings().localDiagnostics, true);
   assert.match(targetStorage.getItem("cinefil.catalog-cache.v1"), /Remote Artist/);
+  assert.match(targetStorage.getItem("cinefil.verification-cache.v1"), /Film retrouvé/);
+  assert.equal(restored.verifiedLinks, 1);
 });
 
 test("malformed and oversized imports are rejected before storage changes", () => {
   assert.throws(() => parseBackup("not-json"), /corrompu/);
   assert.throws(() => parseBackup(JSON.stringify({ format: "something-else" })), /pas une sauvegarde/);
   assert.throws(() => parseBackup("0123456789", { maxBytes: 5 }), /volumineuse/);
+  const poisoned = createBackup(createStorage(memoryStorage()));
+  poisoned.data.verificationCache = {
+    version: 1,
+    links: [{ left: { name: "Alice" }, right: { name: "Bob" }, films: Array.from({ length: 21 }, () => ({ title: "Film" })) }],
+  };
+  assert.throws(() => parseBackup(JSON.stringify(poisoned)), /Cache de vérification invalide/);
 });
 
 test("diagnostics stay local, opt-in and capped", () => {
