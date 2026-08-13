@@ -64,7 +64,7 @@ test("passive voice only advances the chain on an explicit validation", async ({
   await page.getByText("Correction / saisie de secours").click();
   await page.getByLabel(/Nom entendu pour/i).fill("Leonardo DiCaprio");
   await page.getByRole("button", { name: "Détecter" }).click();
-  await expect(page.locator(".voice-detection strong").filter({ hasText: "Leonardo DiCaprio" })).toBeVisible();
+  await expect(page.locator(".voice-pick__name").filter({ hasText: "Leonardo DiCaprio" })).toBeVisible();
   // A detection alone must not hand the turn over.
   expect(await turn.innerText()).toBe(speaker);
   await expect(page.getByRole("button", { name: /BLUFF/i })).toBeDisabled();
@@ -147,6 +147,12 @@ test("an uncertain bluff opens the human VAR without treating absence as proof",
       source: "none",
       films: [],
       evidence: [],
+      durationMs: 2400,
+      steps: [
+        { source: "tmdb", outcome: "empty", durationMs: 420, films: 0, error: null },
+        { source: "wikidata", outcome: "empty", durationMs: 980, films: 0, error: null },
+        { source: "wikipedia", outcome: "empty", durationMs: 1310, films: 0, error: null },
+      ],
       searchLinks: {
         google: "https://www.google.com/search?q=cinema",
         wikipedia: "https://fr.wikipedia.org/w/index.php?search=cinema",
@@ -167,6 +173,13 @@ test("an uncertain bluff opens the human VAR without treating absence as proof",
   await page.getByRole("button", { name: /Bluff !/i }).click();
   await expect(page.getByRole("heading", { name: /La VAR vous rend la décision/i })).toBeVisible();
   await expect(page.getByText(/ne prouve jamais|jugement humain reste prioritaire/i)).toBeVisible();
+  // The cascade is reported in full: the local base first, then each external source that was actually asked.
+  const steps = page.locator(".var-step");
+  await expect(steps).toHaveCount(4);
+  await expect(steps.first()).toContainText("base Ciné-Fil");
+  await expect(steps.nth(3)).toContainText("Wikipédia");
+  await expect(page.locator(".var-cascade__foot")).toContainText("Aucune source n’a produit de preuve");
+  await expect(page.locator(".var-step--found")).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Google/i })).toBeVisible();
   await page.getByRole("button", { name: /Bluff confirmé/i }).click();
   await expect(page.locator(".verdict--invalid")).toContainText("Invalide");

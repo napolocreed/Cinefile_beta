@@ -273,11 +273,15 @@ export function createHybridCatalog({
       url: work.externalIds?.tmdbMovie ? `https://www.themoviedb.org/movie/${work.externalIds.tmdbMovie}` : null,
       source: "local",
     }));
+    // The cascade always starts at home; recording that step keeps the trail readable even when it stops here.
+    const localStep = { source: "local", outcome: localFilms.length ? "confirmed" : "empty", durationMs: 0, films: localFilms.length, error: null };
+    const unreached = (source, outcome) => ({ source, outcome, durationMs: 0, films: 0, error: null });
     if (localFilms.length) {
-      return { verdict: "CONFIRMED", source: "local", films: localFilms, evidence: localFilms, searchLinks, cached: true, durationMs: 0 };
+      return { verdict: "CONFIRMED", source: "local", films: localFilms, evidence: localFilms, searchLinks, cached: true, durationMs: 0, steps: [localStep, unreached("tmdb", "not-reached"), unreached("wikidata", "not-reached"), unreached("wikipedia", "not-reached")] };
     }
     if (!remoteEnabled || globalThis.navigator?.onLine === false) {
-      return { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks, offline: true };
+      const outcome = remoteEnabled ? "error" : "skipped";
+      return { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks, offline: true, steps: [localStep, unreached("tmdb", outcome), unreached("wikidata", outcome), unreached("wikipedia", outcome)] };
     }
     try {
       const parameters = new URLSearchParams({ left: leftName, right: rightName, locale });
@@ -290,10 +294,10 @@ export function createHybridCatalog({
         const entry = verificationCache.save(leftReference, rightReference, payload);
         if (entry) applyVerifiedLink(database, entry);
       }
-      return { ...payload, searchLinks: payload.searchLinks ?? searchLinks };
+      return { ...payload, searchLinks: payload.searchLinks ?? searchLinks, steps: [localStep, ...(Array.isArray(payload.steps) ? payload.steps : [])] };
     } catch (error) {
       if (error?.name === "AbortError") throw error;
-      return { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks, error: "unavailable" };
+      return { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks, error: "unavailable", steps: [localStep, unreached("tmdb", "error"), unreached("wikidata", "error"), unreached("wikipedia", "error")] };
     }
   }
 

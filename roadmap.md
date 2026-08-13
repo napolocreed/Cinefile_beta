@@ -67,12 +67,14 @@ Mise à jour le 13 août 2026. La reconstruction, le déploiement statique, la c
 - [x] Départage discret par filmographie commune, jamais affiché pour ne pas trahir le bluff.
 - [x] Ruban de chaîne permanent et repli « hors catalogue » explicitement soumis au vote.
 - [x] Banc d’essai de 30 déformations vocales françaises : 29 bonnes réponses en tête, 30 dans les trois premières, résolution en ~10 ms sur 1 523 identités.
+- [x] Portraits TMDb sur chaque proposition vocale et dans l’autocomplétion classique, avec repli sur l’initiale gravée hors connexion; index dédié de 77 Ko pour la cible Node, déjà présent dans l’overlay de la cible Pages.
+- [x] Cascade de vérification rendue lisible : étapes ordonnées, issue et durée de chacune, mise en évidence de celle qui a fourni la preuve.
 - [ ] Tester et calibrer les accents/bruits réels sur un panel de téléphones; la disponibilité de Web Speech dépend du navigateur et du système.
 
 ## Phase 5 — qualité produit — livrée
 
-- [x] 59 tests unitaires, d’intégration, de données et de propriétés, dont 250 parties pseudo-aléatoires.
-- [x] 8 parcours navigateur locaux et 11 parcours Pages réussis sur desktop/mobile, avec contrôles hors-ligne, sous-chemin, chargement différé et VAR.
+- [x] 71 tests unitaires, d’intégration, de données et de propriétés, dont 250 parties pseudo-aléatoires et un banc phonétique français.
+- [x] 9 parcours navigateur locaux et 12 parcours Pages réussis sur desktop/mobile, avec contrôles hors-ligne, sous-chemin, chargement différé, validation vocale explicite et cascade VAR.
 - [x] CI GitHub avec rapport Playwright en cas d’échec.
 - [x] Déploiement GitHub Pages depuis Actions, artefact sur liste blanche et garde anti-secret.
 - [x] PWA installable et shell complet disponible hors connexion.

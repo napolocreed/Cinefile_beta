@@ -32,6 +32,7 @@ const CORE = [
 ].map((path) => new URL(path, BASE_URL).href);
 const OPTIONAL = [
   "src/data/tmdb-overlay-index.json",
+  "src/data/tmdb-portraits.json",
 ].map((path) => new URL(path, BASE_URL).href);
 
 self.addEventListener("install", (event) => {

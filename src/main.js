@@ -46,18 +46,23 @@ const diagnostics = createDiagnostics();
 diagnostics.install(window);
 document.documentElement.toggleAttribute("data-large-text", storage.loadSettings().largeText === true);
 const overlayAsset = "src/data/tmdb-overlay-index.json";
-const [data, synonyms, overlay] = await Promise.all([
+const [data, synonyms, overlay, portraits] = await Promise.all([
   fetch(assetUrl("src/data/cinema-knowledge.json")).then((response) => response.ok ? response.json() : Promise.reject(new Error("snapshot"))).catch(() => fetch(assetUrl("src/data/cinema-database.json")).then((response) => response.json())),
   fetch(assetUrl("src/data/cinema-synonyms.json")).then((response) => response.json()).catch(() => ({ people: [], works: [] })),
   CATALOG_MODE === "static"
     ? fetch(assetUrl(overlayAsset)).then((response) => response.ok ? response.json() : Promise.reject(new Error("overlay"))).catch(() => ({ version: 1, people: [] }))
     : Promise.resolve({ version: 1, people: [] }),
+  // The static edition already carries portraits in its overlay index; the server edition loads them alone.
+  CATALOG_MODE === "static"
+    ? Promise.resolve(null)
+    : fetch(assetUrl("src/data/tmdb-portraits.json")).then((response) => response.ok ? response.json() : null).catch(() => null),
 ]);
 const database = createDatabase(data, { synonyms });
 let staticOverlay = null;
 if (CATALOG_MODE === "static") {
   staticOverlay = createStaticOverlay({ database, index: overlay, resolveAsset: assetUrl });
 }
+if (portraits) database.attachPortraits(portraits);
 const catalog = createHybridCatalog({
   database,
   remoteEnabled: CATALOG_MODE === "remote",
@@ -104,6 +109,35 @@ function verificationSourceLabel(source) {
   return ({ local: "base Ciné-Fil", tmdb: "TMDb", wikidata: "Wikidata", wikipedia: "Wikipédia", none: "sources externes" })[source] ?? source ?? "sources externes";
 }
 
+const VERIFICATION_OUTCOMES = Object.freeze({
+  confirmed: { label: "preuve trouvée", tone: "found" },
+  probable: { label: "indice trouvé", tone: "hint" },
+  empty: { label: "rien trouvé", tone: "empty" },
+  skipped: { label: "non configurée", tone: "idle" },
+  error: { label: "injoignable", tone: "error" },
+  "not-reached": { label: "inutile", tone: "idle" },
+  abandoned: { label: "abandonnée", tone: "idle" },
+});
+
+// The cascade is the interesting part of a verdict: who was asked, in which order, and where it stopped.
+function verificationCascadeMarkup(verification) {
+  const steps = Array.isArray(verification?.steps) ? verification.steps : [];
+  if (!steps.length) return "";
+  const stopIndex = steps.findIndex((step) => step.outcome === "confirmed" || step.outcome === "probable");
+  const rows = steps.map((step, index) => {
+    const outcome = VERIFICATION_OUTCOMES[step.outcome] ?? VERIFICATION_OUTCOMES.empty;
+    const found = index === stopIndex;
+    const duration = Number(step.durationMs) > 0 ? `${(Number(step.durationMs) / 1000).toFixed(Number(step.durationMs) >= 1000 ? 1 : 2)} s` : "—";
+    const films = found && Number(step.films) > 0 ? `${step.films} œuvre${step.films > 1 ? "s" : ""}` : outcome.label;
+    return `<li class="var-step var-step--${outcome.tone} ${found ? "var-step--found" : ""}"><span class="var-step__rank">${String(index + 1).padStart(2, "0")}</span><span class="var-step__source">${escapeHtml(verificationSourceLabel(step.source))}</span><span class="var-step__outcome">${escapeHtml(films)}</span><span class="var-step__time">${escapeHtml(duration)}</span></li>`;
+  }).join("");
+  const total = Number(verification?.durationMs);
+  const footer = stopIndex >= 0
+    ? `Preuve retenue à l’étape ${String(stopIndex + 1).padStart(2, "0")} · ${escapeHtml(verificationSourceLabel(steps[stopIndex].source))}`
+    : "Aucune source n’a produit de preuve";
+  return `<div class="var-cascade"><small>Cascade de vérification</small><ol class="var-steps">${rows}</ol><p class="var-cascade__foot">${footer}${Number.isFinite(total) && total > 0 ? ` · ${(total / 1000).toFixed(1)} s au total` : ""}${verification?.cached ? " · réponse déjà connue" : ""}</p></div>`;
+}
+
 function verificationPanelMarkup(verification) {
   const candidateVerdict = verification?.verdict ?? "UNKNOWN";
   const verdict = ["CONFIRMED", "PROBABLE", "NOT_FOUND", "UNKNOWN"].includes(candidateVerdict) ? candidateVerdict : "UNKNOWN";
@@ -122,7 +156,7 @@ function verificationPanelMarkup(verification) {
     const href = safeExternalHref(value);
     return href ? `<a class="var-link" href="${href}" target="_blank" rel="noopener noreferrer">${labels[key] ?? escapeHtml(key)}</a>` : "";
   }).join("");
-  return `<section class="var-panel var-panel--${verdict.toLowerCase()}"><span class="var-panel__status">${escapeHtml(copy[0])}</span><p>${escapeHtml(copy[1])}</p>${evidence ? `<div class="var-evidence"><small>Indices récoltés</small><ul>${evidence}</ul></div>` : ""}<div class="var-links" aria-label="Recherches manuelles">${links}</div></section>`;
+  return `<section class="var-panel var-panel--${verdict.toLowerCase()}"><span class="var-panel__status">${escapeHtml(copy[0])}</span><p>${escapeHtml(copy[1])}</p>${verificationCascadeMarkup(verification)}${evidence ? `<div class="var-evidence"><small>Indices récoltés</small><ul>${evidence}</ul></div>` : ""}<div class="var-links" aria-label="Recherches manuelles">${links}</div></section>`;
 }
 
 const voiceResolver = createVoiceResolver(database);
@@ -282,7 +316,7 @@ function suggestionsMarkup() {
       ? person.knownFor.join(" · ")
       : `${roleLabel(person)} · ${person.creditCount ?? person.films?.length ?? 0} crédit${(person.creditCount ?? person.films?.length ?? 0) > 1 ? "s" : ""}`;
     const source = String(person.origin ?? "").includes("tmdb") ? "TMDb" : "Local";
-    return `<button type="button" role="option" data-suggestion-index="${index}" aria-selected="${state.selectedPerson?.id === person.id}">${person.profilePath ? `<img src="${escapeHtml(person.profilePath)}" alt="" loading="lazy">` : `<span class="suggestion-avatar" aria-hidden="true">${escapeHtml(person.name.slice(0, 1))}</span>`}<span><strong>${escapeHtml(person.name)}</strong><small>${escapeHtml(details)}</small></span><em>${source}</em></button>`;
+    return `<button type="button" role="option" data-suggestion-index="${index}" aria-selected="${state.selectedPerson?.id === person.id}">${pictureMarkup(person.profilePath, person.name, "suggestion-portrait", "suggestion-avatar")}<span><strong>${escapeHtml(person.name)}</strong><small>${escapeHtml(details)}</small></span><em>${source}</em></button>`;
   }).join("");
 }
 
@@ -359,8 +393,35 @@ function compactVoiceCandidate(person, confidence = person.confidence ?? person.
     externalIds: person.externalIds ?? {},
     popularity: Number(person.popularity ?? 0),
     matchedText: person.matchedText ?? null,
+    profilePath: person.profilePath ?? null,
   };
 }
+
+function initialOf(name) {
+  return escapeHtml(String(name ?? "?").trim().slice(0, 1).toLocaleUpperCase("fr") || "?");
+}
+
+function pictureMarkup(path, name, className, emptyClassName) {
+  if (!path) return `<span class="${emptyClassName}" aria-hidden="true">${initialOf(name)}</span>`;
+  return `<img class="${className}" src="${escapeHtml(path)}" alt="" loading="lazy" decoding="async" data-initial="${initialOf(name)}" data-fallback="${emptyClassName}">`;
+}
+
+function portraitMarkup(candidate, modifier = "") {
+  const path = candidate?.profilePath ?? database.findActor(candidate?.name)?.profilePath ?? null;
+  return pictureMarkup(path, candidate?.name, `portrait ${modifier}`, `portrait ${modifier} portrait--empty`);
+}
+
+// Portraits come from a remote image host. Offline, or behind a filtering network, the frame falls back to an
+// engraved initial rather than a broken image.
+document.addEventListener("error", (event) => {
+  const image = event.target;
+  if (!(image instanceof HTMLImageElement) || !image.dataset.initial) return;
+  const replacement = document.createElement("span");
+  replacement.className = image.dataset.fallback ?? "";
+  replacement.setAttribute("aria-hidden", "true");
+  replacement.textContent = image.dataset.initial;
+  image.replaceWith(replacement);
+}, true);
 
 function voiceCandidateList(entry, { review = false, side = "" } = {}) {
   if (!entry?.candidates?.length) return `<p class="voice-empty">Aucune proposition</p>`;
@@ -393,11 +454,11 @@ function voiceTurnCandidates() {
 function voicePickListMarkup() {
   const candidates = voiceTurnCandidates();
   if (candidates.length) {
-    return `<div class="voice-picks" role="list">${candidates.map((candidate, index) => `<button type="button" role="listitem" class="voice-pick" data-voice-validate="${index}"><span class="voice-pick__name">${escapeHtml(candidate.name)}</span><small>${candidateConfidenceLabel(candidate.confidence)}${candidate.matchedText ? ` · entendu «&nbsp;${escapeHtml(candidate.matchedText)}&nbsp;»` : ""}</small><em>Valider</em></button>`).join("")}</div>`;
+    return `<div class="voice-picks" role="list">${candidates.map((candidate, index) => `<button type="button" role="listitem" class="voice-pick ${index === 0 ? "voice-pick--lead" : ""}" data-voice-validate="${index}">${portraitMarkup(candidate, index === 0 ? "portrait--lead" : "")}<span class="voice-pick__body"><span class="voice-pick__name">${escapeHtml(candidate.name)}</span><small>${candidateConfidenceLabel(candidate.confidence)}${candidate.matchedText ? ` · entendu «&nbsp;${escapeHtml(candidate.matchedText)}&nbsp;»` : ""}</small></span><em>Valider</em></button>`).join("")}</div>`;
   }
   const guess = spokenNameGuess(state.voice.turn.buffer.lastTranscript());
   if (guess) {
-    return `<div class="voice-picks" role="list"><button type="button" role="listitem" class="voice-pick voice-pick--raw" data-voice-validate="raw"><span class="voice-pick__name">${escapeHtml(guess)}</span><small>hors catalogue · le groupe tranchera par vote</small><em>Valider</em></button></div>`;
+    return `<div class="voice-picks" role="list"><button type="button" role="listitem" class="voice-pick voice-pick--raw" data-voice-validate="raw">${portraitMarkup({ name: guess })}<span class="voice-pick__body"><span class="voice-pick__name">${escapeHtml(guess)}</span><small>hors catalogue · le groupe tranchera par vote</small></span><em>Valider</em></button></div>`;
   }
   return `<p class="voice-empty">Prononcez un nom d’artiste, il apparaîtra ici.</p>`;
 }
@@ -409,8 +470,10 @@ function voicePlayerSection(player, index, activePlayer) {
   const timer = active ? (seconds === null ? "∞" : `${seconds}s`) : "—";
   const heard = state.voice.turn.buffer.heard().slice(-2).map((line) => escapeHtml(line.transcript)).join(" · ");
   const body = active
-    ? `<small>Vos propositions</small><strong>${escapeHtml(voiceTurnCandidates()[0]?.name ?? entry?.actorName ?? "—")}</strong>${voicePickListMarkup()}${heard ? `<p class="voice-heard">Entendu : ${heard}</p>` : ""}`
-    : `<small>${entry ? "Dernier nom validé" : "En attente"}</small><strong>${escapeHtml(entry?.actorName ?? "—")}</strong>${entry && state.pending && entry.playerId === state.pending.playerId ? `<p class="voice-correct">Mauvaise identité ? Corrigez avant la décision.</p>${voiceCandidateList(entry)}` : ""}`;
+    ? `<small>Vos propositions</small>${voicePickListMarkup()}${heard ? `<p class="voice-heard">Entendu : ${heard}</p>` : ""}`
+    : entry
+      ? `<small>Dernier nom validé</small><div class="voice-validated">${portraitMarkup({ name: entry.actorName })}<strong>${escapeHtml(entry.actorName)}</strong></div>${state.pending && entry.playerId === state.pending.playerId ? `<p class="voice-correct">Mauvaise identité ? Corrigez avant la décision.</p>${voiceCandidateList(entry)}` : ""}`
+      : "";
   return `<section class="voice-player voice-player--${index + 1} ${active ? "voice-player--active" : ""}" data-voice-panel="${escapeHtml(player.id)}" aria-label="${escapeHtml(player.name)}${active ? ", à vous de jouer" : ", en attente"}"><div class="voice-player__head"><div><small>${active ? "À vous" : `Joueur ${index + 1}`}</small><h2>${escapeHtml(player.name)}</h2></div>${livesMarkup(player.lives, true)}</div><div class="voice-clock ${active && seconds !== null && seconds <= 5 ? "voice-clock--urgent" : ""}"><span>${timer}</span><small>${active ? "À vous de parler" : "En attente"}</small></div><div class="voice-detection">${body}</div></section>`;
 }
 
