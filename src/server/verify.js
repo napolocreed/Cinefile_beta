@@ -390,22 +390,50 @@ export function createLinkVerifier({
     }
   }
 
+  // Each source reports how its own attempt went, so the table can read the whole cascade afterwards and
+  // see exactly where the proof came from — or that nobody ever looked.
+  function describeStep(source, result, durationMs) {
+    const outcome = result.status === "ok"
+      ? ({ [VERIFICATION_VERDICTS.CONFIRMED]: "confirmed", [VERIFICATION_VERDICTS.PROBABLE]: "probable" })[result.verdict] ?? "empty"
+      : result.status;
+    return {
+      source,
+      outcome,
+      durationMs: Math.max(0, Math.round(durationMs)),
+      films: (result.films ?? []).length,
+      error: result.error ?? null,
+    };
+  }
+
+  async function timedStep(source, operation) {
+    const startedAt = now();
+    const result = await operation;
+    return { result, step: describeStep(source, result, now() - startedAt) };
+  }
+
+  const unreachedStep = (source, outcome = "not-reached") => ({ source, outcome, durationMs: 0, films: 0, error: null });
+
   async function performVerification({ left, right, leftTmdbId, rightTmdbId, locale }) {
     const searchLinks = createVerificationSearchLinks(left, right);
-    const tmdbResult = await verifyTmdb(left, right, leftTmdbId, rightTmdbId);
-    if (tmdbResult.verdict === VERIFICATION_VERDICTS.CONFIRMED) return { ...tmdbResult, searchLinks };
+    const tmdb = await timedStep("tmdb", verifyTmdb(left, right, leftTmdbId, rightTmdbId));
+    if (tmdb.result.verdict === VERIFICATION_VERDICTS.CONFIRMED) {
+      return { ...tmdb.result, searchLinks, steps: [tmdb.step, unreachedStep("wikidata"), unreachedStep("wikipedia")] };
+    }
 
-    const wikidataPromise = verifyWikidata(left, right);
-    const wikipediaPromise = verifyWikipedia(left, right);
-    const wikidataResult = await wikidataPromise;
-    if (wikidataResult.verdict === VERIFICATION_VERDICTS.CONFIRMED) {
-      return { ...wikidataResult, searchLinks, attempts: [tmdbResult.status, wikidataResult.status] };
+    const wikidataPromise = timedStep("wikidata", verifyWikidata(left, right));
+    const wikipediaPromise = timedStep("wikipedia", verifyWikipedia(left, right));
+    const wikidata = await wikidataPromise;
+    if (wikidata.result.verdict === VERIFICATION_VERDICTS.CONFIRMED) {
+      // Wikipédia was searched in parallel but its answer is no longer needed.
+      wikipediaPromise.catch(() => {});
+      return { ...wikidata.result, searchLinks, steps: [tmdb.step, wikidata.step, unreachedStep("wikipedia", "abandoned")] };
     }
-    const wikipediaResult = await wikipediaPromise;
-    if (wikipediaResult.verdict === VERIFICATION_VERDICTS.PROBABLE) {
-      return { ...wikipediaResult, searchLinks, attempts: [tmdbResult.status, wikidataResult.status, wikipediaResult.status] };
+    const wikipedia = await wikipediaPromise;
+    const steps = [tmdb.step, wikidata.step, wikipedia.step];
+    if (wikipedia.result.verdict === VERIFICATION_VERDICTS.PROBABLE) {
+      return { ...wikipedia.result, searchLinks, steps };
     }
-    const attempted = [tmdbResult, wikidataResult, wikipediaResult].filter((result) => result.status !== "skipped");
+    const attempted = [tmdb.result, wikidata.result, wikipedia.result].filter((result) => result.status !== "skipped");
     const verdict = !networkEnabled || attempted.some((result) => result.status === "error")
       ? VERIFICATION_VERDICTS.UNKNOWN
       : VERIFICATION_VERDICTS.NOT_FOUND;
@@ -415,7 +443,7 @@ export function createLinkVerifier({
       films: [],
       evidence: [],
       searchLinks,
-      attempts: attempted.map((result) => ({ source: result.source, status: result.status })),
+      steps,
       locale,
     };
   }

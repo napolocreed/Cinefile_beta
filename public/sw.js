@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v8-universal-learning";
+const CACHE_NAME = "cinefil-v9-voice-validation";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [
@@ -18,7 +18,9 @@ const CORE = [
   "src/game/static-overlay.js",
   "src/game/transfer.js",
   "src/voice/entity-resolver.js",
+  "src/voice/phonetics.js",
   "src/voice/speech-session.js",
+  "src/voice/turn-buffer.js",
   "src/data/cinema-knowledge.json",
   "src/data/cinema-synonyms.json",
   "assets/inter-latin-400-normal-C38fXH4l.woff2",
@@ -30,6 +32,7 @@ const CORE = [
 ].map((path) => new URL(path, BASE_URL).href);
 const OPTIONAL = [
   "src/data/tmdb-overlay-index.json",
+  "src/data/tmdb-portraits.json",
 ].map((path) => new URL(path, BASE_URL).href);
 
 self.addEventListener("install", (event) => {

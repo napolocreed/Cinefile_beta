@@ -16,7 +16,8 @@ import { ACHIEVEMENTS, levelForXp } from "./game/achievements.js";
 import { createStorage, recordFinishedGame } from "./game/storage.js";
 import { backupFilename, createBackup, parseBackup, restoreBackup } from "./game/transfer.js";
 import { createDiagnostics } from "./game/diagnostics.js";
-import { candidateConfidenceLabel, resolveVoiceTranscript } from "./voice/entity-resolver.js";
+import { candidateConfidenceLabel, createVoiceResolver, spokenNameGuess } from "./voice/entity-resolver.js";
+import { createTurnBuffer } from "./voice/turn-buffer.js";
 import { createSpeechSession, isSpeechRecognitionSupported } from "./voice/speech-session.js";
 
 function normalizeBasePath(value) {
@@ -45,18 +46,23 @@ const diagnostics = createDiagnostics();
 diagnostics.install(window);
 document.documentElement.toggleAttribute("data-large-text", storage.loadSettings().largeText === true);
 const overlayAsset = "src/data/tmdb-overlay-index.json";
-const [data, synonyms, overlay] = await Promise.all([
+const [data, synonyms, overlay, portraits] = await Promise.all([
   fetch(assetUrl("src/data/cinema-knowledge.json")).then((response) => response.ok ? response.json() : Promise.reject(new Error("snapshot"))).catch(() => fetch(assetUrl("src/data/cinema-database.json")).then((response) => response.json())),
   fetch(assetUrl("src/data/cinema-synonyms.json")).then((response) => response.json()).catch(() => ({ people: [], works: [] })),
   CATALOG_MODE === "static"
     ? fetch(assetUrl(overlayAsset)).then((response) => response.ok ? response.json() : Promise.reject(new Error("overlay"))).catch(() => ({ version: 1, people: [] }))
     : Promise.resolve({ version: 1, people: [] }),
+  // The static edition already carries portraits in its overlay index; the server edition loads them alone.
+  CATALOG_MODE === "static"
+    ? Promise.resolve(null)
+    : fetch(assetUrl("src/data/tmdb-portraits.json")).then((response) => response.ok ? response.json() : null).catch(() => null),
 ]);
 const database = createDatabase(data, { synonyms });
 let staticOverlay = null;
 if (CATALOG_MODE === "static") {
   staticOverlay = createStaticOverlay({ database, index: overlay, resolveAsset: assetUrl });
 }
+if (portraits) database.attachPortraits(portraits);
 const catalog = createHybridCatalog({
   database,
   remoteEnabled: CATALOG_MODE === "remote",
@@ -103,6 +109,35 @@ function verificationSourceLabel(source) {
   return ({ local: "base Ciné-Fil", tmdb: "TMDb", wikidata: "Wikidata", wikipedia: "Wikipédia", none: "sources externes" })[source] ?? source ?? "sources externes";
 }
 
+const VERIFICATION_OUTCOMES = Object.freeze({
+  confirmed: { label: "preuve trouvée", tone: "found" },
+  probable: { label: "indice trouvé", tone: "hint" },
+  empty: { label: "rien trouvé", tone: "empty" },
+  skipped: { label: "non configurée", tone: "idle" },
+  error: { label: "injoignable", tone: "error" },
+  "not-reached": { label: "inutile", tone: "idle" },
+  abandoned: { label: "abandonnée", tone: "idle" },
+});
+
+// The cascade is the interesting part of a verdict: who was asked, in which order, and where it stopped.
+function verificationCascadeMarkup(verification) {
+  const steps = Array.isArray(verification?.steps) ? verification.steps : [];
+  if (!steps.length) return "";
+  const stopIndex = steps.findIndex((step) => step.outcome === "confirmed" || step.outcome === "probable");
+  const rows = steps.map((step, index) => {
+    const outcome = VERIFICATION_OUTCOMES[step.outcome] ?? VERIFICATION_OUTCOMES.empty;
+    const found = index === stopIndex;
+    const duration = Number(step.durationMs) > 0 ? `${(Number(step.durationMs) / 1000).toFixed(Number(step.durationMs) >= 1000 ? 1 : 2)} s` : "—";
+    const films = found && Number(step.films) > 0 ? `${step.films} œuvre${step.films > 1 ? "s" : ""}` : outcome.label;
+    return `<li class="var-step var-step--${outcome.tone} ${found ? "var-step--found" : ""}"><span class="var-step__rank">${String(index + 1).padStart(2, "0")}</span><span class="var-step__source">${escapeHtml(verificationSourceLabel(step.source))}</span><span class="var-step__outcome">${escapeHtml(films)}</span><span class="var-step__time">${escapeHtml(duration)}</span></li>`;
+  }).join("");
+  const total = Number(verification?.durationMs);
+  const footer = stopIndex >= 0
+    ? `Preuve retenue à l’étape ${String(stopIndex + 1).padStart(2, "0")} · ${escapeHtml(verificationSourceLabel(steps[stopIndex].source))}`
+    : "Aucune source n’a produit de preuve";
+  return `<div class="var-cascade"><small>Cascade de vérification</small><ol class="var-steps">${rows}</ol><p class="var-cascade__foot">${footer}${Number.isFinite(total) && total > 0 ? ` · ${(total / 1000).toFixed(1)} s au total` : ""}${verification?.cached ? " · réponse déjà connue" : ""}</p></div>`;
+}
+
 function verificationPanelMarkup(verification) {
   const candidateVerdict = verification?.verdict ?? "UNKNOWN";
   const verdict = ["CONFIRMED", "PROBABLE", "NOT_FOUND", "UNKNOWN"].includes(candidateVerdict) ? candidateVerdict : "UNKNOWN";
@@ -121,7 +156,13 @@ function verificationPanelMarkup(verification) {
     const href = safeExternalHref(value);
     return href ? `<a class="var-link" href="${href}" target="_blank" rel="noopener noreferrer">${labels[key] ?? escapeHtml(key)}</a>` : "";
   }).join("");
-  return `<section class="var-panel var-panel--${verdict.toLowerCase()}"><span class="var-panel__status">${escapeHtml(copy[0])}</span><p>${escapeHtml(copy[1])}</p>${evidence ? `<div class="var-evidence"><small>Indices récoltés</small><ul>${evidence}</ul></div>` : ""}<div class="var-links" aria-label="Recherches manuelles">${links}</div></section>`;
+  return `<section class="var-panel var-panel--${verdict.toLowerCase()}"><span class="var-panel__status">${escapeHtml(copy[0])}</span><p>${escapeHtml(copy[1])}</p>${verificationCascadeMarkup(verification)}${evidence ? `<div class="var-evidence"><small>Indices récoltés</small><ul>${evidence}</ul></div>` : ""}<div class="var-links" aria-label="Recherches manuelles">${links}</div></section>`;
+}
+
+const voiceResolver = createVoiceResolver(database);
+
+function createVoiceTurn(playerId = null) {
+  return { playerId, buffer: createTurnBuffer(), remoteLookups: 0, startedAt: Date.now() };
 }
 
 function createVoiceState() {
@@ -134,8 +175,11 @@ function createVoiceState() {
     interim: "",
     error: null,
     entries: [],
+    turn: createVoiceTurn(),
     review: null,
     verdict: null,
+    utterances: 0,
+    manualOpen: false,
   };
 }
 
@@ -272,7 +316,7 @@ function suggestionsMarkup() {
       ? person.knownFor.join(" · ")
       : `${roleLabel(person)} · ${person.creditCount ?? person.films?.length ?? 0} crédit${(person.creditCount ?? person.films?.length ?? 0) > 1 ? "s" : ""}`;
     const source = String(person.origin ?? "").includes("tmdb") ? "TMDb" : "Local";
-    return `<button type="button" role="option" data-suggestion-index="${index}" aria-selected="${state.selectedPerson?.id === person.id}">${person.profilePath ? `<img src="${escapeHtml(person.profilePath)}" alt="" loading="lazy">` : `<span class="suggestion-avatar" aria-hidden="true">${escapeHtml(person.name.slice(0, 1))}</span>`}<span><strong>${escapeHtml(person.name)}</strong><small>${escapeHtml(details)}</small></span><em>${source}</em></button>`;
+    return `<button type="button" role="option" data-suggestion-index="${index}" aria-selected="${state.selectedPerson?.id === person.id}">${pictureMarkup(person.profilePath, person.name, "suggestion-portrait", "suggestion-avatar")}<span><strong>${escapeHtml(person.name)}</strong><small>${escapeHtml(details)}</small></span><em>${source}</em></button>`;
   }).join("");
 }
 
@@ -347,8 +391,37 @@ function compactVoiceCandidate(person, confidence = person.confidence ?? person.
     roles: person.roles ?? [],
     knownFor: person.knownFor ?? [],
     externalIds: person.externalIds ?? {},
+    popularity: Number(person.popularity ?? 0),
+    matchedText: person.matchedText ?? null,
+    profilePath: person.profilePath ?? null,
   };
 }
+
+function initialOf(name) {
+  return escapeHtml(String(name ?? "?").trim().slice(0, 1).toLocaleUpperCase("fr") || "?");
+}
+
+function pictureMarkup(path, name, className, emptyClassName) {
+  if (!path) return `<span class="${emptyClassName}" aria-hidden="true">${initialOf(name)}</span>`;
+  return `<img class="${className}" src="${escapeHtml(path)}" alt="" loading="lazy" decoding="async" data-initial="${initialOf(name)}" data-fallback="${emptyClassName}">`;
+}
+
+function portraitMarkup(candidate, modifier = "") {
+  const path = candidate?.profilePath ?? database.findActor(candidate?.name)?.profilePath ?? null;
+  return pictureMarkup(path, candidate?.name, `portrait ${modifier}`, `portrait ${modifier} portrait--empty`);
+}
+
+// Portraits come from a remote image host. Offline, or behind a filtering network, the frame falls back to an
+// engraved initial rather than a broken image.
+document.addEventListener("error", (event) => {
+  const image = event.target;
+  if (!(image instanceof HTMLImageElement) || !image.dataset.initial) return;
+  const replacement = document.createElement("span");
+  replacement.className = image.dataset.fallback ?? "";
+  replacement.setAttribute("aria-hidden", "true");
+  replacement.textContent = image.dataset.initial;
+  image.replaceWith(replacement);
+}, true);
 
 function voiceCandidateList(entry, { review = false, side = "" } = {}) {
   if (!entry?.candidates?.length) return `<p class="voice-empty">Aucune proposition</p>`;
@@ -373,20 +446,58 @@ function voiceReviewMarkup() {
   return shell(`<section class="voice-review"><p class="kicker">Buzzer bluff</p><h1>Qu’avez-vous vraiment dit&nbsp;?</h1><p class="voice-review__intro">Sélectionnez les deux dernières identités, puis laissez le moteur vérifier la liaison.</p><div class="voice-review__grid"><article><small>Nom précédent · ${escapeHtml(left?.playerName ?? "Joueur")}</small><strong>${escapeHtml(left?.transcript ?? "")}</strong>${voiceCandidateList(left, { review: true, side: "left" })}</article><span class="voice-review__link">ET</span><article><small>Nom proposé · ${escapeHtml(right?.playerName ?? "Joueur")}</small><strong>${escapeHtml(right?.transcript ?? "")}</strong>${voiceCandidateList(right, { review: true, side: "right" })}</article></div>${state.voice.error ? `<p class="voice-error" role="alert">${escapeHtml(state.voice.error)}</p>` : ""}${decision}</section>`, { back: "/", eyebrow: "Voice review" });
 }
 
+function voiceTurnCandidates() {
+  return state.voice.turn.buffer.candidates();
+}
+
+// Nothing reaches the chain without a deliberate tap: the pool only ever proposes.
+function voicePickListMarkup() {
+  const candidates = voiceTurnCandidates();
+  if (candidates.length) {
+    return `<div class="voice-picks" role="list">${candidates.map((candidate, index) => `<button type="button" role="listitem" class="voice-pick ${index === 0 ? "voice-pick--lead" : ""}" data-voice-validate="${index}">${portraitMarkup(candidate, index === 0 ? "portrait--lead" : "")}<span class="voice-pick__body"><span class="voice-pick__name">${escapeHtml(candidate.name)}</span><small>${candidateConfidenceLabel(candidate.confidence)}${candidate.matchedText ? ` · entendu «&nbsp;${escapeHtml(candidate.matchedText)}&nbsp;»` : ""}</small></span><em>Valider</em></button>`).join("")}</div>`;
+  }
+  const guess = spokenNameGuess(state.voice.turn.buffer.lastTranscript());
+  if (guess) {
+    return `<div class="voice-picks" role="list"><button type="button" role="listitem" class="voice-pick voice-pick--raw" data-voice-validate="raw">${portraitMarkup({ name: guess })}<span class="voice-pick__body"><span class="voice-pick__name">${escapeHtml(guess)}</span><small>hors catalogue · le groupe tranchera par vote</small></span><em>Valider</em></button></div>`;
+  }
+  return `<p class="voice-empty">Prononcez un nom d’artiste, il apparaîtra ici.</p>`;
+}
+
 function voicePlayerSection(player, index, activePlayer) {
   const active = player.id === activePlayer.id;
   const entry = lastVoiceEntryFor(player.id);
-  const timer = active ? (state.game.config.turnSeconds ? (state.timeLeft ?? state.game.config.turnSeconds) : "∞") : "—";
-  return `<section class="voice-player voice-player--${index + 1} ${active ? "voice-player--active" : ""}" aria-label="${escapeHtml(player.name)}${active ? ", à vous" : ""}"><div class="voice-player__head"><div><small>Joueur ${index + 1}</small><h2>${escapeHtml(player.name)}</h2></div>${livesMarkup(player.lives, true)}</div><div class="voice-clock ${active && Number(timer) <= 5 ? "voice-clock--urgent" : ""}"><span>${timer}${Number.isFinite(timer) ? "s" : ""}</span><small>${active ? "À vous de parler" : "En attente"}</small></div><div class="voice-detection"><small>Dernière détection</small><strong>${escapeHtml(entry?.candidates?.[entry.selected]?.name ?? "—")}</strong>${entry ? voiceCandidateList(entry) : `<p class="voice-empty">Prononcez un nom d’artiste</p>`}</div></section>`;
+  const seconds = state.game.config.turnSeconds ? (state.timeLeft ?? state.game.config.turnSeconds) : null;
+  const timer = active ? (seconds === null ? "∞" : `${seconds}s`) : "—";
+  const heard = state.voice.turn.buffer.heard().slice(-2).map((line) => escapeHtml(line.transcript)).join(" · ");
+  const body = active
+    ? `<small>Vos propositions</small>${voicePickListMarkup()}${heard ? `<p class="voice-heard">Entendu : ${heard}</p>` : ""}`
+    : entry
+      ? `<small>Dernier nom validé</small><div class="voice-validated">${portraitMarkup({ name: entry.actorName })}<strong>${escapeHtml(entry.actorName)}</strong></div>${state.pending && entry.playerId === state.pending.playerId ? `<p class="voice-correct">Mauvaise identité ? Corrigez avant la décision.</p>${voiceCandidateList(entry)}` : ""}`
+      : "";
+  return `<section class="voice-player voice-player--${index + 1} ${active ? "voice-player--active" : ""}" data-voice-panel="${escapeHtml(player.id)}" aria-label="${escapeHtml(player.name)}${active ? ", à vous de jouer" : ", en attente"}"><div class="voice-player__head"><div><small>${active ? "À vous" : `Joueur ${index + 1}`}</small><h2>${escapeHtml(player.name)}</h2></div>${livesMarkup(player.lives, true)}</div><div class="voice-clock ${active && seconds !== null && seconds <= 5 ? "voice-clock--urgent" : ""}"><span>${timer}</span><small>${active ? "À vous de parler" : "En attente"}</small></div><div class="voice-detection">${body}</div></section>`;
+}
+
+function voiceChainMarkup() {
+  const chain = state.game.chain.slice(-6);
+  if (!chain.length) return `<p class="voice-chain voice-chain--empty">La chaîne est vide : le premier nom validé l’ouvre.</p>`;
+  return `<p class="voice-chain"><small>Chaîne (${state.game.chain.length})</small>${state.game.chain.length > chain.length ? "<span>…</span>" : ""}${chain.map((actor) => `<span>${escapeHtml(actor)}</span>`).join("")}${state.pending ? `<span class="voice-chain__pending">${escapeHtml(state.pending.proposedActor)} ?</span>` : ""}</p>`;
+}
+
+function voiceStageMarkup() {
+  const activePlayer = voiceActivePlayer();
+  const players = state.game.players;
+  const buzzerReady = Boolean(state.pending && state.game.config.allowBluffChallenge);
+  const live = state.voice.interim || state.voice.verdict || (state.pending ? "Décision : laissez passer en parlant, ou buzzez." : "Prononcez un nom, puis touchez-le pour valider.");
+  const center = `<div class="voice-center"><div class="voice-wave ${state.voice.listening ? "voice-wave--on" : ""}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><p data-voice-live aria-live="polite">${escapeHtml(live)}</p><button class="voice-buzzer" data-voice-buzzer ${buzzerReady ? "" : "disabled"}><span>BLUFF</span><small>${buzzerReady ? "Interrompre et vérifier" : "Disponible après une proposition"}</small></button>${state.voice.supported ? `<button class="button button--ghost voice-mic" data-voice-toggle>${state.voice.consent ? "Mettre le micro en pause" : "Activer le micro"}</button>` : `<p class="voice-error">Reconnaissance vocale indisponible dans ce navigateur. La saisie de secours reste jouable.</p>`}${voiceTurnCandidates().length ? `<button class="button button--text voice-clear" data-voice-clear>Effacer les propositions</button>` : ""}${state.voice.error ? `<p class="voice-error" role="alert">${escapeHtml(state.voice.error)}</p>` : ""}</div>`;
+  return `${voicePlayerSection(players[0], 0, activePlayer)}${center}${voicePlayerSection(players[1], 1, activePlayer)}`;
 }
 
 function voiceMarkup() {
   if (state.voice.review) return voiceReviewMarkup();
+  syncVoiceTurn();
   const activePlayer = voiceActivePlayer();
-  const players = state.game.players;
   const listeningLabel = state.voice.listening ? "Écoute active" : state.voice.consent ? "Démarrage du micro…" : "Micro en pause";
-  const buzzerReady = Boolean(state.pending && state.game.config.allowBluffChallenge);
-  return shell(`<section class="voice-page"><div class="voice-status"><span class="voice-listening ${state.voice.listening ? "voice-listening--on" : ""}"><i></i>${listeningLabel}</span><span>${database.snapshotId ?? "Base locale"}</span></div><div class="voice-stage">${voicePlayerSection(players[0], 0, activePlayer)}<div class="voice-center"><div class="voice-wave ${state.voice.listening ? "voice-wave--on" : ""}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><p data-voice-live aria-live="polite">${escapeHtml(state.voice.interim || state.voice.verdict || (state.pending ? "Bluffez maintenant, ou prononcez le nom suivant." : "La chaîne attend son prochain nom."))}</p><button class="voice-buzzer" data-voice-buzzer ${buzzerReady ? "" : "disabled"}><span>BLUFF</span><small>${buzzerReady ? "Interrompre et vérifier" : "Disponible après deux noms"}</small></button>${state.voice.supported ? `<button class="button button--ghost voice-mic" data-voice-toggle>${state.voice.consent ? "Mettre le micro en pause" : "Activer le micro"}</button>` : `<p class="voice-error">Reconnaissance vocale indisponible dans ce navigateur. La saisie de secours reste jouable.</p>`}<details class="voice-manual"><summary>Correction / saisie de secours</summary><form data-voice-manual-form><label for="voice-manual-input">Nom entendu pour ${escapeHtml(activePlayer.name)}</label><div><input id="voice-manual-input" class="field" autocomplete="off" placeholder="Nom de l’artiste"><button class="button button--gold" type="submit">Détecter</button></div></form></details>${state.voice.error ? `<p class="voice-error" role="alert">${escapeHtml(state.voice.error)}</p>` : ""}</div>${voicePlayerSection(players[1], 1, activePlayer)}</div><p class="voice-privacy">Le voyant rouge indique l’écoute. Vous pouvez couper le micro immédiatement; aucun fichier audio n’est stocké par Ciné-Fil.</p></section>`, { back: "/", eyebrow: "Passive voice mode" });
+  return shell(`<section class="voice-page"><div class="voice-status"><span class="voice-listening ${state.voice.listening ? "voice-listening--on" : ""}"><i></i>${listeningLabel}</span><span>${database.snapshotId ?? "Base locale"}</span></div><p class="voice-turn" data-voice-turn role="status">Au tour de <b>${escapeHtml(activePlayer.name)}</b> · dites un nom, puis touchez la bonne proposition pour valider et passer la main.</p><div class="voice-stage" data-voice-stage>${voiceStageMarkup()}</div>${voiceChainMarkup()}<details class="voice-manual" data-voice-manual ${state.voice.manualOpen ? "open" : ""}><summary>Correction / saisie de secours</summary><form data-voice-manual-form><label for="voice-manual-input">Nom entendu pour ${escapeHtml(activePlayer.name)}</label><div><input id="voice-manual-input" class="field" autocomplete="off" placeholder="Nom de l’artiste"><button class="button button--gold" type="submit">Détecter</button></div></form></details><p class="voice-privacy">Le voyant rouge indique l’écoute. Vous pouvez couper le micro immédiatement; aucun fichier audio n’est stocké par Ciné-Fil.</p></section>`, { back: "/", eyebrow: "Passive voice mode" });
 }
 
 function ensureVoiceSession() {
@@ -395,14 +506,7 @@ function ensureVoiceSession() {
     scope: window,
     lang: "fr-FR",
     onTranscript(event) {
-      if (event.final) {
-        state.voice.interim = "";
-        handleVoiceTranscript(event.transcript);
-      } else {
-        state.voice.interim = event.transcript;
-        const live = document.querySelector("[data-voice-live]");
-        if (live) live.textContent = event.transcript || "…";
-      }
+      ingestVoiceUtterance(event);
     },
     onState(event) {
       state.voice.listening = event.listening;
@@ -410,6 +514,8 @@ function ensureVoiceSession() {
       document.querySelector(".voice-listening")?.classList.toggle("voice-listening--on", event.listening);
     },
     onError(event) {
+      // A continuous recogniser reports silence and restarts constantly; only real blockers deserve a message.
+      if (event.transient && !event.terminal) return;
       state.voice.error = event.code === "not-allowed" ? "Accès au micro refusé. Autorisez-le dans le navigateur ou utilisez la saisie de secours." : `Micro indisponible (${event.code}).`;
       if (event.terminal) state.voice.consent = false;
       renderRoute();
@@ -421,6 +527,7 @@ function ensureVoiceSession() {
 function startVoiceSession() {
   state.voice.consent = true;
   state.voice.error = null;
+  voiceResolver.warm();
   const started = ensureVoiceSession().start();
   if (!started) state.voice.error = "Le micro n’a pas pu démarrer. La saisie de secours reste disponible.";
 }
@@ -435,19 +542,41 @@ function stopVoiceSession({ destroy = true } = {}) {
   stopTimer();
 }
 
-async function voiceCandidatesFor(transcript) {
-  let candidates = resolveVoiceTranscript(transcript, database, { themeId: state.game.config.themeId, excluded: state.game.chain, limit: 4 }).map((person) => compactVoiceCandidate(person));
-  if (candidates.length < 2 && normalizeText(transcript).length >= 2) {
-    const remote = await catalog.search(transcript, { themeId: state.game.config.themeId, excluded: state.game.chain, limit: 4 });
+function syncVoiceTurn() {
+  const active = voiceActivePlayer();
+  if (state.voice.turn.playerId === active.id) return false;
+  state.voice.turn = createVoiceTurn(active.id);
+  state.voice.interim = "";
+  state.timeLeft = null;
+  return true;
+}
+
+async function voiceCandidatesFor(alternatives) {
+  const candidates = voiceResolver.resolve(alternatives, {
+    themeId: state.game.config.themeId,
+    excluded: state.game.chain,
+    limit: 4,
+    previousActor: state.game.chain.at(-1) ?? null,
+  }).map((person) => compactVoiceCandidate(person));
+  const best = candidates[0]?.confidence ?? 0;
+  const query = alternatives[0]?.transcript ?? "";
+  // The local catalogue answers first. The remote one is only worth a round trip when the local reading is
+  // weak, and never more than a couple of times per turn.
+  if (best >= 0.9 || state.voice.turn.remoteLookups >= 2 || normalizeText(query).length < 3) return candidates;
+  state.voice.turn.remoteLookups += 1;
+  try {
+    const remote = await catalog.search(query, { themeId: state.game.config.themeId, excluded: state.game.chain, limit: 4 });
     state.catalogStatus = remote.remote;
     const combined = [...candidates];
     for (const person of remote.results) {
-      if (!combined.some((candidate) => candidate.id === person.id || normalizeText(candidate.name) === normalizeText(person.name))) combined.push(compactVoiceCandidate(person, person.matchScore ?? 0.64));
+      const known = combined.some((candidate) => candidate.id === person.id || normalizeText(candidate.name) === normalizeText(person.name));
+      if (!known && Number(person.matchScore ?? 0) >= 0.72) combined.push(compactVoiceCandidate(person, Math.min(0.72, Number(person.matchScore ?? 0.64))));
     }
-    candidates = combined.slice(0, 4);
+    return combined.sort((left, right) => right.confidence - left.confidence).slice(0, 4);
+  } catch {
+    state.catalogStatus = { ...catalog.getState(), online: false };
+    return candidates;
   }
-  if (!candidates.length) candidates = [{ id: `spoken:${normalizeText(transcript)}`, name: transcript.trim(), confidence: 0.35, origin: "vote", roles: [], knownFor: [], externalIds: {} }];
-  return candidates;
 }
 
 async function hydrateVoiceCandidate(candidate) {
@@ -460,36 +589,58 @@ async function hydrateVoiceCandidate(candidate) {
   }
 }
 
-async function handleVoiceTranscript(transcript) {
+// Listening never changes the game: it only feeds the pool of propositions for the player whose turn it is.
+async function ingestVoiceUtterance({ id, transcript, alternatives = [], final = false }) {
   const spoken = String(transcript ?? "").trim();
-  if (!spoken || state.voice.processing || state.voice.review || state.game.status !== "in-progress") return;
+  if (!spoken || state.voice.review || state.game?.status !== "in-progress") return;
+  syncVoiceTurn();
+  const turn = state.voice.turn;
+  state.voice.interim = final ? "" : spoken;
+  const readings = (alternatives.length ? alternatives : [{ transcript: spoken, confidence: 1 }]).filter((reading) => reading.transcript);
+  const candidates = await voiceCandidatesFor(readings);
+  // The recogniser may have moved on to another turn while the catalogue answered.
+  if (state.voice.turn !== turn) return;
+  turn.buffer.ingest({ id: id ?? `manual-${(state.voice.utterances += 1)}`, transcript: spoken, final, candidates, at: Date.now() });
+  updateVoiceLive();
+}
+
+async function validateVoiceCandidate(reference) {
+  if (state.voice.processing || state.voice.review || state.game.status !== "in-progress") return;
+  const pool = voiceTurnCandidates();
+  const candidate = reference === "raw"
+    ? (() => {
+      const guess = spokenNameGuess(state.voice.turn.buffer.lastTranscript());
+      return guess ? { id: `spoken:${normalizeText(guess)}`, name: guess, confidence: 0.35, origin: "vote", externalIds: {} } : null;
+    })()
+    : pool[Number(reference)];
+  if (!candidate) return;
   state.voice.processing = true;
   state.voice.error = null;
   try {
-    const speakingPlayer = voiceActivePlayer();
-    const candidates = await voiceCandidatesFor(spoken);
-    const selectedPerson = await hydrateVoiceCandidate(candidates[0]);
+    const speaker = voiceActivePlayer();
     if (state.pending) {
       state.game = resolvePending(state.game, state.pending, { challenged: false });
       state.pending = null;
     }
     const active = currentPlayer(state.game);
-    if (active.id !== speakingPlayer.id) throw new Error("Le tour a changé pendant la reconnaissance. Répétez le nom.");
-    const result = proposeActor(state.game, selectedPerson?.name ?? candidates[0].name, database);
-    const entry = {
+    if (active.id !== speaker.id) throw new Error("Le tour a changé. Reprenez la proposition.");
+    const person = await hydrateVoiceCandidate(candidate);
+    const actorName = person?.name ?? candidate.name;
+    const result = proposeActor(state.game, actorName, database);
+    state.voice.entries = [...state.voice.entries, {
       id: globalThis.crypto?.randomUUID?.() ?? `voice-${Date.now()}`,
       playerId: active.id,
       playerName: active.name,
-      transcript: spoken,
-      candidates,
-      selected: 0,
+      actorName,
+      transcript: candidate.matchedText ?? state.voice.turn.buffer.lastTranscript() ?? actorName,
+      candidates: pool.length ? pool : [candidate],
+      selected: reference === "raw" ? 0 : Math.max(0, Number(reference)),
       at: Date.now(),
-    };
-    state.voice.entries = [...state.voice.entries, entry].slice(-12);
+    }].slice(-12);
     if (result.type === "pending") state.pending = result.pending;
     else state.game = result.game;
-    state.voice.verdict = `${active.name} · ${candidates[0].name}`;
-    state.timeLeft = null;
+    state.voice.verdict = `${active.name} valide ${actorName}`;
+    syncVoiceTurn();
     storage.saveCurrent(state.game);
     if (state.game.status === "finished") navigate("/results");
     else renderRoute();
@@ -501,10 +652,31 @@ async function handleVoiceTranscript(transcript) {
   }
 }
 
+// Repainting the stage alone keeps the fallback input, its focus and its open state untouched.
+function updateVoiceLive() {
+  const stage = document.querySelector("[data-voice-stage]");
+  if (!stage || state.voice.review) {
+    renderRoute();
+    return;
+  }
+  stage.innerHTML = voiceStageMarkup();
+  const turn = document.querySelector("[data-voice-turn]");
+  if (turn) turn.innerHTML = `Au tour de <b>${escapeHtml(voiceActivePlayer().name)}</b> · dites un nom, puis touchez la bonne proposition pour valider et passer la main.`;
+}
+
 function openVoiceReview() {
   if (!state.pending) return;
   stopVoiceSession({ destroy: false });
-  const currentEntry = state.voice.entries.at(-1);
+  // A reloaded page has no spoken history: the pending move and the chain still describe both sides.
+  const currentEntry = state.voice.entries.at(-1) ?? {
+    id: "pending-proposal",
+    playerId: state.pending.playerId,
+    playerName: state.game.players.find((player) => player.id === state.pending.playerId)?.name ?? "Joueur",
+    actorName: state.pending.proposedActor,
+    transcript: state.pending.proposedActor,
+    candidates: [{ id: "pending-proposal", name: state.pending.proposedActor, confidence: 1, origin: "chain", externalIds: {} }],
+    selected: 0,
+  };
   const previousEntry = state.voice.entries.at(-2) ?? {
     id: "chain-previous",
     playerId: state.pending.challengerId,
@@ -593,8 +765,9 @@ async function selectCurrentVoiceCandidate(entryId, candidateIndex) {
     const result = proposeActor(state.game, person?.name ?? candidate.name, database);
     if (result.type !== "pending") return;
     entry.selected = candidateIndex;
+    entry.actorName = person?.name ?? candidate.name;
     state.pending = result.pending;
-    state.voice.verdict = `${entry.playerName} · ${candidate.name}`;
+    state.voice.verdict = `${entry.playerName} corrige en ${entry.actorName}`;
     renderRoute();
   } catch (error) {
     state.voice.error = error.message;
@@ -625,18 +798,34 @@ function ensureVoiceTimer() {
 }
 
 function bindVoice() {
-  document.querySelector("[data-voice-toggle]")?.addEventListener("click", () => {
-    if (state.voice.consent) stopVoiceSession({ destroy: false });
-    else startVoiceSession();
-    renderRoute();
+  // The stage is repainted on every utterance, so its buttons answer through one delegated listener.
+  document.querySelector(".voice-page")?.addEventListener("click", (event) => {
+    const target = event.target.closest("[data-voice-validate],[data-voice-candidate],[data-voice-toggle],[data-voice-buzzer],[data-voice-clear]");
+    if (!target) return;
+    if (target.dataset.voiceValidate !== undefined) validateVoiceCandidate(target.dataset.voiceValidate);
+    else if (target.dataset.voiceCandidate !== undefined) selectCurrentVoiceCandidate(target.dataset.voiceEntry, Number(target.dataset.voiceCandidate));
+    else if (target.dataset.voiceBuzzer !== undefined) openVoiceReview();
+    else if (target.dataset.voiceClear !== undefined) {
+      state.voice.turn.buffer.reset();
+      state.voice.interim = "";
+      updateVoiceLive();
+    } else {
+      if (state.voice.consent) stopVoiceSession({ destroy: false });
+      else startVoiceSession();
+      renderRoute();
+    }
   });
-  document.querySelector("[data-voice-buzzer]")?.addEventListener("click", openVoiceReview);
+  // Players without a working microphone live in this panel: it must survive a turn change.
+  const manual = document.querySelector("[data-voice-manual]");
+  manual?.addEventListener("toggle", () => { state.voice.manualOpen = manual.open; });
+  if (state.voice.manualOpen) document.querySelector("#voice-manual-input")?.focus({ preventScroll: true });
   document.querySelector("[data-voice-manual-form]")?.addEventListener("submit", (event) => {
     event.preventDefault();
     const input = document.querySelector("#voice-manual-input");
-    if (input?.value.trim()) handleVoiceTranscript(input.value);
+    if (!input?.value.trim()) return;
+    ingestVoiceUtterance({ id: `manual-${(state.voice.utterances += 1)}`, transcript: input.value, final: true });
+    input.value = "";
   });
-  document.querySelectorAll("[data-voice-candidate]").forEach((button) => button.addEventListener("click", () => selectCurrentVoiceCandidate(button.dataset.voiceEntry, Number(button.dataset.voiceCandidate))));
   document.querySelectorAll("[data-review-candidate]").forEach((button) => button.addEventListener("click", () => {
     state.voice.review.selected[button.dataset.reviewSide] = Number(button.dataset.reviewCandidate);
     renderRoute();

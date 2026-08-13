@@ -60,12 +60,21 @@ Mise à jour le 13 août 2026. La reconstruction, le déploiement statique, la c
 - [x] Après buzzer, sélection indépendante des deux derniers noms avant résolution.
 - [x] Correction de la dernière identité sans corrompre la chaîne ni les statistiques.
 - [x] Arrêt immédiat du micro, indicateur d’écoute et saisie de secours si le micro ou le réseau manque.
+- [x] **Validation explicite** : l’écoute ne fait que proposer, seule une touche sur une carte engage le nom, passe la main et alimente la chaîne. Le tour est annoncé par un bandeau, le panneau actif et le chrono.
+- [x] **Reconnaissance phonétique française** : nasales, `ill`, `gn`, liaisons de particules et consonnes finales muettes, comparées par distance de Damerau-Levenshtein sur n-grammes concaténés. « jean du jardin », « de pardieu » ou « omar six » retombent sur la bonne fiche.
+- [x] Lecture de toutes les alternatives du moteur vocal, des deux tokenisations et du nom de famille seul; un prénom ou un mot courant ne déclenche jamais une proposition.
+- [x] Accumulateur de tour : une phrase sans nom n’efface plus les propositions déjà entendues, et un nom répété remonte au classement.
+- [x] Départage discret par filmographie commune, jamais affiché pour ne pas trahir le bluff.
+- [x] Ruban de chaîne permanent et repli « hors catalogue » explicitement soumis au vote.
+- [x] Banc d’essai de 30 déformations vocales françaises : 29 bonnes réponses en tête, 30 dans les trois premières, résolution en ~10 ms sur 1 523 identités.
+- [x] Portraits TMDb sur chaque proposition vocale et dans l’autocomplétion classique, avec repli sur l’initiale gravée hors connexion; index dédié de 77 Ko pour la cible Node, déjà présent dans l’overlay de la cible Pages.
+- [x] Cascade de vérification rendue lisible : étapes ordonnées, issue et durée de chacune, mise en évidence de celle qui a fourni la preuve.
 - [ ] Tester et calibrer les accents/bruits réels sur un panel de téléphones; la disponibilité de Web Speech dépend du navigateur et du système.
 
 ## Phase 5 — qualité produit — livrée
 
-- [x] 59 tests unitaires, d’intégration, de données et de propriétés, dont 250 parties pseudo-aléatoires.
-- [x] 8 parcours navigateur locaux et 11 parcours Pages réussis sur desktop/mobile, avec contrôles hors-ligne, sous-chemin, chargement différé et VAR.
+- [x] 71 tests unitaires, d’intégration, de données et de propriétés, dont 250 parties pseudo-aléatoires et un banc phonétique français.
+- [x] 9 parcours navigateur locaux et 12 parcours Pages réussis sur desktop/mobile, avec contrôles hors-ligne, sous-chemin, chargement différé, validation vocale explicite et cascade VAR.
 - [x] CI GitHub avec rapport Playwright en cas d’échec.
 - [x] Déploiement GitHub Pages depuis Actions, artefact sur liste blanche et garde anti-secret.
 - [x] PWA installable et shell complet disponible hors connexion.

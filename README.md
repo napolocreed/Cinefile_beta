@@ -18,7 +18,9 @@ Ouvrir <http://localhost:4173>. Depuis un téléphone sur le même Wi-Fi, utilis
 ## Modes de jeu
 
 - **Classique** : passage d’écran, saisie assistée, chrono, vies et défis de bluff, de 2 à 10 joueurs.
-- **Vocal passif** : deux joueurs, écoute continue, propositions de reconnaissance, timers séparés et buzzer central. Si Web Speech n’est pas disponible, la saisie de secours conserve tout le déroulé du mode.
+- **Vocal passif** : deux joueurs, écoute continue, timers séparés et buzzer central. L’écoute ne fait que **proposer** : les noms entendus s’accumulent sur le tour du joueur actif, qui touche la bonne carte pour valider et passer la main. Rien n’entre dans la chaîne sans ce geste. Si Web Speech n’est pas disponible, la saisie de secours conserve tout le déroulé du mode.
+- La reconnaissance des noms est **phonétique et française** : « jean du jardin » retrouve Jean Dujardin, « de pardieu » Gérard Depardieu, « omar six » Omar Sy. Une phrase sans nom d’artiste n’efface jamais les propositions déjà entendues.
+- Chaque proposition porte le **portrait** de l’artiste, comme l’autocomplétion du mode classique. Hors connexion ou derrière un réseau filtrant, le cadre retombe sur l’initiale gravée plutôt que sur une image cassée.
 
 Le micro ne démarre jamais sans action explicite et Ciné-Fil ne stocke aucun fichier audio.
 
@@ -72,6 +74,8 @@ Lorsqu’un bluff porte sur un lien absent du catalogue chargé, la cible Node c
 - `NOT_FOUND` : toutes les sources disponibles ont répondu sans résultat ;
 - `UNKNOWN` : réseau, quota, timeout ou surcharge empêchent de conclure.
 
+La cascade rend compte d’elle-même : chaque réponse liste ses étapes dans l’ordre — base Ciné-Fil, TMDb, Wikidata, Wikipédia — avec leur issue (preuve, indice, rien trouvé, injoignable, inutile, abandonnée) et leur durée. L’écran de VAR affiche cette chronologie et met en évidence l’étape qui a produit la preuve, de sorte que la table voit d’où vient le verdict, ou que personne n’a rien trouvé.
+
 Seul `CONFIRMED` tranche automatiquement. Tous les autres états ouvrent une salle **VAR** avec les indices disponibles, des liens de recherche et une décision humaine. Une absence de résultat n’est donc jamais assimilée à la preuve qu’un film n’existe pas.
 
 Les confirmations positives enrichissent `cinefil.verification-cache.v1` sur l’appareil et deviennent immédiatement rejouables hors connexion. Les résultats négatifs ne sont jamais appris. Sur GitHub Pages, aucune API d’exécution n’est appelée : la VAR humaine et ses recherches externes restent disponibles. Définir `VERIFY_LINK_NETWORK=0` désactive également la cascade sur la cible Node sans casser le jeu.
@@ -87,7 +91,7 @@ npm run test:e2e:pages # mêmes parcours sous /Cinefile_beta/
 npm run test:all     # totalité de la quality gate
 ```
 
-La suite vérifie notamment le moteur de partie, 250 séquences pseudo-aléatoires, la déduplication, les alias, l’unicité TMDb, les preuves filmographiques, les shards différés, le cache hors ligne, le vocal, l’export/import, le serveur, la PWA et les parcours critiques sur deux tailles d’écran. GitHub Actions rejoue cette quality gate à chaque push et pull request.
+La suite vérifie notamment le moteur de partie, 250 séquences pseudo-aléatoires, la phonétique française du mode vocal, la déduplication, les alias, l’unicité TMDb, les preuves filmographiques, les shards différés, le cache hors ligne, le vocal, l’export/import, le serveur, la PWA et les parcours critiques sur deux tailles d’écran. GitHub Actions rejoue cette quality gate à chaque push et pull request.
 
 ## Données et confidentialité
 
@@ -111,8 +115,8 @@ L’écran Profils permet d’exporter puis de restaurer ces données dans un JS
 - `src/game/database.js` : index canonique, alias, liens et recherche.
 - `src/game/catalog.js` : recherche hybride et cache navigateur.
 - `src/server/` : adaptateurs TMDb, catalogue publié et vérification Wikidata/Wikipédia côté serveur.
-- `src/voice/` : capture vocale et résolution d’entités séparées.
-- `src/data/` : snapshot, synonymes, registre d’identités revues, overlay TMDb compact, journal de fusion et métriques.
+- `src/voice/` : capture vocale, phonétique française, résolution d’entités et accumulateur de tour, séparés de l’interface.
+- `src/data/` : snapshot, synonymes, registre d’identités revues, overlay TMDb compact, index de portraits, journal de fusion et métriques.
 - `scripts/` : reconstruction des données, build Pages et synchronisation incrémentale.
 - `test/` et `e2e/` : non-régression logique et navigateur.
 

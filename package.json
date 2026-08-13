@@ -15,6 +15,7 @@
     "build:pages": "node scripts/build-pages.mjs",
     "build:pages:test": "node scripts/build-pages.mjs --base=/Cinefile_beta/",
     "build:tmdb-shards": "node scripts/build-tmdb-shards.mjs",
+    "build:portraits": "node scripts/build-portraits.mjs",
     "serve:pages": "node scripts/serve-pages.mjs",
     "extract:data": "node scripts/extract-cinema-data.mjs",
     "build:data": "node scripts/build-knowledge-snapshot.mjs",

@@ -54,3 +54,18 @@ test("every automatic TMDb identity has film evidence and every manual identity 
     assert.equal([...localTitles].some((title) => remoteTitles.has(title)), true, `${localPeople.get(person.localPersonId).name} lacks film evidence`);
   }
 });
+
+test("the portrait index stays a faithful, minimal projection of the overlay", async () => {
+  const portraits = JSON.parse(await readFile(new URL("../src/data/tmdb-portraits.json", import.meta.url), "utf8"));
+  assert.equal(portraits.version, 1);
+  assert.equal(portraits.base, "https://image.tmdb.org/t/p/w185");
+  const snapshotIds = new Set(snapshot.people.map((person) => person.id));
+  const expected = overlay.people.filter((person) => person.profilePath);
+  assert.equal(Object.keys(portraits.people).length, expected.length);
+  for (const person of expected) {
+    assert.equal(`${portraits.base}${portraits.people[person.localPersonId]}`, person.profilePath);
+    assert.equal(snapshotIds.has(person.localPersonId), true);
+  }
+  // Nothing but a path belongs here: no name, no credit, no identity the snapshot does not already own.
+  for (const path of Object.values(portraits.people)) assert.match(path, /^\/[A-Za-z0-9]+\.(jpg|png)$/);
+});

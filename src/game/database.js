@@ -284,6 +284,18 @@ export function createDatabase(data = {}, options = {}) {
     return searchPeople(transcript, { themeId, excluded, limit }).map((person) => ({ ...person, origin: "voice-fuzzy" }));
   }
 
+  // Portraits are pure decoration: they never create an identity, they only dress the ones already indexed.
+  function attachPortraits({ base = "", people: portraits = {} } = {}) {
+    let applied = 0;
+    for (const [personId, path] of Object.entries(portraits)) {
+      const person = peopleById.get(personId);
+      if (!person || person.profilePath || !path) continue;
+      person.profilePath = `${base}${path}`;
+      applied += 1;
+    }
+    return applied;
+  }
+
   function exportOverlay() {
     const overlayPeople = people.filter((person) => person.source === "tmdb" || person.source === "manual");
     const overlayWorkIds = new Set(overlayPeople.flatMap((person) => person.credits));
@@ -316,6 +328,7 @@ export function createDatabase(data = {}, options = {}) {
     upsertPerson,
     upsertPeople: (incoming, upsertOptions = {}) => incoming.map((person) => upsertPerson(person, upsertOptions)).filter(Boolean),
     upsertWork,
+    attachPortraits,
     exportOverlay,
     stats: () => ({ people: people.length, works: works.length, credits: people.reduce((sum, person) => sum + person.creditCount, 0) }),
   };
