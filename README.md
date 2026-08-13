@@ -2,6 +2,8 @@
 
 Ciné-Fil est un jeu local de chaîne cinéma et de bluff, reconstruit sans dépendance d’exécution à Lovable. L’application est mobile-first, installable, jouable hors connexion et habillée dans une direction artistique **Old School Hollywood**.
 
+Version publique : <https://napolocreed.github.io/Cinefile_beta/>.
+
 ## Lancer le jeu
 
 Prérequis : Node.js 20 ou supérieur.
@@ -22,13 +24,15 @@ Le micro ne démarre jamais sans action explicite et Ciné-Fil ne stocke aucun f
 
 ## Catalogue cinéma
 
-Le snapshot embarqué contient :
+Le socle canonique contient :
 
 - 1 524 personnes ;
 - 41 914 œuvres canoniques ;
 - 84 501 crédits ;
 - 409 fusions de titres traçables et réversibles ;
 - 144 candidats ambigus maintenus en revue plutôt que fusionnés automatiquement.
+
+Une première vague TMDb publiée enrichit 100 de ces personnes avec 15 547 œuvres compactées et 20 233 crédits distants. Après fusion prudente, le catalogue utilisé en jeu atteint actuellement 49 585 œuvres et 97 278 crédits, sans dupliquer les identités locales.
 
 Le jeu fonctionne entièrement avec ce snapshot. Pour activer la recherche et l’enrichissement TMDb, copier `.env.example` vers `.env` et fournir l’une de ces variables :
 
@@ -39,7 +43,7 @@ TMDB_API_TOKEN=votre_jeton_v4
 
 Puis lancer localement avec `npm run dev:env`. Sur Railway, déclarer directement la variable dans l’environnement et conserver `npm start`.
 
-Le secret reste côté serveur. L’interface ne reçoit que les résultats nécessaires et les met en cache localement.
+Le secret reste côté serveur ou dans les secrets GitHub Actions. L’interface ne reçoit jamais la clé : GitHub Pages charge un overlay statique contrôlé, tandis que la cible Node peut interroger TMDb en direct.
 
 Reproduire le snapshot canonique :
 
@@ -53,13 +57,16 @@ Lancer une vague incrémentale TMDb, reprenable après interruption :
 npm run sync:tmdb:env -- --limit=100
 ```
 
-La sortie locale `src/data/tmdb-overlay.local.json` est ignorée par Git afin qu’une synchronisation soit contrôlée avant intégration au snapshot public.
+La sortie locale `src/data/tmdb-overlay.local.json` est ignorée par Git afin qu’une synchronisation soit contrôlée avant intégration. Le fichier publié `src/data/tmdb-overlay.json` utilise un schéma compact et référentiel; les homonymes ne sont acceptés qu’avec un recouvrement filmographique décisif.
+
+Pour les vagues automatiques, créer dans GitHub `Settings → Secrets and variables → Actions` un secret de dépôt nommé `TMDB_API_TOKEN`. Le workflow `Enrich TMDb catalogue` traite ensuite 100 personnes par semaine, rafraîchit les données avant six mois, rejoue les tests et redéploie Pages. Le jeton ayant été partagé hors du gestionnaire de secrets, le renouveler avant cette configuration est recommandé.
 
 ## Tests
 
 ```bash
-npm test             # 35 tests unitaires, intégration, données et propriétés
+npm test             # 39 tests unitaires, intégration, données et propriétés
 npm run test:e2e     # desktop + mobile avec un Chromium reproductible
+npm run test:e2e:pages # mêmes parcours sous /Cinefile_beta/
 npm run test:all     # totalité de la quality gate
 ```
 
@@ -87,14 +94,19 @@ L’écran Profils permet d’exporter puis de restaurer ces données dans un JS
 - `src/game/catalog.js` : recherche hybride et cache navigateur.
 - `src/server/tmdb.js` : adaptateur TMDb côté serveur.
 - `src/voice/` : capture vocale et résolution d’entités séparées.
-- `src/data/` : snapshot, synonymes, journal de fusion et métriques.
-- `scripts/` : reconstruction des données et synchronisation incrémentale.
+- `src/data/` : snapshot, synonymes, overlay TMDb compact, journal de fusion et métriques.
+- `scripts/` : reconstruction des données, build Pages et synchronisation incrémentale.
 - `test/` et `e2e/` : non-régression logique et navigateur.
 
 Les fichiers minifiés récupérés restent sous `public/assets/` pour audit mais ne sont plus le runtime de l’application. Le dump du propriétaire est conservé sous `recovery/lovable-dump/`.
 
 La progression détaillée et les quelques tâches nécessitant un jeton ou une validation éditoriale figurent dans [roadmap.md](roadmap.md).
 
-## Déploiement
+## Déploiements
 
-Le serveur respecte `PORT` et se déploie tel quel sur Railway ou un environnement Node. Le fallback SPA couvre toutes les routes; les endpoints `/api/catalog/*` n’exposent jamais le jeton TMDb.
+- **GitHub Pages** : `.github/workflows/pages.yml` construit une liste blanche statique compatible avec le sous-chemin du dépôt, teste le jeu et publie `dist/`. Aucun secret ni code serveur n’entre dans l’artefact.
+- **Serveur Node** : `npm start` respecte `PORT`, sert le fallback SPA et expose `/api/catalog/*` sans transmettre le jeton TMDb au navigateur. Cette cible est prête pour Railway, Render, Fly.io ou un hébergement équivalent dès qu’une fonction demande un backend permanent.
+
+GitHub Pages est donc un premier hébergement, pas une limite produit : le frontend et le moteur ne dépendent pas de cette plateforme.
+
+Les données et portraits enrichis proviennent de TMDb. This product uses the TMDB API but is not endorsed or certified by TMDB.

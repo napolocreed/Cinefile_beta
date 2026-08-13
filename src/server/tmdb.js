@@ -98,7 +98,7 @@ export function createTmdbClient({ token = process.env.TMDB_API_TOKEN, apiKey = 
         aliases: [],
         year: yearFromDate(credit.release_date ?? credit.first_air_date),
         type,
-        externalIds: { tmdb: credit.id },
+        externalIds: type === "tv" ? { tmdbTv: credit.id } : { tmdbMovie: credit.id },
         source: "tmdb",
         roles: [],
       };

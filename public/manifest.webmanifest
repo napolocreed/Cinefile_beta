@@ -1,18 +1,18 @@
 {
-  "id": "/",
+  "id": "./",
   "name": "Ciné-Fil — Le dernier à l'écran",
   "short_name": "Ciné-Fil",
   "description": "Le jeu de chaîne cinéma, de culture et de bluff.",
   "lang": "fr-FR",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#07080b",
   "theme_color": "#090b10",
   "icons": [
     {
-      "src": "/__l5e/assets-v1/8a9f592b-23da-4698-8a14-e0016a7b6c74/cinefil-logo.png",
+      "src": "__l5e/assets-v1/8a9f592b-23da-4698-8a14-e0016a7b6c74/cinefil-logo.png",
       "sizes": "1254x1254",
       "type": "image/png",
       "purpose": "any maskable"

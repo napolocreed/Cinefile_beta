@@ -16,17 +16,50 @@ import { createDiagnostics } from "./game/diagnostics.js";
 import { candidateConfidenceLabel, resolveVoiceTranscript } from "./voice/entity-resolver.js";
 import { createSpeechSession, isSpeechRecognitionSupported } from "./voice/speech-session.js";
 
+function normalizeBasePath(value) {
+  const clean = `/${String(value ?? "/").trim().replace(/^\/+|\/+$/g, "")}`;
+  return clean === "/" ? "/" : `${clean}/`;
+}
+
+const APP_BASE = normalizeBasePath(document.querySelector('meta[name="app-base"]')?.content ?? "/");
+const CATALOG_MODE = document.querySelector('meta[name="catalog-mode"]')?.content === "static" ? "static" : "remote";
+const assetUrl = (value = "") => `${APP_BASE}${String(value).replace(/^\/+/, "")}`;
+const routeUrl = (value = "/") => {
+  const logical = `/${String(value).replace(/^\/+|\/+$/g, "")}`;
+  return logical === "/" ? APP_BASE : assetUrl(logical);
+};
+const logicalPath = (pathname = window.location.pathname) => {
+  const normalizedPathname = pathname.replace(/\/+$/, "") || "/";
+  const baseWithoutSlash = APP_BASE.replace(/\/+$/, "") || "/";
+  if (normalizedPathname === baseWithoutSlash) return "/";
+  if (APP_BASE !== "/" && normalizedPathname.startsWith(APP_BASE)) return `/${normalizedPathname.slice(APP_BASE.length).replace(/^\/+|\/+$/g, "")}`;
+  return normalizedPathname;
+};
+
 const root = document.querySelector("#app");
 const storage = createStorage();
 const diagnostics = createDiagnostics();
 diagnostics.install(window);
 document.documentElement.toggleAttribute("data-large-text", storage.loadSettings().largeText === true);
-const [data, synonyms] = await Promise.all([
-  fetch("/src/data/cinema-knowledge.json").then((response) => response.ok ? response.json() : Promise.reject(new Error("snapshot"))).catch(() => fetch("/src/data/cinema-database.json").then((response) => response.json())),
-  fetch("/src/data/cinema-synonyms.json").then((response) => response.json()).catch(() => ({ people: [], works: [] })),
+const [data, synonyms, overlay] = await Promise.all([
+  fetch(assetUrl("src/data/cinema-knowledge.json")).then((response) => response.ok ? response.json() : Promise.reject(new Error("snapshot"))).catch(() => fetch(assetUrl("src/data/cinema-database.json")).then((response) => response.json())),
+  fetch(assetUrl("src/data/cinema-synonyms.json")).then((response) => response.json()).catch(() => ({ people: [], works: [] })),
+  fetch(assetUrl("src/data/tmdb-overlay.json")).then((response) => response.ok ? response.json() : Promise.reject(new Error("overlay"))).catch(() => ({ version: 2, people: [], works: [] })),
 ]);
 const database = createDatabase(data, { synonyms });
-const catalog = createHybridCatalog({ database });
+const tmdbFreshnessLimit = Date.now() - 180 * 24 * 60 * 60 * 1000;
+const overlayWorkIdMap = new Map();
+for (const work of overlay.works ?? []) {
+  const mergedWork = database.upsertWork(work, { source: "tmdb" });
+  if (mergedWork) overlayWorkIdMap.set(work.id, mergedWork.id);
+}
+const freshOverlayPeople = Array.isArray(overlay.people)
+  ? overlay.people
+    .filter((person) => Number.isFinite(Date.parse(person.syncedAt)) && Date.parse(person.syncedAt) >= tmdbFreshnessLimit)
+    .map((person) => ({ ...person, credits: (person.credits ?? []).map((credit) => typeof credit === "string" ? overlayWorkIdMap.get(credit) ?? credit : credit) }))
+  : [];
+if (freshOverlayPeople.length) database.upsertPeople(freshOverlayPeople, { source: "tmdb" });
+const catalog = createHybridCatalog({ database, remoteEnabled: CATALOG_MODE === "remote" });
 
 const state = {
   game: storage.loadCurrent(),
@@ -50,7 +83,7 @@ const state = {
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character]);
 const html = (strings, ...values) => strings.reduce((result, string, index) => `${result}${string}${values[index] ?? ""}`, "");
-const path = () => window.location.pathname.replace(/\/$/, "") || "/";
+const path = () => logicalPath();
 
 function createVoiceState() {
   return {
@@ -73,19 +106,22 @@ function livesMarkup(lives, large = false) {
 }
 
 function brandMarkup(compact = false) {
-  return `<a class="brand ${compact ? "brand--compact" : ""}" href="/" data-nav><span class="brand__seal">✦</span><span class="brand__words"><b>CINÉ</b><em>FIL</em></span></a>`;
+  return `<a class="brand ${compact ? "brand--compact" : ""}" href="${routeUrl("/")}" data-nav><span class="brand__seal">✦</span><span class="brand__words"><b>CINÉ</b><em>FIL</em></span></a>`;
 }
 
 function shell(content, { back = null, eyebrow = "Ciné-Fil Pictures" } = {}) {
   const wide = String(content).includes("voice-page") || String(content).includes("voice-review");
-  return `<main class="page"><div class="film-grain" aria-hidden="true"></div><header class="topbar">${back ? `<a class="back-link" href="${back}" data-nav>← ${back === "/" ? "Accueil" : "Retour"}</a>` : "<span></span>"}${brandMarkup(true)}<span class="topbar__eyebrow">${eyebrow}</span></header><div class="page__body ${wide ? "page__body--wide" : ""}">${content}</div></main>`;
+  const routedContent = String(content).replace(/href="(\/[^"#?]*)"/g, (_, route) => `href="${APP_BASE !== "/" && route.startsWith(APP_BASE) ? route : routeUrl(route)}"`);
+  return `<main class="page"><div class="film-grain" aria-hidden="true"></div><header class="topbar">${back ? `<a class="back-link" href="${routeUrl(back)}" data-nav>← ${back === "/" ? "Accueil" : "Retour"}</a>` : "<span></span>"}${brandMarkup(true)}<span class="topbar__eyebrow">${eyebrow}</span></header><div class="page__body ${wide ? "page__body--wide" : ""}">${routedContent}</div></main>`;
 }
 
 function navigate(target) {
+  const destination = new URL(target, window.location.origin);
+  const logicalTarget = logicalPath(destination.pathname);
   stopTimer();
   stopSearch();
-  if (target !== "/play" && state.voice?.session) stopVoiceSession();
-  history.pushState({}, "", target);
+  if (logicalTarget !== "/play" && state.voice?.session) stopVoiceSession();
+  history.pushState({}, "", routeUrl(logicalTarget));
   state.phase = "pass";
   state.pending = null;
   state.revealChallenged = false;
@@ -100,7 +136,7 @@ function navigate(target) {
 
 function renderHome() {
   const hasGame = state.game?.status === "in-progress";
-  root.innerHTML = `<main class="hero"><div class="hero__backdrop" aria-hidden="true"></div><div class="film-grain" aria-hidden="true"></div><div class="hero__content"><div class="studio-stamp">${brandMarkup()}</div><p class="kicker">Un jeu de culture cinéma · deux à dix joueurs</p><h1>Le dernier<br><span>à l’écran.</span></h1><p class="hero__intro">Reliez chaque acteur au précédent par un film commun. Bluffez, démasquez, survivez : la culture ciné décide du dernier debout.</p><div class="hero__actions"><a class="button button--gold" href="/setup" data-nav>Nouvelle partie <span>→</span></a>${hasGame ? `<a class="button button--ghost" href="/play" data-nav>Reprendre la partie <span>↗</span></a>` : ""}<a class="button button--text" href="/profiles" data-nav>Profils &amp; succès</a></div><p class="hero__fineprint">Sans compte · sans connexion · sauvegardé sur cet appareil</p></div><div class="hero__credits">CINÉFIL PICTURES · PRÉSENTE</div></main>`;
+  root.innerHTML = `<main class="hero"><div class="hero__backdrop" aria-hidden="true"></div><div class="film-grain" aria-hidden="true"></div><div class="hero__content"><div class="studio-stamp">${brandMarkup()}</div><p class="kicker">Un jeu de culture cinéma · deux à dix joueurs</p><h1>Le dernier<br><span>à l’écran.</span></h1><p class="hero__intro">Reliez chaque acteur au précédent par un film commun. Bluffez, démasquez, survivez : la culture ciné décide du dernier debout.</p><div class="hero__actions"><a class="button button--gold" href="${routeUrl("/setup")}" data-nav>Nouvelle partie <span>→</span></a>${hasGame ? `<a class="button button--ghost" href="${routeUrl("/play")}" data-nav>Reprendre la partie <span>↗</span></a>` : ""}<a class="button button--text" href="${routeUrl("/profiles")}" data-nav>Profils &amp; succès</a></div><p class="hero__fineprint">Sans compte · sans connexion · sauvegardé sur cet appareil</p></div><div class="hero__credits">CINÉFIL PICTURES · PRÉSENTE</div></main>`;
 }
 
 function setupMarkup() {
@@ -205,6 +241,7 @@ function suggestionHint() {
   if (state.selectedPerson) return `${state.selectedPerson.name} sélectionné · ${String(state.selectedPerson.origin ?? "").includes("tmdb") ? "filmographie enrichie à la validation" : "snapshot local"}.`;
   if (!state.input.trim()) return `Snapshot ${database.snapshotId ?? "local"} · disponible hors connexion.`;
   if (state.searchStatus === "loading") return "Recherche locale terminée · interrogation du catalogue étendu…";
+  if (state.catalogStatus.static) return "Catalogue embarqué enrichi · aucune clé API n’est exposée par GitHub Pages.";
   if (state.catalogStatus.configured === false) return "Catalogue local actif · ajoutez TMDB_API_TOKEN au serveur pour la recherche étendue.";
   if (state.catalogStatus.online === false) return "Hors connexion · résultats du snapshot et du cache local.";
   if (!state.suggestions.length) return "Artiste hors base — le groupe pourra l’accepter par vote.";
@@ -687,7 +724,7 @@ function stopTimer() {
 function renderResults() {
   const game = state.game ?? storage.loadCurrent();
   if (!game || game.status !== "finished") {
-    root.innerHTML = shell(`<section class="empty-state"><p class="kicker">Salle vide</p><h1>Aucune partie terminée.</h1><a class="button button--gold" href="/setup" data-nav>Tourner une partie</a></section>`, { back: "/" });
+    root.innerHTML = shell(`<section class="empty-state"><p class="kicker">Salle vide</p><h1>Aucune partie terminée.</h1><a class="button button--gold" href="${routeUrl("/setup")}" data-nav>Tourner une partie</a></section>`, { back: "/" });
     return;
   }
   state.game = game;
@@ -709,6 +746,7 @@ function renderProfiles() {
   const profiles = Object.values(storage.loadProfiles()).sort((left, right) => right.wins - left.wins || right.xp - left.xp);
   const diagnosticEntries = diagnostics.load();
   root.innerHTML = shell(`<section class="profiles-page"><div class="section-heading"><p class="kicker">Archives du studio</p><h1>Profils</h1><p>Les statistiques cumulées de tous les joueurs sur cet appareil.</p></div>${state.transferNotice ? `<p class="transfer-notice ${state.transferNotice.type === "error" ? "transfer-notice--error" : ""}" role="status">${escapeHtml(state.transferNotice.message)}</p>` : ""}${profiles.length ? `<div class="profile-list">${profiles.map((profile) => `<article class="profile-card"><div class="profile-card__head"><div><h2>${escapeHtml(profile.name)}</h2><p>${levelForXp(profile.xp)} · ${profile.xp} XP</p></div><span>${profile.games} partie${profile.games > 1 ? "s" : ""}</span></div><div class="profile-stats"><div><b>${profile.wins}</b><small>Victoires</small></div><div><b>${profile.filmsFound}</b><small>Films</small></div><div><b>${profile.bluffsSucceeded}</b><small>Bluffs</small></div><div><b>${profile.bluffsCaught}</b><small>Démasqués</small></div></div>${profile.achievements?.length ? `<div class="profile-achievements">${profile.achievements.map((id) => { const achievement = ACHIEVEMENTS.find((item) => item.id === id); return achievement ? `<span title="${escapeHtml(achievement.description)}">${achievement.icon} ${escapeHtml(achievement.label)}</span>` : ""; }).join("")}</div>` : ""}</article>`).join("")}</div>` : `<div class="empty-state empty-state--panel"><p class="kicker">Pas encore de générique</p><h2>Aucun profil.</h2><p>Terminez une partie pour créer le premier.</p></div>`}<section class="panel all-achievements"><div class="panel__title"><span class="panel__number">∞</span><div><h2>Tous les succès</h2><p>Les trophées qui attendent leur scène.</p></div></div><div class="achievement-grid">${ACHIEVEMENTS.map((achievement) => `<div class="achievement achievement--muted"><span>${achievement.icon}</span><div><b>${achievement.label}</b><small>${achievement.description}</small></div></div>`).join("")}</div></section><section class="panel data-tools"><div class="panel__title"><span class="panel__number">↥</span><div><h2>Vos archives</h2><p>Transportez les parties et profils sans créer de compte.</p></div></div><div class="data-tools__buttons"><button class="button button--gold" data-export-backup>Exporter</button><button class="button button--ghost" data-import-backup>Importer</button><input class="sr-only" type="file" accept="application/json,.json" data-backup-file></div><p>Une importation remplace les données locales après validation du fichier.</p><label class="check-row"><input type="checkbox" data-large-text-toggle ${storage.loadSettings().largeText ? "checked" : ""}><span>Agrandir tous les textes de l’interface</span></label><label class="check-row"><input type="checkbox" data-diagnostics-toggle ${diagnostics.isEnabled() ? "checked" : ""}><span>Conserver un journal d’erreurs local (${diagnosticEntries.length}/30)</span></label>${diagnosticEntries.length ? `<button class="button button--text" data-clear-diagnostics>Effacer le journal local</button>` : ""}</section></section>`, { back: "/", eyebrow: "Hall of fame" });
+  document.querySelector(".profiles-page")?.insertAdjacentHTML("beforeend", `<aside class="tmdb-credit" aria-label="Crédits des données cinéma"><a href="https://www.themoviedb.org" target="_blank" rel="noreferrer"><img src="${assetUrl("assets/tmdb-logo.svg")}" alt="The Movie Database"></a><p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p></aside>`);
   bindProfileTools();
 }
 
@@ -811,7 +849,7 @@ catalog.status().then((status) => {
   if (state.phase === "input") renderSuggestions();
 });
 if ("serviceWorker" in navigator) {
-  const registerServiceWorker = () => navigator.serviceWorker.register("/sw.js").catch((error) => diagnostics.capture(error, { phase: "service-worker" }));
+  const registerServiceWorker = () => navigator.serviceWorker.register(assetUrl("sw.js"), { scope: APP_BASE }).catch((error) => diagnostics.capture(error, { phase: "service-worker" }));
   if (document.readyState === "complete") registerServiceWorker();
   else window.addEventListener("load", registerServiceWorker, { once: true });
 }

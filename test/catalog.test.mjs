@@ -32,7 +32,7 @@ test("hybrid search combines local matches with remote artists and disambiguatio
 test("hydrating a TMDb result adds credits and persists an offline cache", async () => {
   const storage = memoryStorage();
   const database = createDatabase({ actors: [], films: [] });
-  const person = { id: "tmdb:42", name: "Alice Remote", aliases: [], roles: ["acting"], tags: [], externalIds: { tmdb: 42 }, credits: [{ id: "tmdb-movie:7", title: "Film B", year: 2024, type: "movie", externalIds: { tmdb: 7 }, source: "tmdb" }], source: "tmdb" };
+  const person = { id: "tmdb:42", name: "Alice Remote", aliases: [], roles: ["acting"], tags: [], externalIds: { tmdb: 42 }, credits: [{ id: "tmdb-movie:7", title: "Film B", year: 2024, type: "movie", externalIds: { tmdbMovie: 7 }, source: "tmdb" }], source: "tmdb" };
   const catalog = createHybridCatalog({ database, storage, fetchImpl: async () => jsonResponse({ person }) });
   const hydrated = await catalog.hydrate({ name: person.name, externalIds: person.externalIds, origin: "tmdb" });
   assert.deepEqual(hydrated.films, ["Film B"]);
@@ -49,4 +49,24 @@ test("hybrid search keeps local results when the remote catalogue is down", asyn
   const result = await catalog.search("Alice");
   assert.deepEqual(result.results.map((person) => person.name), ["Alice Local"]);
   assert.equal(result.remote.online, false);
+});
+
+test("static catalogue mode never calls a server API", async () => {
+  const database = createDatabase({ actors: [{ name: "Alice Local", films: ["Film A"], tags: [] }], films: ["Film A"] });
+  let fetchCalls = 0;
+  const catalog = createHybridCatalog({
+    database,
+    storage: memoryStorage(),
+    remoteEnabled: false,
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      throw new Error("Static mode must not fetch");
+    },
+  });
+  const status = await catalog.status();
+  const result = await catalog.search("Alice");
+  assert.equal(status.static, true);
+  assert.equal(status.source, "snapshot");
+  assert.deepEqual(result.results.map((person) => person.name), ["Alice Local"]);
+  assert.equal(fetchCalls, 0);
 });

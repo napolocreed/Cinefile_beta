@@ -40,5 +40,7 @@ test("TMDb person hydration combines cast and crew credits deterministically", a
   assert.equal(person.birthYear, 1988);
   assert.equal(person.credits.length, 1);
   assert.deepEqual(person.credits[0].roles, ["acting", "production"]);
+  assert.equal(person.credits[0].externalIds.tmdbMovie, 7);
+  assert.equal(person.credits[0].externalIds.tmdb, undefined);
   assert.equal(person.externalIds.imdb, "nm0012");
 });

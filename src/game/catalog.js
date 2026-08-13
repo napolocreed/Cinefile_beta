@@ -38,11 +38,13 @@ export function createCatalogCache(storage = globalThis.localStorage) {
   return { load, savePerson, clear: () => storage?.removeItem(CATALOG_CACHE_KEY) };
 }
 
-export function createHybridCatalog({ database, fetchImpl = globalThis.fetch, storage = globalThis.localStorage } = {}) {
+export function createHybridCatalog({ database, fetchImpl = globalThis.fetch, storage = globalThis.localStorage, remoteEnabled = true } = {}) {
   const cache = createCatalogCache(storage);
   const cached = cache.load();
   for (const person of cached.people) database.upsertPerson(person, { source: "tmdb" });
-  let remoteState = { checked: false, configured: null, online: globalThis.navigator?.onLine !== false, source: "local" };
+  let remoteState = remoteEnabled
+    ? { checked: false, configured: null, online: globalThis.navigator?.onLine !== false, source: "local", static: false }
+    : { checked: true, configured: false, online: globalThis.navigator?.onLine !== false, source: "snapshot", static: true };
 
   async function fetchJson(url, { signal } = {}) {
     if (!fetchImpl || globalThis.navigator?.onLine === false) throw new Error("offline");
@@ -53,6 +55,7 @@ export function createHybridCatalog({ database, fetchImpl = globalThis.fetch, st
   }
 
   async function status() {
+    if (!remoteEnabled) return { ...remoteState };
     try {
       const payload = await fetchJson("/api/catalog/status");
       remoteState = { checked: true, configured: Boolean(payload.configured), online: true, source: payload.source ?? "local" };
@@ -65,7 +68,7 @@ export function createHybridCatalog({ database, fetchImpl = globalThis.fetch, st
   async function search(query, options = {}) {
     const limit = Math.max(1, Math.min(12, Number(options.limit ?? 8)));
     const local = database.searchPeople(query, { ...options, limit });
-    if (normalizeText(query).length < 2 || options.remote === false || globalThis.navigator?.onLine === false) {
+    if (!remoteEnabled || normalizeText(query).length < 2 || options.remote === false || globalThis.navigator?.onLine === false) {
       return { results: local, remote: { ...remoteState, skipped: true } };
     }
     try {
@@ -100,6 +103,7 @@ export function createHybridCatalog({ database, fetchImpl = globalThis.fetch, st
     if (existing && existing.creditCount && !String(candidate.origin ?? "").includes("tmdb")) return existing;
     const tmdbId = candidate.externalIds?.tmdb;
     if (!tmdbId) return existing ?? database.upsertPerson(candidate, { source: candidate.source ?? "manual" });
+    if (!remoteEnabled) return existing ?? database.upsertPerson(candidate, { source: candidate.source ?? "tmdb" });
     if (existing && String(existing.externalIds?.tmdb ?? "") === String(tmdbId) && existing.source === "tmdb") return existing;
     const cachedPerson = cache.load().people.find((person) => String(person.externalIds?.tmdb) === String(tmdbId));
     if (cachedPerson) return database.upsertPerson(cachedPerson, { source: "tmdb" });

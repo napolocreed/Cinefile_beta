@@ -23,3 +23,11 @@ test("autocomplete excludes used actors and respects the French theme", () => {
   assert.deepEqual(database.searchActors("leonardo", { themeId: "fr" }), []);
   assert.deepEqual(database.searchActors("leonardo", { excluded: ["Leonardo DiCaprio"] }), []);
 });
+
+test("TMDb movie and TV identifiers occupy distinct namespaces", () => {
+  const freshDatabase = createDatabase({ people: [], works: [] });
+  const movie = freshDatabase.upsertWork({ title: "Movie Seven", type: "movie", externalIds: { tmdbMovie: 7 } }, { source: "tmdb" });
+  const series = freshDatabase.upsertWork({ title: "Series Seven", type: "tv", externalIds: { tmdbTv: 7 } }, { source: "tmdb" });
+  assert.notEqual(movie.id, series.id);
+  assert.equal(freshDatabase.stats().works, 2);
+});

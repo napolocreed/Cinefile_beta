@@ -1,0 +1,80 @@
+name: Enrich TMDb catalogue
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: Number of local people to enrich or refresh
+        required: true
+        default: "100"
+        type: string
+  schedule:
+    - cron: "17 3 * * 0"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: tmdb-enrichment
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Check TMDb secret
+        env:
+          TMDB_API_TOKEN: ${{ secrets.TMDB_API_TOKEN }}
+        run: test -n "$TMDB_API_TOKEN" || { echo "Repository secret TMDB_API_TOKEN is missing."; exit 1; }
+      - name: Enrich a resumable batch
+        env:
+          TMDB_API_TOKEN: ${{ secrets.TMDB_API_TOKEN }}
+          BATCH_SIZE: ${{ inputs.batch_size || '100' }}
+        run: npm run sync:tmdb -- --limit="$BATCH_SIZE" --refresh-days=60 --output=src/data/tmdb-overlay.json
+      - name: Run non-regression tests
+        run: npm run test:unit
+      - name: Build refreshed Pages artifact
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: npm run build:pages
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+      - name: Persist refreshed overlay
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/tmdb-overlay.json
+          if git diff --cached --quiet; then
+            echo "Catalogue already current."
+          else
+            git commit -m "Refresh TMDb catalogue overlay"
+            git push
+          fi
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: enrich
+    steps:
+      - name: Deploy refreshed artifact
+        id: deployment
+        uses: actions/deploy-pages@v4

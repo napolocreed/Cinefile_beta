@@ -6,3 +6,4 @@ npm-debug.log*
 src/data/tmdb-overlay.local.json
 playwright-report/
 test-results/
+dist/
