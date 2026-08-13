@@ -33,6 +33,7 @@ const SURNAME_FACTOR = 0.86;
 // A reading the recogniser itself doubts should not win over the one it proposed first.
 const ALTERNATIVE_DECAY = 0.035;
 const PARTIAL_PENALTY = 0.9;
+const FRAGMENT_PENALTY = 0.55;
 const LINK_BONUS = 0.05;
 
 function tailForms(tokens) {
@@ -53,7 +54,7 @@ function personForms(person) {
     seen.add(code);
     // "Sy, Omar" is a catalogue sort key: its last token is a given name, never a surname to match alone.
     const inverted = String(value).includes(",");
-    forms.push({ kind, text: value, normalized: normalizeText(value), code, tails: inverted ? [] : tailForms(tokens) });
+    forms.push({ kind, text: value, normalized: normalizeText(value), code, tokens: tokens.length, tails: inverted ? [] : tailForms(tokens) });
   }
   return forms;
 }
@@ -68,10 +69,13 @@ function compareCodes(left, right) {
 
 function scoreSpanAgainstForm(span, form) {
   // A span that leaves informative words of the utterance unaccounted for is a partial reading: the player said
-  // more than this name. It stays a candidate, but never a confident one — that is how the ordinary word
-  // "prince" in a sentence stopped outranking the name nobody could enter.
+  // more than this name.
   const partial = span.informative < span.utterance;
-  if (span.normalized === form.normalized) return { score: partial ? PARTIAL_PENALTY : 1, via: form.kind, exact: !partial };
+  // Worse, a one-word catalogue name matched by one word of a longer sentence is almost always a coincidence of
+  // vocabulary — "Camille" inside "Camille Chamoux" happens to be an alias of Prince. Such a fragment is damped
+  // below the acceptance floor rather than merely demoted.
+  const penalty = partial ? (form.tokens === 1 ? FRAGMENT_PENALTY : PARTIAL_PENALTY) : 1;
+  if (span.normalized === form.normalized) return { score: penalty, via: form.kind, exact: !partial };
   let score = compareCodes(span.code, form.code);
   let via = form.kind;
   for (const tail of form.tails) {
@@ -81,7 +85,7 @@ function scoreSpanAgainstForm(span, form) {
       via = "surname";
     }
   }
-  return { score: partial ? score * PARTIAL_PENALTY : score, via, exact: false };
+  return { score: score * penalty, via, exact: false };
 }
 
 const isInformative = (token) => token.normalized.length > 1 && !STOPWORDS.has(token.normalized);

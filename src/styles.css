@@ -52,3 +52,5 @@ html[data-large-text]{font-size:118%}html[data-large-text] .page__body{width:min
 @media (prefers-reduced-motion:reduce){.voice-baton{animation:none;opacity:1;transform:translateY(-50%)}.voice-player--taking,.voice-player--struck,.voice-player--taking h2{animation:none}.heart--dying{animation:none;color:rgba(232,223,203,.16)}}
 @media (prefers-contrast:more){.voice-player:before{opacity:.7}.voice-player--active:before{width:.6rem}.voice-player:after{opacity:.3}.voice-baton{background:#05070b}}
 @media (max-width:760px){.voice-player:before{inset:0 0 auto 0;width:auto;height:.3rem;background:var(--seat)}.voice-player--2:before{inset:auto 0 0 0;background:repeating-linear-gradient(90deg,var(--seat) 0 .5rem,transparent .5rem 1rem)}.voice-player--active:before{width:auto;height:.45rem}.voice-seat{width:1.2rem;height:1.2rem;font-size:.62rem}.voice-baton{padding:1.1rem .8rem}}
+
+.play-page--center .var-cascade{width:min(30rem,100%);margin:1.4rem auto 0;text-align:left}
