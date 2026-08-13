@@ -48,6 +48,7 @@ export function createTurnBuffer({
       }))
       .sort((left, right) => right.confidence - left.confidence || right.lastAt - left.lastAt || (right.popularity ?? 0) - (left.popularity ?? 0))
       .slice(0, limit);
+    return pool;
   }
 
   return {
@@ -56,17 +57,25 @@ export function createTurnBuffer({
       if (transcript.trim()) {
         heard = [...heard.filter((entry) => entry.id !== utterance.id), { id: utterance.id, transcript: transcript.trim(), final, at }].slice(-maxHeard);
       }
+      // Recognition arrives in growing pieces: "Camille" then "Camille Chamoux". The shorter one is not a second
+      // opinion, it is the same sentence half-heard, and whatever it matched must go with it — even, and above
+      // all, when the completed sentence matches nothing at all.
+      const spoken = normalizeText(transcript);
+      const kept = spoken
+        ? utterances.filter((entry) => entry.id === utterance.id || !`${spoken} `.startsWith(`${normalizeText(entry.transcript)} `))
+        : utterances;
+      const superseded = kept.length !== utterances.length;
+      utterances = kept;
       const index = utterances.findIndex((entry) => entry.id === utterance.id);
       if (index >= 0) {
         // A final result supersedes the interim guesses it was built from.
-        if (!candidates.length && !utterances[index].candidates.length) return pool;
+        if (!candidates.length && !utterances[index].candidates.length) return superseded ? recompute() : pool;
         utterances[index] = utterance;
       } else {
-        if (!candidates.length) return pool;
+        if (!candidates.length) return superseded ? recompute() : pool;
         utterances = [...utterances, utterance].slice(-maxUtterances);
       }
-      recompute();
-      return pool;
+      return recompute();
     },
     candidates: () => pool,
     heard: () => heard,

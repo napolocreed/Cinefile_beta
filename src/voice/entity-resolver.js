@@ -34,6 +34,10 @@ const SURNAME_FACTOR = 0.86;
 const ALTERNATIVE_DECAY = 0.035;
 const PARTIAL_PENALTY = 0.9;
 const FRAGMENT_PENALTY = 0.55;
+// TMDb ships 369 one-word aliases that are nicknames, not identities — "Camille" for Prince, "Simone" for Marion
+// Cotillard, "Omar" for Omar Sy. They remain a legitimate way to name someone, but hearing one is never as good
+// as hearing a name, and it must never look certain enough to hide the off-catalogue card.
+const NICKNAME_PENALTY = 0.78;
 const LINK_BONUS = 0.05;
 
 function tailForms(tokens) {
@@ -74,7 +78,8 @@ function scoreSpanAgainstForm(span, form) {
   // Worse, a one-word catalogue name matched by one word of a longer sentence is almost always a coincidence of
   // vocabulary — "Camille" inside "Camille Chamoux" happens to be an alias of Prince. Such a fragment is damped
   // below the acceptance floor rather than merely demoted.
-  const penalty = partial ? (form.tokens === 1 ? FRAGMENT_PENALTY : PARTIAL_PENALTY) : 1;
+  const nickname = form.kind === "alias" && form.tokens === 1 ? NICKNAME_PENALTY : 1;
+  const penalty = nickname * (partial ? (form.tokens === 1 ? FRAGMENT_PENALTY : PARTIAL_PENALTY) : 1);
   if (span.normalized === form.normalized) return { score: penalty, via: form.kind, exact: !partial };
   let score = compareCodes(span.code, form.code);
   let via = form.kind;

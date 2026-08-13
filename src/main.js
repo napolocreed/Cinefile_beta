@@ -511,9 +511,11 @@ function voicePickListMarkup() {
   const candidates = voiceTurnCandidates();
   const offer = offCatalogueOffer();
   if (!candidates.length && !offer) return `<p class="voice-empty">Prononcez un nom d’artiste, il apparaîtra ici.</p>`;
-  const picks = candidates.map((candidate, index) => `<button type="button" role="listitem" class="voice-pick ${index === 0 ? "voice-pick--lead" : ""}" data-voice-validate="${index}">${portraitMarkup(candidate, index === 0 ? "portrait--lead" : "")}<span class="voice-pick__body"><span class="voice-pick__name">${escapeHtml(candidate.name)}</span><small>${candidateConfidenceLabel(candidate.confidence)}${candidate.matchedText ? ` · entendu «&nbsp;${escapeHtml(candidate.matchedText)}&nbsp;»` : ""}</small></span><em>Valider</em></button>`);
+  const promoted = Boolean(offer) && (candidates[0]?.confidence ?? 0) < 0.84;
+  const picks = candidates.map((candidate, index) => `<button type="button" role="listitem" class="voice-pick ${index === 0 && !promoted ? "voice-pick--lead" : ""}" data-voice-validate="${index}">${portraitMarkup(candidate, index === 0 && !promoted ? "portrait--lead" : "")}<span class="voice-pick__body"><span class="voice-pick__name">${escapeHtml(candidate.name)}</span><small>${candidateConfidenceLabel(candidate.confidence)}${candidate.matchedText ? ` · entendu «&nbsp;${escapeHtml(candidate.matchedText)}&nbsp;»` : ""}</small></span><em>Valider</em></button>`);
   if (offer) {
-    picks.push(`<button type="button" role="listitem" class="voice-pick voice-pick--raw" data-voice-validate="raw">${portraitMarkup({ name: offer.name })}<span class="voice-pick__body"><span class="voice-pick__name">${escapeHtml(offer.name)}</span><small>${offer.known ? "entendu tel quel" : "absent du catalogue · validez pour le soumettre au vote"}</small></span><em>Valider</em></button>`);
+    // When nothing in the catalogue is solid, the name the player actually said deserves the first row.
+    picks[promoted ? "unshift" : "push"](`<button type="button" role="listitem" class="voice-pick voice-pick--raw ${promoted ? "voice-pick--lead" : ""}" data-voice-validate="raw">${portraitMarkup({ name: offer.name }, promoted ? "portrait--lead" : "")}<span class="voice-pick__body"><span class="voice-pick__name">${escapeHtml(offer.name)}</span><small>${offer.known ? "entendu tel quel" : "absent du catalogue · validez pour le soumettre au vote"}</small></span><em>Valider</em></button>`);
   }
   return `<div class="voice-picks" role="list">${picks.join("")}</div>${offer && !offer.known ? `<button type="button" class="button button--text voice-fix" data-voice-fix="${escapeHtml(offer.name)}">Corriger l’orthographe</button>` : ""}`;
 }

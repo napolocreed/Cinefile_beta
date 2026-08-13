@@ -196,3 +196,39 @@ test("utterance ids stay unique across recogniser restarts", () => {
   assert.notEqual(transcripts[0].id, transcripts[1].id);
   session.destroy();
 });
+
+test("a nickname is a weaker reading than a name", () => {
+  const nicknamed = createDatabase({
+    actors: [
+      { name: "Prince", aliases: ["Camille", "The Artist Formerly Known As Prince"], films: ["Purple Rain"], tags: [] },
+      { name: "Dwayne Johnson", aliases: ["The Rock"], films: ["Jumanji"], tags: [] },
+    ],
+    films: ["Purple Rain", "Jumanji"],
+  });
+  const resolver = createVoiceResolver(nicknamed);
+  // TMDb hands out hundreds of one-word aliases; hearing one must stay short of certainty so the off-catalogue
+  // card, which hides above 0.93, keeps its place.
+  const [nickname] = resolver.resolve("camille");
+  assert.equal(nickname.name, "Prince");
+  assert.equal(nickname.confidence < 0.85, true, `un surnom ne doit pas être certain (${nickname.confidence})`);
+  assert.equal(resolver.resolve("prince")[0].confidence > 0.9, true);
+  assert.equal(resolver.resolve("the rock")[0].confidence > 0.9, true);
+  assert.deepEqual(resolver.resolve("camille chamoux"), []);
+});
+
+test("a completed sentence retires the fragment it grew from", () => {
+  const buffer = createTurnBuffer();
+  buffer.ingest({ id: "0:0", transcript: "Camille", final: true, candidates: [{ id: "prince", name: "Prince", confidence: 0.76 }], at: 1 });
+  assert.deepEqual(buffer.candidates().map((candidate) => candidate.name), ["Prince"]);
+  // The player was mid-name. Completing it must take the half-heard reading away, even though the finished
+  // sentence matches nothing at all — that is what leaves the off-catalogue card alone on screen.
+  buffer.ingest({ id: "0:1", transcript: "Camille Chamoux", final: true, candidates: [], at: 2 });
+  assert.deepEqual(buffer.candidates(), []);
+  assert.equal(buffer.lastTranscript(), "Camille Chamoux");
+
+  // An unrelated sentence still removes nothing.
+  const other = createTurnBuffer();
+  other.ingest({ id: "1:0", transcript: "Jean Dujardin", final: true, candidates: [{ id: "jd", name: "Jean Dujardin", confidence: 0.97 }], at: 1 });
+  other.ingest({ id: "1:1", transcript: "euh attends", final: true, candidates: [], at: 2 });
+  assert.deepEqual(other.candidates().map((candidate) => candidate.name), ["Jean Dujardin"]);
+});
