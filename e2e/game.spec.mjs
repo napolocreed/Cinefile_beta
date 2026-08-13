@@ -172,7 +172,8 @@ test("an uncertain bluff opens the human VAR without treating absence as proof",
   await page.getByRole("button", { name: /Valider/i }).click();
   await page.getByRole("button", { name: /Bluff !/i }).click();
   await expect(page.getByRole("heading", { name: /La VAR vous rend la décision/i })).toBeVisible();
-  await expect(page.getByText(/ne prouve jamais|jugement humain reste prioritaire/i)).toBeVisible();
+  // The Pages edition reaches this screen without contacting anything, and says so instead of blaming the network.
+  await expect(page.getByText(/ne prouve jamais|jugement humain reste prioritaire|ne joint aucun service externe/i)).toBeVisible();
   // The cascade is reported in full: the local base first, then each external source that was actually asked.
   const steps = page.locator(".var-step");
   await expect(steps).toHaveCount(4);

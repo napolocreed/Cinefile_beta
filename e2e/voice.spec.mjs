@@ -39,7 +39,24 @@ const RECOGNISER = () => {
 async function stubCatalog(page, { hydrateDelayMs = 0 } = {}) {
   await page.route("**/api/catalog/status", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: false, source: "local" }) }));
   await page.route("**/api/catalog/search*", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: false, results: [] }) }));
-  await page.route("**/api/verify-link*", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ verdict: "NOT_FOUND", source: "none", films: [], evidence: [], searchLinks: {} }) }));
+  // Shaped like the real endpoint, cascade included, so the VAR screen is exercised as it ships.
+  await page.route("**/api/verify-link*", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      verdict: "NOT_FOUND",
+      source: "none",
+      films: [],
+      evidence: [],
+      durationMs: 1800,
+      steps: [
+        { source: "tmdb", outcome: "empty", durationMs: 320, films: 0, error: null },
+        { source: "wikidata", outcome: "empty", durationMs: 910, films: 0, error: null },
+        { source: "wikipedia", outcome: "empty", durationMs: 1200, films: 0, error: null },
+      ],
+      searchLinks: { google: "https://www.google.com/search?q=cinema" },
+    }),
+  }));
   await page.route("**/api/catalog/people/**", async (route) => {
     if (hydrateDelayMs) await new Promise((resolve) => setTimeout(resolve, hydrateDelayMs));
     await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "absent" }) });
@@ -148,4 +165,29 @@ test("naming the artist already on the table cannot erase them", async ({ page }
   await expect(page.locator(".voice-pick__name").filter({ hasText: "Kate Winslet" })).toHaveCount(0);
   expect(await chainOf(page)).toEqual(["Leonardo DiCaprio"]);
   await expect(page.locator(".voice-chain__pending")).toContainText("Kate Winslet");
+});
+
+test("an off-catalogue name stays itself when the buzzer reopens it", async ({ page }) => {
+  await startVoiceGame(page);
+  await page.getByRole("button", { name: /Activer le micro/i }).click();
+
+  // "Camille" is an alias of Prince in the snapshot, so the pool is not empty when this name is spoken: the
+  // off-catalogue card has to be the identity the entry remembers, not the first row of a pool nobody picked.
+  await page.evaluate(() => window.__say("camille chamoux"));
+  const raw = page.locator(".voice-pick--raw");
+  await expect(raw).toContainText("Camille Chamoux");
+  await raw.click();
+  await expect(page.locator(".voice-pick")).toHaveCount(0);
+  expect(await chainOf(page)).toEqual(["Camille Chamoux"]);
+
+  await validate(page, "michael caine", "Michael Caine");
+  await page.getByRole("button", { name: /BLUFF/i }).click();
+  const left = page.locator(".voice-review__grid article").first();
+  await expect(left).toContainText("Camille Chamoux");
+  // The left identity must be the validated one, so no correction is attempted and nothing can refuse it.
+  await expect(left.locator(".voice-candidate--selected")).toContainText("Camille Chamoux");
+
+  await page.getByRole("button", { name: /Vérifier le bluff/i }).click();
+  await expect(page.getByRole("button", { name: /Bluff confirmé/i })).toBeEnabled();
+  await expect(page.locator(".var-step")).toHaveCount(4);
 });
