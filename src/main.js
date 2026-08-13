@@ -191,7 +191,7 @@ function announceVoice(message) {
 }
 
 function createVoiceTurn(playerId = null) {
-  return { playerId, buffer: createTurnBuffer(), remoteLookups: 0, remoteQueries: new Set(), startedAt: Date.now() };
+  return { playerId, buffer: createTurnBuffer(), remoteLookups: 0, remoteResults: new Map(), startedAt: Date.now() };
 }
 
 function createVoiceState() {
@@ -697,16 +697,30 @@ function syncVoiceTurn() {
   return true;
 }
 
+function mergeVoiceCandidates(candidates, extra) {
+  const merged = [...candidates];
+  for (const person of extra) {
+    if (merged.some((candidate) => normalizeText(candidate.name) === normalizeText(person.name))) continue;
+    merged.push(person);
+  }
+  return merged.sort((left, right) => right.confidence - left.confidence).slice(0, 4);
+}
+
 function voiceCandidatesFor(alternatives) {
   // The proposition already on the table is not a legal answer either: offering it would let a tap erase it.
   const excluded = [...state.game.chain, state.pending?.proposedActor].filter(Boolean);
-  const candidates = voiceResolver.resolve(alternatives, {
+  const local = voiceResolver.resolve(alternatives, {
     themeId: state.game.config.themeId,
     excluded,
     limit: 4,
     previousActor: state.game.chain.at(-1) ?? null,
   }).map((person) => compactVoiceCandidate(person));
-  return { candidates, excluded, query: spokenNameGuess(alternatives[0]?.transcript ?? "") };
+  const query = spokenNameGuess(alternatives[0]?.transcript ?? "");
+  // Saying a name twice is what a player does when nothing seems to happen. The turn remembers what the remote
+  // catalogue answered for a sentence, so the repeat costs no call and — above all — does not retire the artist
+  // only TMDb knew about.
+  const remembered = query ? state.voice.turn.remoteResults.get(normalizeText(query)) ?? [] : [];
+  return { candidates: mergeVoiceCandidates(local, remembered), local, excluded, query };
 }
 
 // With a configured TMDb behind it, the remote catalogue is the only way to reach an artist the snapshot never
@@ -719,11 +733,11 @@ const REMOTE_VOICE_MAX_LOCAL = 0.92;
 const REMOTE_VOICE_LONE_WORD_MAX_LOCAL = 0.7;
 const REMOTE_VOICE_BUDGET = 6;
 
-function worthAskingRemote({ candidates, query }, final) {
+function worthAskingRemote({ local, query }, final) {
   if (!final || !REMOTE_CATALOG || !query) return false;
-  const best = candidates[0]?.confidence ?? 0;
+  const best = local[0]?.confidence ?? 0;
   if (best >= (query.split(" ").length >= 2 ? REMOTE_VOICE_MAX_LOCAL : REMOTE_VOICE_LONE_WORD_MAX_LOCAL)) return false;
-  return !state.voice.turn.remoteQueries.has(normalizeText(query)) && state.voice.turn.remoteLookups < REMOTE_VOICE_BUDGET;
+  return !state.voice.turn.remoteResults.has(normalizeText(query)) && state.voice.turn.remoteLookups < REMOTE_VOICE_BUDGET;
 }
 
 // A TMDb hit is a name, not a hearing. It enters at "probable" when it spells exactly what was heard and lower
@@ -733,25 +747,29 @@ function remoteVoiceConfidence(person, query, best) {
   return Math.min(exact ? 0.82 : 0.7, best >= 0.78 ? best - 0.02 : 1);
 }
 
-async function remoteVoiceCandidates({ candidates, excluded, query }) {
+async function remoteVoiceCandidates({ candidates, local, excluded, query }) {
   const turn = state.voice.turn;
-  turn.remoteQueries.add(normalizeText(query));
+  const key = normalizeText(query);
+  turn.remoteResults.set(key, []);
   turn.remoteLookups += 1;
-  const best = candidates[0]?.confidence ?? 0;
+  const best = local[0]?.confidence ?? 0;
   try {
     const remote = await catalog.search(query, { themeId: state.game.config.themeId, excluded, limit: 4 });
     setCatalogStatus(remote.remote);
-    const combined = [...candidates];
+    const found = [];
     for (const person of remote.results) {
       // Only identities the snapshot genuinely lacks. A local person that the phonetic pass did not surface was
       // not misheard — it was rejected, and letting the looser text search re-inject it is how noise gets in.
       if (database.findActor(person.name, state.game.config.themeId)) continue;
-      if (combined.some((candidate) => normalizeText(candidate.name) === normalizeText(person.name))) continue;
-      combined.push(compactVoiceCandidate({ ...person, origin: "voice-tmdb" }, remoteVoiceConfidence(person, query, best)));
+      if (candidates.some((candidate) => normalizeText(candidate.name) === normalizeText(person.name))) continue;
+      found.push(compactVoiceCandidate({ ...person, origin: "voice-tmdb" }, remoteVoiceConfidence(person, query, best)));
     }
-    return combined.length > candidates.length ? combined.sort((left, right) => right.confidence - left.confidence).slice(0, 4) : null;
+    turn.remoteResults.set(key, found);
+    return found.length ? mergeVoiceCandidates(candidates, found) : null;
   } catch {
     setCatalogStatus({ ...catalog.getState(), online: false });
+    // Nothing was learned, so the next sentence may ask again once the network is back.
+    turn.remoteResults.delete(key);
     return null;
   }
 }

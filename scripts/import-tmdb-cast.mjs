@@ -21,15 +21,8 @@ export function parseYearRange(value, { defaultFrom = 2005, defaultTo = new Date
 
 // createTmdbClient owns the person endpoints and stays a narrow adapter for the game server; discovery is an import-time
 // concern, so its two endpoints live here rather than widening the shipped surface.
-export function createDiscoveryClient({ token = process.env.TMDB_API_TOKEN, apiKey = process.env.TMDB_API_KEY, fetchImpl = globalThis.fetch, delayMs = 0, locale = "fr-FR" } = {}) {
-  let nextRequestAt = 0;
-
+export function createDiscoveryClient({ token = process.env.TMDB_API_TOKEN, apiKey = process.env.TMDB_API_KEY, fetchImpl = globalThis.fetch, locale = "fr-FR" } = {}) {
   async function request(path, parameters = {}) {
-    if (delayMs) {
-      const wait = nextRequestAt - Date.now();
-      if (wait > 0) await new Promise((resolveDelay) => setTimeout(resolveDelay, wait));
-      nextRequestAt = Date.now() + delayMs;
-    }
     const url = new URL(`${API_ROOT}${path}`);
     for (const [key, value] of Object.entries(parameters)) if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
     if (apiKey && !token) url.searchParams.set("api_key", apiKey);
@@ -61,7 +54,6 @@ export function createDiscoveryClient({ token = process.env.TMDB_API_TOKEN, apiK
         title: movie.title ?? movie.original_title ?? "",
         year: Number(String(movie.release_date ?? "").slice(0, 4)) || year,
         popularity: Number(movie.popularity ?? 0),
-        voteCount: Number(movie.vote_count ?? 0),
       }));
     },
     async getMovieCredits(movieId) {
@@ -78,19 +70,26 @@ export function createDiscoveryClient({ token = process.env.TMDB_API_TOKEN, apiK
   };
 }
 
-// Deterministic walk: year ascending, page ascending, films by popularity then TMDb id, cast by billing order then id.
-// Two runs facing the same TMDb answers therefore meet the same candidates in the same sequence.
+// Deterministic walk: page by page, and inside a page the years from the most recent backwards, films by popularity
+// then TMDb id, cast by billing order then id. A budgeted wave therefore spreads over the whole window instead of
+// exhausting 2005 first, and the years where the catalogue is thinnest are met first. Facing the same TMDb answers,
+// two runs meet the same candidates in the same sequence.
 async function* walkCandidates({ discovery, years, pages, minVotes, originalLanguage, castDepth, seen }) {
-  for (let year = years.from; year <= years.to; year += 1) {
-    for (let page = 1; page <= pages; page += 1) {
+  const exhausted = new Set();
+  for (let page = 1; page <= pages; page += 1) {
+    for (let year = years.to; year >= years.from; year -= 1) {
+      if (exhausted.has(year)) continue;
       const movies = await discovery.discoverMovies({ year, page, minVotes, originalLanguage });
-      if (!movies.length) break;
+      if (!movies.length) {
+        exhausted.add(year);
+        continue;
+      }
       for (const movie of [...movies].sort((left, right) => right.popularity - left.popularity || left.id - right.id)) {
         if (seen.movies.has(movie.id)) continue;
         seen.movies.add(movie.id);
         const cast = await discovery.getMovieCredits(movie.id);
         for (const entry of [...cast].sort((left, right) => left.order - right.order || left.id - right.id)) {
-          if (entry.order >= castDepth || entry.adult || entry.department !== "Acting") continue;
+          if (entry.order >= castDepth || entry.adult) continue;
           yield { movie, entry };
         }
       }
@@ -184,8 +183,16 @@ export async function importTmdbCast({
 } = {}) {
   const range = parseYearRange(years);
   const budget = Math.max(0, Number(limit) || 0);
-  const discovery = createDiscoveryClient({ token, apiKey, fetchImpl, delayMs, locale });
-  const tmdb = createTmdbClient({ token, apiKey, fetchImpl });
+  // One pacer for every endpoint the wave touches, discovery and person alike: TMDb sees a single well-behaved caller.
+  let nextRequestAt = 0;
+  const pacedFetch = !delayMs ? fetchImpl : async (...call) => {
+    const wait = nextRequestAt - Date.now();
+    if (wait > 0) await new Promise((resolveDelay) => setTimeout(resolveDelay, wait));
+    nextRequestAt = Date.now() + delayMs;
+    return fetchImpl(...call);
+  };
+  const discovery = createDiscoveryClient({ token, apiKey, fetchImpl: pacedFetch, locale });
+  const tmdb = createTmdbClient({ token, apiKey, fetchImpl: pacedFetch });
   // Resuming reads the file the previous wave wrote, exactly like the incremental sync; in CI input and output are the same file.
   const snapshot = JSON.parse(await readFile(existsSync(snapshotOutputPath) ? snapshotOutputPath : snapshotPath, "utf8"));
   const overlay = JSON.parse(await readFile(existsSync(overlayOutputPath) ? overlayOutputPath : overlayPath, "utf8"));
@@ -210,7 +217,7 @@ export async function importTmdbCast({
     castSeen: 0,
     added: [],
     newWorks: 0,
-    skipped: { knownById: 0, knownByName: 0, withoutFilm: 0, alreadyQueued: 0, idCollision: 0 },
+    skipped: { knownById: 0, knownByName: 0, notActing: 0, withoutFilm: 0, alreadyQueued: 0, idCollision: 0 },
     failures: [],
     written: false,
   };
@@ -227,6 +234,12 @@ export async function importTmdbCast({
       continue;
     }
     seen.people.add(entry.id);
+    // TMDb's own answer to « is this person an actor »: a crew member billed for a cameo is not what a table names.
+    // The count is reported so a first real wave can tell whether the rule turns away comedians it should have kept.
+    if (entry.department !== "Acting") {
+      report.skipped.notActing += 1;
+      continue;
+    }
     if (known.tmdbIds.has(String(entry.id))) {
       report.skipped.knownById += 1;
       continue;
@@ -336,9 +349,11 @@ export async function importTmdbCast({
       syncedAt: new Date().toISOString(),
     };
     for (const credit of remote.credits ?? []) {
+      // Same fold as the incremental sync: the freshest payload wins on the fields, aliases and roles accumulate.
       const previous = overlayWorksById.get(credit.id);
       overlayWorksById.set(credit.id, previous ? {
         ...previous,
+        ...credit,
         aliases: [...new Set([...(previous.aliases ?? []), ...(credit.aliases ?? [])])],
         roles: [...new Set([...(previous.roles ?? []), ...(credit.roles ?? [])])],
         externalIds: { ...previous.externalIds, ...credit.externalIds },
@@ -394,7 +409,7 @@ export function formatReport(report) {
     `Fenêtre ${report.years.from}-${report.years.to}, ${report.pages} page(s) par année, plancher de ${report.minVotes} votes.`,
     `${report.films} films lus, ${report.castSeen} rôles principaux examinés.`,
     `${report.added.length} identité(s) ajoutée(s), ${report.newWorks} œuvre(s) inédite(s).`,
-    `Ignorés — déjà connus par identifiant TMDb: ${report.skipped.knownById}, par nom: ${report.skipped.knownByName}, sans film: ${report.skipped.withoutFilm}, revus dans la même vague: ${report.skipped.alreadyQueued}, identifiant local déjà pris: ${report.skipped.idCollision}.`,
+    `Ignorés — déjà connus par identifiant TMDb: ${report.skipped.knownById}, par nom: ${report.skipped.knownByName}, hors métier d’acteur: ${report.skipped.notActing}, sans film: ${report.skipped.withoutFilm}, revus dans la même vague: ${report.skipped.alreadyQueued}, identifiant local déjà pris: ${report.skipped.idCollision}.`,
   ];
   for (const person of report.added) lines.push(`  + ${person.name} (tmdb:${person.tmdbId}) · ${person.credits} films · ${person.discoveredIn} (${person.discoveredYear})`);
   for (const failure of report.failures) lines.push(`  ! ${failure.name} (tmdb:${failure.tmdbId}): ${failure.reason}`);

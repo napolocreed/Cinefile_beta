@@ -175,6 +175,23 @@ test("an unreachable borrowed origin falls back to the shipped snapshot", async 
   assert.deepEqual(verification.steps.map((step) => step.outcome), ["empty", "error", "error", "error"]);
 });
 
+test("a device that knows it is offline says so and calls nobody", async () => {
+  const database = createDatabase({ actors: [{ name: "Alice Local", films: ["Film A"], tags: [] }], films: ["Film A"] });
+  let calls = 0;
+  const catalog = createHybridCatalog({ database, storage: memoryStorage(), apiBase: "https://cinefil.example", fetchImpl: async () => { calls += 1; return jsonResponse({ configured: true, source: "tmdb", results: [] }); } });
+  const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", { value: { onLine: false }, configurable: true });
+  try {
+    const result = await catalog.search("Alice");
+    assert.deepEqual(result.results.map((person) => person.name), ["Alice Local"]);
+    assert.equal(result.remote.online, false);
+    assert.equal(result.remote.mode, "borrowed");
+    assert.equal(calls, 0);
+  } finally {
+    Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
+  }
+});
+
 test("the borrowed origin is asked only for the artists the shipped overlay lacks", async () => {
   const database = createDatabase({
     people: [{ id: "person_alice", name: "Alice Local", credits: ["work:a"], source: "snapshot" }],

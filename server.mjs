@@ -77,7 +77,8 @@ async function handleApi(request, response, url) {
     return true;
   }
   if (url.pathname === "/api/catalog/status") {
-    sendJson(response, 200, { configured: tmdb.configured, source: tmdb.configured ? "tmdb" : "local", snapshot: "cinema-knowledge-v2", verification: linkVerifier.status() }, "public, max-age=60");
+    // A borrowed origin can die between two games; a minute of cached optimism is a minute of wrong wording.
+    sendJson(response, 200, { configured: tmdb.configured, source: tmdb.configured ? "tmdb" : "local", snapshot: "cinema-knowledge-v2", verification: linkVerifier.status() }, "public, max-age=15");
     return true;
   }
   if (url.pathname === "/api/verify-link") {

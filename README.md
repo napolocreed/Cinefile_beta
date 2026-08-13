@@ -140,6 +140,19 @@ Le serveur n'a **aucune dépendance d'exécution** et ne demande aucune étape d
 - **Sans clé TMDb**, la cible Node apporte déjà ce que Pages ne peut pas faire : la cascade de vérification interroge réellement Wikidata puis Wikipédia, avec ses preuves, ses durées et l'étape qui a trouvé le film. Les filmographies sont servies par l'overlay publié.
 - **Avec `TMDB_API_TOKEN`**, s'ajoute la recherche des artistes absents du snapshot de 1 523 identités — le cas « je prononce un nom que le catalogue ignore » — et l'étape TMDb de la cascade, la plus rapide et la mieux structurée.
 
-Deux fichiers rendent l'opération immédiate : `render.yaml` (bouton *Deploy to Render*, plan gratuit, aucune ligne de commande) et un `Dockerfile` de sept lignes utilisable tel quel sur Cloud Run, Railway, Koyeb ou Fly. Le jeton reste côté serveur dans tous les cas; le navigateur ne le voit jamais.
+Deux fichiers rendent l'opération immédiate : `render.yaml` (bouton *Deploy to Render*, plan gratuit, aucune ligne de commande) et un `Dockerfile` de sept lignes utilisable tel quel sur Cloud Run, Railway, Koyeb ou Fly. Le jeton reste côté serveur dans tous les cas; le navigateur ne le voit jamais. Le serveur charge le catalogue publié à la première requête API : comptez environ 200 Mo de mémoire résidente, donc 512 Mo d'instance au minimum.
+
+### Faire emprunter l'API par la version Pages
+
+Une fois une instance Node déployée, l'édition statique peut lui emprunter son catalogue et sa cascade de vérification, sans jamais approcher le jeton.
+
+- Côté serveur, `ALLOWED_ORIGINS` déclare qui a le droit d'emprunter, par exemple `https://napolocreed.github.io`. Les en-têtes CORS ne couvrent que `/api/*`, et une origine non déclarée est refusée : cette API donne accès à un jeton TMDb limité et à une cascade Wikidata/Wikipédia qui tourne sous sa propre identité, ce n'est pas un relais public.
+- Côté dépôt, la variable `API_BASE_URL` (Settings → Variables, pas un secret : l'origine est publique) est estampillée dans le build Pages. Variable absente, l'artefact est exactement celui d'aujourd'hui.
+
+L'édition qui emprunte annonce clairement son état — « Catalogue emprunté · TMDb en direct » — et retombe intégralement sur le catalogue embarqué dès que l'origine ne répond plus ou que l'appareil est hors connexion.
+
+### Agrandir le catalogue embarqué
+
+`npm run import:cast` (workflow *Import TMDb cast*, déclenchement manuel avec un budget) ajoute au snapshot les artistes qu'il ignore, en partant des distributions des films français populaires. C'est le seul moyen pour la cible Pages hors connexion de connaître un artiste : elle ne peut interroger personne. Mesure de départ : sur 102 noms contemporains, 89 sont déjà présents; les 13 manquants sont la génération 2010-2025 et les humoristes passés au cinéma. L'import n'ajoute jamais un doublon — il filtre par identifiant TMDb puis par nom normalisé — et n'écrit rien quand il n'a rien trouvé de neuf.
 
 Les données et portraits enrichis proviennent de TMDb. This product uses the TMDB API but is not endorsed or certified by TMDB.

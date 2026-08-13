@@ -213,6 +213,9 @@ export function createHybridCatalog({
   async function search(query, options = {}) {
     const limit = Math.max(1, Math.min(12, Number(options.limit ?? 8)));
     const local = database.searchPeople(query, { ...options, limit });
+    // A browser that reports itself offline is not a catalogue that answers: saying so keeps the status line from
+    // promising a live search that will never leave the device.
+    if (remoteEnabled && globalThis.navigator?.onLine === false) setRemoteState({ checked: true, online: false });
     if (!remoteEnabled || normalizeText(query).length < 2 || options.remote === false || globalThis.navigator?.onLine === false) {
       return { results: local, remote: { ...remoteState, skipped: true } };
     }

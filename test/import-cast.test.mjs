@@ -171,7 +171,8 @@ test("an import wave adds the artists the snapshot lacks, with their films, in b
   const { report } = await runImport(paths);
   const [snapshot, overlay] = await Promise.all([readJson(paths.snapshotPath), readJson(paths.overlayPath)]);
 
-  assert.deepEqual(report.added.map((person) => person.name), ["Pio Marmaï", "Alban Ivanov", "Camille Chamoux", "Léa Bertrand"]);
+  // The wave walks the window from the most recent year backwards: 2019 is emptied before 2017.
+  assert.deepEqual(report.added.map((person) => person.name), ["Pio Marmaï", "Camille Chamoux", "Léa Bertrand", "Alban Ivanov"]);
   assert.equal(report.written, true);
   assert.equal(snapshot.people.length, 6);
   assert.equal(overlay.people.length, 6);
@@ -224,6 +225,9 @@ test("an artist the catalogue already knows is skipped, by TMDb identifier and b
   assert.equal(report.skipped.knownByName, 1);
   assert.equal(report.skipped.alreadyQueued, 1);
   assert.equal(report.skipped.withoutFilm, 1);
+  // Billed inside the window but listed by TMDb as crew: reported rather than silently swallowed.
+  assert.equal(report.skipped.notActing, 1);
+  assert.equal(report.castSeen, 9);
   assert.equal(snapshot.people.filter((person) => normalizeText(person.name) === "vincent cassel").length, 1);
   assert.equal(snapshot.people.filter((person) => normalizeText(person.name) === "jean dujardin").length, 1);
   // Neither the known identifier nor the known name ever reached the expensive person endpoint.
@@ -295,7 +299,7 @@ test("identifiers are stable across runs and a budget is honoured then resumed",
   assert.equal(budgeted.added[0].id, full.added[0].id);
 
   const { report: resumed } = await runImport(second, { limit: 1 });
-  assert.deepEqual(resumed.added.map((person) => person.name), ["Alban Ivanov"]);
+  assert.deepEqual(resumed.added.map((person) => person.name), ["Camille Chamoux"]);
   assert.equal(resumed.added[0].id, full.added[1].id);
 
   const [left, right] = await Promise.all([readJson(first.snapshotPath), readJson(second.snapshotPath)]);
@@ -303,7 +307,7 @@ test("identifiers are stable across runs and a budget is honoured then resumed",
   const { report: third } = await runImport(second, { limit: 1 });
   const { report: fourth } = await runImport(second, { limit: 1 });
   const finished = await readJson(second.snapshotPath);
-  assert.deepEqual([...third.added, ...fourth.added].map((person) => person.name), ["Camille Chamoux", "Léa Bertrand"]);
+  assert.deepEqual([...third.added, ...fourth.added].map((person) => person.name), ["Léa Bertrand", "Alban Ivanov"]);
   assert.deepEqual(finished.people.map((person) => person.id), left.people.map((person) => person.id));
   assert.deepEqual(finished.works.map((work) => work.id), left.works.map((work) => work.id));
   for (const person of finished.people.filter((entry) => entry.source === "tmdb-import")) assert.match(person.id, /^person_[a-z0-9]{7}$/);
