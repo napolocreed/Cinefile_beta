@@ -63,7 +63,7 @@ async function stubCatalog(page, { hydrateDelayMs = 0 } = {}) {
   });
 }
 
-async function startVoiceGame(page, { withClock = false } = {}) {
+async function startVoiceGame(page, { withClock = false, lives = null } = {}) {
   if (withClock) await page.clock.install();
   await page.addInitScript(RECOGNISER);
   await stubCatalog(page);
@@ -71,6 +71,7 @@ async function startVoiceGame(page, { withClock = false } = {}) {
   await page.getByRole("button", { name: /Vocal passif/i }).click();
   await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
+  if (lives) await page.locator("#lives-range").fill(String(lives));
   await page.getByRole("button", { name: /Lancer la partie/i }).click();
   await expect(page.locator("[data-voice-turn]")).toContainText(/Au tour de/);
 }
@@ -140,6 +141,10 @@ test("a rejected proposition cannot be re-injected into the chain by a later buz
   await page.getByRole("button", { name: /BLUFF/i }).click();
   await page.getByRole("button", { name: /Vérifier le bluff/i }).click();
   await page.getByRole("button", { name: /Bluff confirmé/i }).click();
+  // A buzz always ends on a verdict the table reads before play resumes.
+  await expect(page.locator(".voice-outcome .verdict")).toContainText("Aucune liaison");
+  await expect(page.locator(".voice-outcome__penalty")).toContainText("perd une vie");
+  await page.getByRole("button", { name: /Continuer/i }).click();
   await expect(page.locator("[data-voice-turn]")).toBeVisible();
   expect(await chainOf(page)).toEqual(["Leonardo DiCaprio"]);
 
@@ -149,6 +154,9 @@ test("a rejected proposition cannot be re-injected into the chain by a later buz
   await expect(page.locator(".voice-review__grid article").first()).toContainText("Leonardo DiCaprio");
   // DiCaprio and Winslet share Titanic, so the cascade confirms the link on its own and no VAR is needed.
   await page.getByRole("button", { name: /Vérifier le bluff/i }).click();
+  await expect(page.locator(".voice-outcome .verdict")).toContainText("Liaison valide");
+  await expect(page.locator(".film-proof")).toContainText("Titanic");
+  await page.getByRole("button", { name: /Continuer/i }).click();
   await expect(page.locator("[data-voice-turn]")).toBeVisible();
   expect(await chainOf(page)).toEqual(["Leonardo DiCaprio", "Kate Winslet"]);
 });
@@ -190,4 +198,23 @@ test("an off-catalogue name stays itself when the buzzer reopens it", async ({ p
   await page.getByRole("button", { name: /Vérifier le bluff/i }).click();
   await expect(page.getByRole("button", { name: /Bluff confirmé/i })).toBeEnabled();
   await expect(page.locator(".var-step")).toHaveCount(4);
+});
+
+test("a bluff that ends the game still says what was verified", async ({ page }) => {
+  await startVoiceGame(page, { lives: 1 });
+  await page.getByRole("button", { name: /Activer le micro/i }).click();
+  await validate(page, "Leonardo DiCaprio", "Leonardo DiCaprio");
+  await validate(page, "Michel Galabru", "Michel Galabru");
+
+  await page.getByRole("button", { name: /BLUFF/i }).click();
+  await page.getByRole("button", { name: /Vérifier le bluff/i }).click();
+  await page.getByRole("button", { name: /Bluff confirmé/i }).click();
+
+  // The last life is gone, but the verdict comes before the credits — not after, and not implied by the winner.
+  await expect(page.locator(".voice-outcome .verdict")).toContainText("Aucune liaison");
+  await expect(page.locator(".voice-outcome")).toContainText("Le bluff est démasqué");
+  await expect(page.locator(".voice-outcome__penalty")).toContainText("éliminé");
+  await expect(page.locator(".var-step")).toHaveCount(4);
+  await page.getByRole("button", { name: /Voir le générique/i }).click();
+  await expect(page.getByText(/Dans le rôle du vainqueur/i)).toBeVisible();
 });

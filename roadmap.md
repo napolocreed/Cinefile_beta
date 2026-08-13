@@ -71,7 +71,8 @@ Mise à jour le 13 août 2026. La reconstruction, le déploiement statique, la c
 - [x] Cascade de vérification rendue lisible : étapes ordonnées, issue et durée de chacune, mise en évidence de celle qui a fourni la preuve.
 - [x] **Intégrité de la chaîne** : chaque maillon vient d'une touche et d'elle seule. Correction tardive refusée, concession persistée dès qu'elle est accordée, artiste déjà sur la table jamais reproposé, et le buzzer corrige le vrai dernier maillon plutôt que l'historique parlé. Harnais déterministe (reconnaissance scriptée + horloge pilotée) dans `e2e/voice.spec.mjs`.
 - [x] **Artiste absent du catalogue** : le nom entendu est toujours proposable dès que le catalogue n'est pas certain, avec correction de l'orthographe et recherche TMDb sur la cible Node pour les identités que le snapshot ignore.
-- [x] **Lisibilité des transitions** : bandeau de passation, identité de siège (or / rouge, filet plein ou pointillé, chiffre romain), cœur qui meurt sur un emplacement conservé, motif de la perte de vie affiché, annonce vocale pour les lecteurs d'écran, repli complet en `prefers-reduced-motion`.
+- [x] **Lisibilité des transitions** : identité de siège (or / rouge, filet plein ou pointillé, chiffre romain), cœur qui meurt sur un emplacement conservé, motif de la perte de vie affiché, annonce vocale pour les lecteurs d'écran, repli complet en `prefers-reduced-motion`.
+- [x] **Verdict de bluff sur son propre écran** : liaison ou absence, motif, preuve, vie perdue et cascade complète, y compris quand le défi met fin à la partie — le générique ne vient qu'après.
 - [ ] Tester et calibrer les accents/bruits réels sur un panel de téléphones; la disponibilité de Web Speech dépend du navigateur et du système.
 
 ## Phase 5 — qualité produit — livrée

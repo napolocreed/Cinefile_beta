@@ -212,6 +212,7 @@ function createVoiceState() {
     flash: null,
     flashTimer: null,
     flashToken: 0,
+    outcome: null,
   };
 }
 
@@ -571,14 +572,19 @@ function voiceChainMarkup() {
   return `<p class="voice-chain"><small>Chaîne (${state.game.chain.length})</small>${state.game.chain.length > chain.length ? "<span>…</span>" : ""}${chain.map((actor) => `<span>${escapeHtml(actor)}</span>`).join("")}${state.pending ? `<span class="voice-chain__pending">${escapeHtml(state.pending.proposedActor)} ?</span>` : ""}</p>`;
 }
 
-function voiceBatonMarkup() {
-  const flash = state.voice.flash;
-  if (!flash?.toId) return "";
-  const incoming = state.game.players.find((player) => player.id === flash.toId);
-  const seat = state.game.players.findIndex((player) => player.id === flash.toId) === 1 ? 2 : 1;
-  // A recreated node would replay the wipe from zero; the negative delay resumes it where it stood.
-  const elapsed = Math.min(VOICE_FLASH_MS, Date.now() - flash.at);
-  return `<div class="voice-baton voice-baton--${seat}" style="animation-delay:-${elapsed}ms" aria-hidden="true"><small>${state.pending ? "À vous de trancher" : "À vous de jouer"}</small><strong>${escapeHtml(incoming?.name ?? "")}</strong>${flash.reason ? `<em>${escapeHtml(flash.reason)}</em>` : ""}</div>`;
+function voiceOutcomeMarkup() {
+  const outcome = state.voice.outcome;
+  const struck = outcome.struck;
+  const reason = outcome.challenged
+    ? (outcome.valid ? "Le buzz était injustifié" : "Le bluff est démasqué")
+    : "Coup laissé passer sans décision";
+  const films = outcome.valid && outcome.films.length
+    ? `<div class="film-proof"><small>Film${outcome.films.length > 1 ? "s" : ""} commun${outcome.films.length > 1 ? "s" : ""}</small><ul>${outcome.films.map((film) => `<li>${escapeHtml(film)}</li>`).join("")}</ul></div>`
+    : "";
+  const penalty = struck
+    ? `<p class="voice-outcome__penalty"><b>${escapeHtml(struck.name)}</b> perd une vie · ${struck.lives > 0 ? `${struck.lives} restante${struck.lives > 1 ? "s" : ""}` : "éliminé"}</p>`
+    : "";
+  return shell(`<section class="voice-outcome play-page play-page--center"><span class="verdict ${outcome.valid ? "verdict--valid" : "verdict--invalid"}">${outcome.valid ? "Liaison valide" : "Aucune liaison"}</span><h1 class="connection">${escapeHtml(outcome.previous ?? "")} <span>&mdash;</span> <em>${escapeHtml(outcome.proposed)}</em></h1><p class="reveal-subtitle">${escapeHtml(reason)}${outcome.manual ? " · décision rendue par la table" : ""}</p>${films}${penalty}${outcome.verification ? verificationCascadeMarkup(outcome.verification) : ""}<button class="button button--gold button--wide" data-voice-outcome-continue>${outcome.finished ? "Voir le générique" : "Continuer"} <span>&gt;</span></button></section>`, { back: "/", eyebrow: "The verdict" });
 }
 
 function voiceStageMarkup() {
@@ -591,11 +597,12 @@ function voiceStageMarkup() {
 }
 
 function voiceMarkup() {
+  if (state.voice.outcome) return voiceOutcomeMarkup();
   if (state.voice.review) return voiceReviewMarkup();
   syncVoiceTurn();
   const activePlayer = voiceActivePlayer();
   const listeningLabel = state.voice.listening ? "Écoute active" : state.voice.consent ? "Démarrage du micro…" : "Micro en pause";
-  return shell(`<section class="voice-page"><div class="voice-status"><span class="voice-listening ${state.voice.listening ? "voice-listening--on" : ""}"><i></i>${listeningLabel}</span><span data-catalog-label>${escapeHtml(catalogStatusLabel())}</span></div><p class="voice-turn" data-voice-turn role="status">Au tour de <b>${escapeHtml(activePlayer.name)}</b> · dites un nom, puis touchez la bonne proposition pour valider et passer la main.</p><div class="voice-stage" data-voice-stage>${voiceStageMarkup()}</div>${voiceBatonMarkup()}${voiceChainMarkup()}<details class="voice-manual" data-voice-manual ${state.voice.manualOpen ? "open" : ""}><summary>Correction / saisie de secours</summary><form data-voice-manual-form><label for="voice-manual-input">Nom entendu pour ${escapeHtml(activePlayer.name)}</label><div><input id="voice-manual-input" class="field" autocomplete="off" placeholder="Nom de l’artiste"><button class="button button--gold" type="submit">Détecter</button></div></form></details><p class="voice-privacy">Le voyant rouge indique l’écoute. Vous pouvez couper le micro immédiatement; aucun fichier audio n’est stocké par Ciné-Fil.</p></section>`, { back: "/", eyebrow: "Passive voice mode" });
+  return shell(`<section class="voice-page"><div class="voice-status"><span class="voice-listening ${state.voice.listening ? "voice-listening--on" : ""}"><i></i>${listeningLabel}</span><span data-catalog-label>${escapeHtml(catalogStatusLabel())}</span></div><p class="voice-turn" data-voice-turn role="status">Au tour de <b>${escapeHtml(activePlayer.name)}</b> · dites un nom, puis touchez la bonne proposition pour valider et passer la main.</p><div class="voice-stage" data-voice-stage>${voiceStageMarkup()}</div>${voiceChainMarkup()}<details class="voice-manual" data-voice-manual ${state.voice.manualOpen ? "open" : ""}><summary>Correction / saisie de secours</summary><form data-voice-manual-form><label for="voice-manual-input">Nom entendu pour ${escapeHtml(activePlayer.name)}</label><div><input id="voice-manual-input" class="field" autocomplete="off" placeholder="Nom de l’artiste"><button class="button button--gold" type="submit">Détecter</button></div></form></details><p class="voice-privacy">Le voyant rouge indique l’écoute. Vous pouvez couper le micro immédiatement; aucun fichier audio n’est stocké par Ciné-Fil.</p></section>`, { back: "/", eyebrow: "Passive voice mode" });
 }
 
 function ensureVoiceSession() {
@@ -929,18 +936,26 @@ function completeVoiceReview(game, pending, { challenged }) {
     // buzzer reads the last entry as the chain tail.
     if (state.game.chain.length === before) state.voice.entries = state.voice.entries.filter((entry) => entry !== review.right);
   }
-  state.voice.verdict = challenged
-    ? (pending.wasValid ? `Liaison valide${pending.sharedFilms.length ? ` · ${pending.sharedFilms.join(" · ")}` : ""}` : "Bluff confirmé · aucune œuvre commune")
-    : "Coup laissé passer sans décision VAR";
+  state.voice.verdict = null;
+  // A buzz is the one moment the table stops to be told something. Announcing it in the status line meant the
+  // answer scrolled past, and when the challenge ended the game it was never shown at all — the players had to
+  // infer who had been wrong from who had won.
+  state.voice.outcome = {
+    challenged,
+    valid: Boolean(pending.wasValid),
+    previous: game.chain.at(-1) ?? null,
+    proposed: pending.proposedActor,
+    films: pending.sharedFilms ?? [],
+    verification: pending.verification ?? null,
+    manual: Boolean(pending.manualDecision),
+    struck: state.game.players.find((player) => player.lives < (snapshot.lives[player.id] ?? player.lives)) ?? null,
+    finished: state.game.status === "finished",
+  };
   state.pending = null;
   state.voice.review = null;
   state.timeLeft = null;
   storage.saveCurrent(state.game);
-  if (state.game.status === "finished") navigate("/results");
-  else {
-    startVoiceSession();
-    renderRoute();
-  }
+  renderRoute();
 }
 
 async function resolveVoiceReview() {
@@ -1039,6 +1054,15 @@ function ensureVoiceTimer() {
 }
 
 function bindVoice() {
+  document.querySelector("[data-voice-outcome-continue]")?.addEventListener("click", () => {
+    const finished = state.voice.outcome?.finished;
+    state.voice.outcome = null;
+    if (finished) navigate("/results");
+    else {
+      startVoiceSession();
+      renderRoute();
+    }
+  });
   // The stage is repainted on every utterance, so its buttons answer through one delegated listener.
   document.querySelector(".voice-page")?.addEventListener("click", (event) => {
     const target = event.target.closest("[data-voice-validate],[data-voice-candidate],[data-voice-toggle],[data-voice-buzzer],[data-voice-clear],[data-voice-fix]");
@@ -1400,7 +1424,8 @@ function renderRoute() {
     // Only adopt the stored game when this session has none. Re-reading on every render would roll back a move
     // that is already applied in memory but not yet persisted, destroying it along with the pending proposition.
     state.game ??= storage.loadCurrent();
-    if (!state.game || state.game.status === "finished") {
+    // A finished game normally jumps to the credits, but a buzz that ended it still owes the table its verdict.
+    if (!state.game || (state.game.status === "finished" && !state.voice?.outcome)) {
       navigate(state.game?.status === "finished" ? "/results" : "/");
       return;
     }
