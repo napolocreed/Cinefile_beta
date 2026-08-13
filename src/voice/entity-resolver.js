@@ -9,6 +9,8 @@ const FILLER_WORDS = new Set([
   "mets", "moi", "non", "ok", "oh", "oui", "ouais", "pense", "peut", "etre", "prends", "propose",
   "sais", "suivant", "tiens", "toi", "tour", "vais", "voila", "voir", "acteur", "actrice", "artiste",
   "cinema", "film", "films",
+  // Turn-taking words: they open a sentence around a name and must never end up inside the heard name.
+  "ensuite", "puis", "maintenant", "apres", "vasy", "reponds", "reponse", "essaie", "tente",
 ]);
 
 // Words that may appear inside a name but can never be a name on their own.
@@ -268,7 +270,7 @@ export function spokenNameGuess(transcript) {
     .filter((entry) => entry.key);
   // Only the conversational wrapper is stripped, and only from the ends: a particle in the middle is part of
   // the name, while "du" in "du coup" never survives at an edge.
-  const droppable = (entry) => FILLER_WORDS.has(entry.key) || entry.key.length < 2 || PARTICLES.has(entry.key);
+  const droppable = (entry) => STOPWORDS.has(entry.key) || entry.key.length < 2 || PARTICLES.has(entry.key);
   let start = 0;
   let end = words.length;
   while (start < end && droppable(words[start])) start += 1;
