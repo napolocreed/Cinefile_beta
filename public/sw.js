@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v9-voice-validation";
+const CACHE_NAME = "cinefil-v10-fresh-install";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [
@@ -35,11 +35,15 @@ const OPTIONAL = [
   "src/data/tmdb-portraits.json",
 ].map((path) => new URL(path, BASE_URL).href);
 
+// A fresh worker must fill its cache from the network. Without "reload" the browser is allowed to answer from
+// its own HTTP cache, so a just-published deployment could be re-cached as the previous one for ten minutes.
+const freshRequest = (url) => new Request(url, { cache: "reload" });
+
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME)
     .then(async (cache) => {
-      await cache.addAll(CORE);
-      await Promise.allSettled(OPTIONAL.map((url) => cache.add(url)));
+      await cache.addAll(CORE.map(freshRequest));
+      await Promise.allSettled(OPTIONAL.map((url) => cache.add(freshRequest(url))));
     })
     .then(() => self.skipWaiting()));
 });

@@ -19,6 +19,8 @@ Ouvrir <http://localhost:4173>. Depuis un téléphone sur le même Wi-Fi, utilis
 
 - **Classique** : passage d’écran, saisie assistée, chrono, vies et défis de bluff, de 2 à 10 joueurs.
 - **Vocal passif** : deux joueurs, écoute continue, timers séparés et buzzer central. L’écoute ne fait que **proposer** : les noms entendus s’accumulent sur le tour du joueur actif, qui touche la bonne carte pour valider et passer la main. Rien n’entre dans la chaîne sans ce geste. Si Web Speech n’est pas disponible, la saisie de secours conserve tout le déroulé du mode.
+- **Un artiste absent du catalogue n'est jamais une impasse** : le nom entendu reste proposable tant que le catalogue n'a pas répondu avec quasi-certitude, avec un bouton pour en corriger l'orthographe. Sur la cible Node, un nom complet prononcé jusqu'au bout est cherché dans TMDb.
+- **Le changement de tour et les pertes de vie s'annoncent** : bandeau de passation, sièges distincts (or et rouge, filet plein ou pointillé, chiffre romain), cœur qui meurt sur un emplacement qui reste visible, et le motif de la perte affiché en clair — chrono expiré, bluff démasqué, buzz injustifié ou liaison invalide.
 - La reconnaissance des noms est **phonétique et française** : « jean du jardin » retrouve Jean Dujardin, « de pardieu » Gérard Depardieu, « omar six » Omar Sy. Une phrase sans nom d’artiste n’efface jamais les propositions déjà entendues.
 - Chaque proposition porte le **portrait** de l’artiste, comme l’autocomplétion du mode classique. Hors connexion ou derrière un réseau filtrant, le cadre retombe sur l’initiale gravée plutôt que sur une image cassée.
 

@@ -67,11 +67,14 @@ await buildTmdbShards({
   outputDirectory: resolve(output, "src/data"),
 });
 
+// A published build states which commit it came from, so "is my deployment live?" is answered by looking at
+// the page instead of guessing at caches.
+const buildStamp = [process.env.GITHUB_SHA?.slice(0, 7), new Date().toISOString().slice(0, 16).replace("T", " ")].filter(Boolean).join(" · ");
 const sourceHtml = await readFile(resolve(root, "public/index.html"), "utf8");
 const appHtml = sourceHtml
   .replace('<base href="/" />', `<base href="${basePath}" />`)
   .replace('<meta name="app-base" content="/" />', `<meta name="app-base" content="${basePath}" />`)
-  .replace('<meta name="catalog-mode" content="remote" />', '<meta name="catalog-mode" content="static" />');
+  .replace('<meta name="catalog-mode" content="remote" />', `<meta name="catalog-mode" content="static" />\n    <meta name="build-stamp" content="${buildStamp.replace(/[^\w .:·-]/g, "")}" />`);
 
 await writeFile(resolve(output, "index.html"), appHtml);
 await writeFile(resolve(output, "404.html"), appHtml);

@@ -78,6 +78,13 @@ export function createTurnBuffer({
       recompute();
       return pool;
     },
+    // Dropping the propositions must not drop what was heard: the raw sentence is the last way back in when the
+    // catalogue keeps proposing the wrong artist.
+    clearCandidates() {
+      utterances = [];
+      pool = [];
+      return pool;
+    },
     reset() {
       utterances = [];
       heard = [];
