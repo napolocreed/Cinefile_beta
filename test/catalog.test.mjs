@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createDatabase } from "../src/game/database.js";
-import { createHybridCatalog, createVerificationSearchLinks } from "../src/game/catalog.js";
+import { createHybridCatalog, createVerificationSearchLinks, normalizeApiBase } from "../src/game/catalog.js";
 
 function memoryStorage() {
   const values = new Map();
@@ -101,6 +101,109 @@ test("static catalogue mode never calls a server API", async () => {
   assert.equal(status.source, "snapshot");
   assert.deepEqual(result.results.map((person) => person.name), ["Alice Local"]);
   assert.equal(fetchCalls, 0);
+});
+
+test("only a usable http origin is borrowed, anything else falls back to the same origin", () => {
+  assert.equal(normalizeApiBase("https://cinefil.example/"), "https://cinefil.example");
+  assert.equal(normalizeApiBase("https://cinefil.example/api-proxy/"), "https://cinefil.example/api-proxy");
+  assert.equal(normalizeApiBase("  https://cinefil.example:8443  "), "https://cinefil.example:8443");
+  for (const rejected of ["", "   ", "javascript:alert(1)", "ftp://cinefil.example", "cinefil.example", "https://cinefil.example/?token=x", "https://cinefil.example/#/api"]) {
+    assert.equal(normalizeApiBase(rejected), "", rejected);
+  }
+});
+
+test("the catalogue names the deployment it is talking to", async () => {
+  const seed = { actors: [{ name: "Alice Local", films: ["Film A"], tags: [] }], films: ["Film A"] };
+  const withOptions = (options) => createHybridCatalog({ database: createDatabase(seed), storage: memoryStorage(), fetchImpl: async () => jsonResponse({ configured: false, source: "local" }), ...options });
+  assert.equal(withOptions({}).getState().mode, "server");
+  assert.equal(withOptions({}).getState().origin, null);
+  assert.equal(withOptions({ remoteEnabled: false }).getState().mode, "local");
+  assert.equal(withOptions({ apiBase: "https://cinefil.example" }).getState().mode, "borrowed");
+  // A meta tag filled with nonsense must not promise a live catalogue the page cannot reach.
+  assert.equal(withOptions({ apiBase: "pas-une-url" }).getState().mode, "server");
+});
+
+test("a borrowed API origin carries every catalogue call, and only to that origin", async () => {
+  const database = createDatabase({ actors: [{ name: "Alice Local", films: ["Film A"], tags: [] }], films: ["Film A"] });
+  const requests = [];
+  const catalog = createHybridCatalog({
+    database,
+    storage: memoryStorage(),
+    apiBase: "https://cinefil.example/",
+    fetchImpl: async (url) => {
+      requests.push(String(url));
+      if (String(url).includes("/api/catalog/status")) return jsonResponse({ configured: true, source: "tmdb" });
+      if (String(url).includes("/api/catalog/search")) return jsonResponse({ configured: true, source: "tmdb", results: [{ id: "tmdb:505710", name: "Zendaya", roles: ["acting"], externalIds: { tmdb: 505710 }, origin: "tmdb" }] });
+      return jsonResponse({ verdict: "NOT_FOUND", source: "none", films: [], evidence: [] });
+    },
+  });
+  const status = await catalog.status();
+  assert.equal(status.mode, "borrowed");
+  assert.equal(status.origin, "https://cinefil.example");
+  assert.equal(status.configured, true);
+  const search = await catalog.search("Zendaya");
+  assert.deepEqual(search.results.map((person) => person.name), ["Zendaya"]);
+  assert.equal((await catalog.verifyLink("Alice Local", "Zendaya")).verdict, "NOT_FOUND");
+  assert.deepEqual(requests.map((url) => new URL(url).origin), ["https://cinefil.example", "https://cinefil.example", "https://cinefil.example"]);
+  assert.deepEqual(requests.map((url) => new URL(url).pathname), ["/api/catalog/status", "/api/catalog/search", "/api/verify-link"]);
+});
+
+test("an unreachable borrowed origin falls back to the shipped snapshot", async () => {
+  const database = createDatabase({
+    people: [{ id: "person_alice", name: "Alice Local", credits: ["work:a"], source: "snapshot" }],
+    works: [{ id: "work:a", title: "Film A", type: "movie", source: "snapshot" }],
+  });
+  let shippedLookups = 0;
+  const catalog = createHybridCatalog({
+    database,
+    storage: memoryStorage(),
+    apiBase: "https://cinefil.example",
+    staticHydrate: async (candidate) => {
+      shippedLookups += 1;
+      return database.findActor(candidate.id) ?? database.findActor(candidate.name) ?? null;
+    },
+    fetchImpl: async () => { throw new Error("network"); },
+  });
+  const status = await catalog.status();
+  assert.equal(status.online, false);
+  assert.equal(status.mode, "borrowed");
+  assert.deepEqual((await catalog.search("Alice")).results.map((person) => person.name), ["Alice Local"]);
+  assert.equal((await catalog.hydrate(database.findActor("Alice Local"))).name, "Alice Local");
+  assert.equal(shippedLookups, 1);
+  const verification = await catalog.verifyLink("Alice Local", "Bob Inconnu");
+  assert.equal(verification.verdict, "UNKNOWN");
+  assert.deepEqual(verification.steps.map((step) => step.outcome), ["empty", "error", "error", "error"]);
+});
+
+test("the borrowed origin is asked only for the artists the shipped overlay lacks", async () => {
+  const database = createDatabase({
+    people: [{ id: "person_alice", name: "Alice Local", credits: ["work:a"], source: "snapshot" }],
+    works: [{ id: "work:a", title: "Film A", type: "movie", source: "snapshot" }],
+  });
+  const requests = [];
+  const catalog = createHybridCatalog({
+    database,
+    storage: memoryStorage(),
+    apiBase: "https://cinefil.example",
+    staticHydrate: async (candidate) => database.findActor(candidate.id) ?? database.findActor(candidate.name) ?? null,
+    fetchImpl: async (url) => {
+      requests.push(String(url));
+      return jsonResponse({ configured: true, source: "tmdb", person: { id: "tmdb:505710", name: "Zendaya", aliases: [], roles: ["acting"], tags: [], externalIds: { tmdb: 505710 }, credits: [{ id: "tmdb-movie:8", title: "Dune", year: 2021, type: "movie", externalIds: { tmdbMovie: 8 }, source: "tmdb" }], source: "tmdb" } });
+    },
+  });
+  assert.equal((await catalog.hydrate(database.findActor("Alice Local"))).films.includes("Film A"), true);
+  assert.deepEqual(requests, []);
+  const remote = await catalog.hydrate({ name: "Zendaya", externalIds: { tmdb: 505710 }, origin: "tmdb" });
+  assert.deepEqual(remote.films, ["Dune"]);
+  assert.deepEqual(requests, ["https://cinefil.example/api/catalog/people/tmdb/505710"]);
+});
+
+test("a filmography the server could not send never costs the artist", async () => {
+  const database = createDatabase({ actors: [], films: [] });
+  const catalog = createHybridCatalog({ database, storage: memoryStorage(), apiBase: "https://cinefil.example", fetchImpl: async () => { throw new Error("network"); } });
+  const person = await catalog.hydrate({ name: "Zendaya", externalIds: { tmdb: 505710 }, origin: "tmdb" });
+  assert.equal(person.name, "Zendaya");
+  assert.equal(catalog.getState().online, false);
 });
 
 test("link verification prefers local evidence and never calls the remote cascade", async () => {

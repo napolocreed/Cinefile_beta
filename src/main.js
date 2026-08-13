@@ -1,5 +1,5 @@
 import { createDatabase, normalizeText } from "./game/database.js";
-import { CATALOG_CACHE_KEY, VERIFICATION_CACHE_KEY, createHybridCatalog } from "./game/catalog.js";
+import { CATALOG_CACHE_KEY, VERIFICATION_CACHE_KEY, createHybridCatalog, normalizeApiBase } from "./game/catalog.js";
 import { createStaticOverlay } from "./game/static-overlay.js";
 import {
   adjudicatePending,
@@ -27,6 +27,11 @@ function normalizeBasePath(value) {
 
 const APP_BASE = normalizeBasePath(document.querySelector('meta[name="app-base"]')?.content ?? "/");
 const CATALOG_MODE = document.querySelector('meta[name="catalog-mode"]')?.content === "static" ? "static" : "remote";
+// A static build has no server of its own, but it can be pointed at a deployed one. An empty or malformed value
+// leaves the edition exactly as it was: snapshot only, no call, no promise made to the player.
+const API_BASE = normalizeApiBase(document.querySelector('meta[name="api-base"]')?.content ?? "");
+const REMOTE_CATALOG = CATALOG_MODE === "remote" || Boolean(API_BASE);
+const API_HOST = API_BASE ? new URL(API_BASE).host : "";
 const BUILD_STAMP = document.querySelector('meta[name="build-stamp"]')?.content || "développement local";
 const assetUrl = (value = "") => `${APP_BASE}${String(value).replace(/^\/+/, "")}`;
 const routeUrl = (value = "/") => {
@@ -66,8 +71,9 @@ if (CATALOG_MODE === "static") {
 if (portraits) database.attachPortraits(portraits);
 const catalog = createHybridCatalog({
   database,
-  remoteEnabled: CATALOG_MODE === "remote",
+  remoteEnabled: REMOTE_CATALOG,
   staticHydrate: staticOverlay?.hydrate,
+  apiBase: API_BASE,
 });
 
 const state = {
@@ -185,7 +191,7 @@ function announceVoice(message) {
 }
 
 function createVoiceTurn(playerId = null) {
-  return { playerId, buffer: createTurnBuffer(), remoteLookups: 0, startedAt: Date.now() };
+  return { playerId, buffer: createTurnBuffer(), remoteLookups: 0, remoteQueries: new Set(), startedAt: Date.now() };
 }
 
 function createVoiceState() {
@@ -353,6 +359,17 @@ function suggestionsMarkup() {
   }).join("");
 }
 
+// Three deployments, three truths: the snapshot alone, a borrowed API origin, or this deployment's own server.
+// The line has to follow the state and not the build, or a borrowed catalogue would keep claiming to be offline.
+function catalogStatusLabel() {
+  const status = state.catalogStatus;
+  if (status.mode === "local" || status.static) return "Catalogue embarqué";
+  const place = status.mode === "borrowed" ? "Catalogue emprunté" : "Serveur Ciné-Fil";
+  if (status.online === false) return "Hors connexion · base locale";
+  if (status.configured === false) return `${place} · base locale`;
+  return status.configured ? `${place} · TMDb en direct` : `${place} · vérification…`;
+}
+
 function suggestionHint() {
   if (state.selectedPerson) return `${state.selectedPerson.name} sélectionné · ${String(state.selectedPerson.origin ?? "").includes("tmdb") ? "filmographie enrichie à la validation" : "snapshot local"}.`;
   if (!state.input.trim()) return `Snapshot ${database.snapshotId ?? "local"} · disponible hors connexion.`;
@@ -360,10 +377,21 @@ function suggestionHint() {
   // What matters when nothing matches is that the name remains playable — that has to come before any note about
   // where the catalogue lives.
   if (!state.suggestions.length) return "Artiste hors base — validez quand même, le groupe pourra l’accepter par vote.";
-  if (state.catalogStatus.static) return "Catalogue embarqué enrichi · aucune clé API n’est exposée par GitHub Pages.";
-  if (state.catalogStatus.configured === false) return "Catalogue local actif · ajoutez TMDB_API_TOKEN au serveur pour la recherche étendue.";
+  if (state.catalogStatus.mode === "local" || state.catalogStatus.static) return "Catalogue embarqué enrichi · aucune clé API n’est exposée par GitHub Pages.";
   if (state.catalogStatus.online === false) return "Hors connexion · résultats du snapshot et du cache local.";
+  if (state.catalogStatus.configured === false) return state.catalogStatus.mode === "borrowed" ? `Serveur emprunté sans clé TMDb · ${API_HOST} ne sert que le catalogue publié.` : "Catalogue local actif · ajoutez TMDB_API_TOKEN au serveur pour la recherche étendue.";
+  if (state.catalogStatus.mode === "borrowed" && state.catalogStatus.configured) return `Catalogue live emprunté à ${API_HOST} · choisissez la bonne identité.`;
   return `${state.suggestions.length} proposition${state.suggestions.length > 1 ? "s" : ""} · choisissez la bonne identité pour éviter une ambiguïté.`;
+}
+
+function refreshCatalogLabel() {
+  const label = document.querySelector("[data-catalog-label]");
+  if (label) label.textContent = catalogStatusLabel();
+}
+
+function setCatalogStatus(status) {
+  state.catalogStatus = status;
+  refreshCatalogLabel();
 }
 
 function renderSuggestions() {
@@ -567,7 +595,7 @@ function voiceMarkup() {
   syncVoiceTurn();
   const activePlayer = voiceActivePlayer();
   const listeningLabel = state.voice.listening ? "Écoute active" : state.voice.consent ? "Démarrage du micro…" : "Micro en pause";
-  return shell(`<section class="voice-page"><div class="voice-status"><span class="voice-listening ${state.voice.listening ? "voice-listening--on" : ""}"><i></i>${listeningLabel}</span><span>${database.snapshotId ?? "Base locale"}</span></div><p class="voice-turn" data-voice-turn role="status">Au tour de <b>${escapeHtml(activePlayer.name)}</b> · dites un nom, puis touchez la bonne proposition pour valider et passer la main.</p><div class="voice-stage" data-voice-stage>${voiceStageMarkup()}</div>${voiceBatonMarkup()}${voiceChainMarkup()}<details class="voice-manual" data-voice-manual ${state.voice.manualOpen ? "open" : ""}><summary>Correction / saisie de secours</summary><form data-voice-manual-form><label for="voice-manual-input">Nom entendu pour ${escapeHtml(activePlayer.name)}</label><div><input id="voice-manual-input" class="field" autocomplete="off" placeholder="Nom de l’artiste"><button class="button button--gold" type="submit">Détecter</button></div></form></details><p class="voice-privacy">Le voyant rouge indique l’écoute. Vous pouvez couper le micro immédiatement; aucun fichier audio n’est stocké par Ciné-Fil.</p></section>`, { back: "/", eyebrow: "Passive voice mode" });
+  return shell(`<section class="voice-page"><div class="voice-status"><span class="voice-listening ${state.voice.listening ? "voice-listening--on" : ""}"><i></i>${listeningLabel}</span><span data-catalog-label>${escapeHtml(catalogStatusLabel())}</span></div><p class="voice-turn" data-voice-turn role="status">Au tour de <b>${escapeHtml(activePlayer.name)}</b> · dites un nom, puis touchez la bonne proposition pour valider et passer la main.</p><div class="voice-stage" data-voice-stage>${voiceStageMarkup()}</div>${voiceBatonMarkup()}${voiceChainMarkup()}<details class="voice-manual" data-voice-manual ${state.voice.manualOpen ? "open" : ""}><summary>Correction / saisie de secours</summary><form data-voice-manual-form><label for="voice-manual-input">Nom entendu pour ${escapeHtml(activePlayer.name)}</label><div><input id="voice-manual-input" class="field" autocomplete="off" placeholder="Nom de l’artiste"><button class="button button--gold" type="submit">Détecter</button></div></form></details><p class="voice-privacy">Le voyant rouge indique l’écoute. Vous pouvez couper le micro immédiatement; aucun fichier audio n’est stocké par Ciné-Fil.</p></section>`, { back: "/", eyebrow: "Passive voice mode" });
 }
 
 function ensureVoiceSession() {
@@ -669,7 +697,7 @@ function syncVoiceTurn() {
   return true;
 }
 
-async function voiceCandidatesFor(alternatives, { final = false } = {}) {
+function voiceCandidatesFor(alternatives) {
   // The proposition already on the table is not a legal answer either: offering it would let a tap erase it.
   const excluded = [...state.game.chain, state.pending?.proposedActor].filter(Boolean);
   const candidates = voiceResolver.resolve(alternatives, {
@@ -678,37 +706,64 @@ async function voiceCandidatesFor(alternatives, { final = false } = {}) {
     limit: 4,
     previousActor: state.game.chain.at(-1) ?? null,
   }).map((person) => compactVoiceCandidate(person));
+  return { candidates, excluded, query: spokenNameGuess(alternatives[0]?.transcript ?? "") };
+}
+
+// With a configured TMDb behind it, the remote catalogue is the only way to reach an artist the snapshot never
+// had, so the gate follows the confidence bands the interface already shows rather than a fixed suspicion of the
+// network. Above "très probable" the local reading needs no second opinion. A lone word is worth a query only
+// when nothing local answers it: the local floor for a one-word span is 0.84, so a weak best means the surname is
+// unknown here rather than mispronounced. Interim fragments never ask — they are the least informative queries —
+// and a sentence already sent this turn never asks twice, which is what keeps a repeating recogniser cheap.
+const REMOTE_VOICE_MAX_LOCAL = 0.92;
+const REMOTE_VOICE_LONE_WORD_MAX_LOCAL = 0.7;
+const REMOTE_VOICE_BUDGET = 6;
+
+function worthAskingRemote({ candidates, query }, final) {
+  if (!final || !REMOTE_CATALOG || !query) return false;
   const best = candidates[0]?.confidence ?? 0;
-  const query = spokenNameGuess(alternatives[0]?.transcript ?? "");
-  // The remote catalogue is asked only for what the local one cannot know: a full name, spoken to the end, that
-  // no local identity answers well. Interim fragments burn the budget on the least informative queries.
-  const worthAsking = final && CATALOG_MODE !== "static" && query && query.split(" ").length >= 2 && best < 0.84;
-  if (!worthAsking || state.voice.turn.remoteLookups >= 3) return candidates;
-  state.voice.turn.remoteLookups += 1;
+  if (best >= (query.split(" ").length >= 2 ? REMOTE_VOICE_MAX_LOCAL : REMOTE_VOICE_LONE_WORD_MAX_LOCAL)) return false;
+  return !state.voice.turn.remoteQueries.has(normalizeText(query)) && state.voice.turn.remoteLookups < REMOTE_VOICE_BUDGET;
+}
+
+// A TMDb hit is a name, not a hearing. It enters at "probable" when it spells exactly what was heard and lower
+// otherwise, and it never takes the lead from a local reading that is already probable.
+function remoteVoiceConfidence(person, query, best) {
+  const exact = normalizeText(person.name) === normalizeText(query);
+  return Math.min(exact ? 0.82 : 0.7, best >= 0.78 ? best - 0.02 : 1);
+}
+
+async function remoteVoiceCandidates({ candidates, excluded, query }) {
+  const turn = state.voice.turn;
+  turn.remoteQueries.add(normalizeText(query));
+  turn.remoteLookups += 1;
+  const best = candidates[0]?.confidence ?? 0;
   try {
     const remote = await catalog.search(query, { themeId: state.game.config.themeId, excluded, limit: 4 });
-    state.catalogStatus = remote.remote;
+    setCatalogStatus(remote.remote);
     const combined = [...candidates];
     for (const person of remote.results) {
       // Only identities the snapshot genuinely lacks. A local person that the phonetic pass did not surface was
       // not misheard — it was rejected, and letting the looser text search re-inject it is how noise gets in.
       if (database.findActor(person.name, state.game.config.themeId)) continue;
       if (combined.some((candidate) => normalizeText(candidate.name) === normalizeText(person.name))) continue;
-      combined.push(compactVoiceCandidate({ ...person, origin: "voice-tmdb" }, 0.7));
+      combined.push(compactVoiceCandidate({ ...person, origin: "voice-tmdb" }, remoteVoiceConfidence(person, query, best)));
     }
-    return combined.sort((left, right) => right.confidence - left.confidence).slice(0, 4);
+    return combined.length > candidates.length ? combined.sort((left, right) => right.confidence - left.confidence).slice(0, 4) : null;
   } catch {
-    state.catalogStatus = { ...catalog.getState(), online: false };
-    return candidates;
+    setCatalogStatus({ ...catalog.getState(), online: false });
+    return null;
   }
 }
 
 async function hydrateVoiceCandidate(candidate) {
   if (!candidate) return null;
   try {
-    return await catalog.hydrate(candidate) ?? database.findActor(candidate.name) ?? candidate;
+    const person = await catalog.hydrate(candidate) ?? database.findActor(candidate.name) ?? candidate;
+    setCatalogStatus(catalog.getState());
+    return person;
   } catch {
-    state.catalogStatus = { ...catalog.getState(), online: false };
+    setCatalogStatus({ ...catalog.getState(), online: false });
     return database.findActor(candidate.name) ?? candidate;
   }
 }
@@ -721,10 +776,19 @@ async function ingestVoiceUtterance({ id, transcript, alternatives = [], final =
   const turn = state.voice.turn;
   state.voice.interim = final ? "" : spoken;
   const readings = (alternatives.length ? alternatives : [{ transcript: spoken, confidence: 1 }]).filter((reading) => reading.transcript);
-  const candidates = await voiceCandidatesFor(readings, { final });
+  const utteranceId = id ?? `manual-${(state.voice.utterances += 1)}`;
+  const at = Date.now();
+  const local = voiceCandidatesFor(readings);
+  // What the phonetic pass heard is on the table before the network is even asked: a remote round trip must never
+  // look like a pause. The same utterance id is re-ingested afterwards, so the remote answer joins the pool
+  // instead of adding a second reading of one sentence.
+  turn.buffer.ingest({ id: utteranceId, transcript: spoken, final, candidates: local.candidates, at });
+  updateVoiceLive();
+  if (!worthAskingRemote(local, final)) return;
+  const combined = await remoteVoiceCandidates(local);
   // The recogniser may have moved on to another turn while the catalogue answered.
-  if (state.voice.turn !== turn) return;
-  turn.buffer.ingest({ id: id ?? `manual-${(state.voice.utterances += 1)}`, transcript: spoken, final, candidates, at: Date.now() });
+  if (!combined || state.voice.turn !== turn) return;
+  turn.buffer.ingest({ id: utteranceId, transcript: spoken, final, candidates: combined, at });
   updateVoiceLive();
 }
 
@@ -788,6 +852,7 @@ function updateVoiceLive() {
     return;
   }
   stage.innerHTML = voiceStageMarkup();
+  refreshCatalogLabel();
   const turn = document.querySelector("[data-voice-turn]");
   if (turn) turn.innerHTML = `Au tour de <b>${escapeHtml(voiceActivePlayer().name)}</b> · dites un nom, puis touchez la bonne proposition pour valider et passer la main.`;
 }
@@ -1146,8 +1211,9 @@ async function submitActor() {
     if (person) {
       try {
         person = await catalog.hydrate(person) ?? person;
+        setCatalogStatus(catalog.getState());
       } catch {
-        state.catalogStatus = { ...catalog.getState(), online: false };
+        setCatalogStatus({ ...catalog.getState(), online: false });
       }
     }
     const result = proposeActor(state.game, person?.name ?? state.input, database);
@@ -1344,7 +1410,7 @@ document.addEventListener("click", (event) => {
 window.addEventListener("popstate", renderRoute);
 renderRoute();
 catalog.status().then((status) => {
-  state.catalogStatus = status;
+  setCatalogStatus(status);
   if (state.phase === "input") renderSuggestions();
 });
 if ("serviceWorker" in navigator) {

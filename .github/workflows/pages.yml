@@ -36,6 +36,10 @@ jobs:
       - name: Build Pages artifact
         env:
           PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          # Repository variable (Settings → Secrets and variables → Actions → Variables), empty until the owner
+          # deploys the Node target: the Pages edition then borrows its API instead of staying snapshot-only.
+          # A variable and not a secret — the origin is published in the page; the TMDb token never leaves the server.
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
         run: npm run build:pages
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4

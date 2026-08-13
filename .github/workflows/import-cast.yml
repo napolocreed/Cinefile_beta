@@ -1,0 +1,89 @@
+name: Import French cast
+
+# Deliberate, manual waves only: an enrichment refreshes identities the catalogue already claims, whereas an import
+# changes what the catalogue *is*. Growing it is an editorial act, so it is triggered by a human, budget in hand.
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: Maximum number of new identities to import in this wave
+        required: true
+        default: "60"
+        type: string
+      years:
+        description: Discovery window, e.g. 2005-2026 (empty means 2005 to the current year)
+        required: false
+        default: ""
+        type: string
+      pages:
+        description: TMDb discovery pages read per year (20 films per page)
+        required: true
+        default: "2"
+        type: string
+      min_votes:
+        description: Minimum TMDb vote count for a film to be worth its cast
+        required: true
+        default: "100"
+        type: string
+      dry_run:
+        description: Rehearse the wave and write nothing
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+# Shared with "Enrich TMDb catalogue": both waves rewrite the same two data files and push to the same branch.
+concurrency:
+  group: tmdb-enrichment
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Check TMDb secret
+        env:
+          TMDB_API_TOKEN: ${{ secrets.TMDB_API_TOKEN }}
+        run: test -n "$TMDB_API_TOKEN" || { echo "Repository secret TMDB_API_TOKEN is missing."; exit 1; }
+      - name: Import a resumable wave of French cast
+        shell: bash
+        env:
+          TMDB_API_TOKEN: ${{ secrets.TMDB_API_TOKEN }}
+          LIMIT: ${{ inputs.limit }}
+          YEARS: ${{ inputs.years }}
+          PAGES: ${{ inputs.pages }}
+          MIN_VOTES: ${{ inputs.min_votes }}
+          DRY_RUN: ${{ inputs.dry_run == true && '--dry-run' || '' }}
+        run: |
+          set -o pipefail
+          node scripts/import-tmdb-cast.mjs \
+            --limit="$LIMIT" --pages="$PAGES" --min-votes="$MIN_VOTES" ${YEARS:+--years="$YEARS"} $DRY_RUN \
+            --snapshot-out=src/data/cinema-knowledge.json --overlay-out=src/data/tmdb-overlay.json \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Rebuild the portrait index
+        run: npm run build:portraits
+      - name: Run non-regression tests
+        run: npm run test:unit
+      - name: Persist the enlarged catalogue
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/cinema-knowledge.json src/data/tmdb-overlay.json src/data/tmdb-portraits.json
+          if git diff --cached --quiet; then
+            echo "Catalogue already current."
+          else
+            git commit -m "Import contemporary French cast into the catalogue"
+            git push
+          fi
