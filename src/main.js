@@ -85,6 +85,7 @@ const state = {
   searchStatus: "idle",
   searchTimer: null,
   searchAbort: null,
+  submitting: false,
   catalogStatus: catalog.getState(),
   verificationStatus: "idle",
   voice: createVoiceState(),
@@ -162,6 +163,22 @@ function verificationPanelMarkup(verification) {
 
 const voiceResolver = createVoiceResolver(database);
 
+const VOICE_FLASH_MS = 2200;
+
+// A live region that outlives every render: created inside the markup it replaces, it would never be announced.
+const voiceAnnouncer = Object.assign(document.createElement("p"), { className: "sr-only" });
+voiceAnnouncer.setAttribute("role", "status");
+voiceAnnouncer.setAttribute("aria-live", "polite");
+voiceAnnouncer.setAttribute("aria-atomic", "true");
+document.body.append(voiceAnnouncer);
+
+function announceVoice(message) {
+  if (!message) return;
+  // Clearing first makes an identical sentence announce again on the next turn.
+  voiceAnnouncer.textContent = "";
+  window.setTimeout(() => { voiceAnnouncer.textContent = message; }, 60);
+}
+
 function createVoiceTurn(playerId = null) {
   return { playerId, buffer: createTurnBuffer(), remoteLookups: 0, startedAt: Date.now() };
 }
@@ -181,12 +198,22 @@ function createVoiceState() {
     verdict: null,
     utterances: 0,
     manualOpen: false,
+    flash: null,
+    flashTimer: null,
+    flashToken: 0,
   };
 }
 
-function livesMarkup(lives, large = false) {
-  const count = Math.max(1, lives);
-  return `<span class="lives ${large ? "lives--large" : ""}" aria-label="${lives} vie${lives > 1 ? "s" : ""}">${Array.from({ length: count }, (_, index) => `<span class="heart ${index < lives ? "heart--on" : "heart--off"}">♥</span>`).join("")}</span>`;
+// Every life ever held keeps its slot. Rendering only the surviving hearts made a loss invisible: the row just
+// got one glyph shorter, in the corner of a panel that was being repainted anyway.
+function livesMarkup(lives, large = false, { capacity = null, dying = false } = {}) {
+  const slots = Math.max(1, capacity ?? state.game?.config?.livesPerPlayer ?? lives, lives);
+  const hearts = Array.from({ length: slots }, (_, index) => {
+    const lost = index >= lives;
+    const justLost = dying && index === lives;
+    return `<span class="heart ${lost ? "heart--off" : "heart--on"} ${justLost ? "heart--dying" : ""}">♥</span>`;
+  });
+  return `<span class="lives ${large ? "lives--large" : ""} ${dying ? "lives--struck" : ""}" aria-label="${lives} vie${lives > 1 ? "s" : ""} sur ${slots}">${hearts.join("")}</span>`;
 }
 
 function brandMarkup(compact = false) {
@@ -317,7 +344,7 @@ function suggestionsMarkup() {
       ? person.knownFor.join(" · ")
       : `${roleLabel(person)} · ${person.creditCount ?? person.films?.length ?? 0} crédit${(person.creditCount ?? person.films?.length ?? 0) > 1 ? "s" : ""}`;
     const source = String(person.origin ?? "").includes("tmdb") ? "TMDb" : "Local";
-    return `<button type="button" role="option" data-suggestion-index="${index}" aria-selected="${state.selectedPerson?.id === person.id}">${pictureMarkup(person.profilePath, person.name, "suggestion-portrait", "suggestion-avatar")}<span><strong>${escapeHtml(person.name)}</strong><small>${escapeHtml(details)}</small></span><em>${source}</em></button>`;
+    return `<button type="button" role="option" id="actor-suggestion-${index}" tabindex="-1" data-suggestion-index="${index}" aria-selected="${state.selectedPerson?.id === person.id}">${pictureMarkup(person.profilePath, person.name, "suggestion-portrait", "suggestion-avatar")}<span><strong>${escapeHtml(person.name)}</strong><small>${escapeHtml(details)}</small></span><em>${source}</em></button>`;
   }).join("");
 }
 
@@ -340,8 +367,13 @@ function renderSuggestions() {
     hint.textContent = suggestionHint();
     hint.classList.remove("input-hint--error");
   }
+  document.querySelector("#actor-input")?.setAttribute("aria-expanded", String(state.suggestions.length > 0));
   const submit = document.querySelector("[data-submit-actor]");
-  if (submit) submit.disabled = !state.input.trim();
+  if (!submit) return;
+  submit.disabled = !state.input.trim();
+  // Naming the choice on the button removes the last doubt about what a second tap commits.
+  submit.firstChild.textContent = state.selectedPerson ? `Valider ${state.selectedPerson.name} ` : "Valider ";
+  submit.classList.toggle("button--armed", Boolean(state.selectedPerson));
 }
 
 function stopSearch() {
@@ -485,18 +517,31 @@ function voicePlayerSection(player, index, activePlayer) {
   const seconds = state.game.config.turnSeconds ? (state.timeLeft ?? state.game.config.turnSeconds) : null;
   const timer = active ? (seconds === null ? "∞" : `${seconds}s`) : "—";
   const heard = state.voice.turn.buffer.heard().slice(-2).map((line) => escapeHtml(line.transcript)).join(" · ");
+  const flash = state.voice.flash;
+  const struck = flash?.strikeId === player.id;
+  const strike = struck ? `<p class="voice-strike"><b>${escapeHtml(player.name)}</b> ${escapeHtml(flash.reason.toLocaleLowerCase("fr"))}<small>${flash.remaining > 0 ? `${flash.remaining} vie${flash.remaining > 1 ? "s" : ""} restante${flash.remaining > 1 ? "s" : ""}` : "éliminé"}</small></p>` : "";
   const body = active
-    ? `<small>Vos propositions</small>${voicePickListMarkup()}${heard ? `<p class="voice-heard">Entendu : ${heard}</p>` : ""}`
+    ? `${strike}<small>Vos propositions</small>${voicePickListMarkup()}${heard ? `<p class="voice-heard">Entendu : ${heard}</p>` : ""}`
     : entry
-      ? `<small>Dernier nom validé</small><div class="voice-validated">${portraitMarkup({ name: entry.actorName })}<strong>${escapeHtml(entry.actorName)}</strong></div>${state.pending && entry.playerId === state.pending.playerId ? `<p class="voice-correct">Mauvaise identité ? Corrigez avant la décision.</p>${voiceCandidateList(entry)}` : ""}`
-      : "";
-  return `<section class="voice-player voice-player--${index + 1} ${active ? "voice-player--active" : ""}" data-voice-panel="${escapeHtml(player.id)}" aria-label="${escapeHtml(player.name)}${active ? ", à vous de jouer" : ", en attente"}"><div class="voice-player__head"><div><small>${active ? "À vous" : `Joueur ${index + 1}`}</small><h2>${escapeHtml(player.name)}</h2></div>${livesMarkup(player.lives, true)}</div><div class="voice-clock ${active && seconds !== null && seconds <= 5 ? "voice-clock--urgent" : ""}"><span>${timer}</span><small>${active ? "À vous de parler" : "En attente"}</small></div><div class="voice-detection">${body}</div></section>`;
+      ? `${strike}<small>Dernier nom validé</small><div class="voice-validated">${portraitMarkup({ name: entry.actorName })}<strong>${escapeHtml(entry.actorName)}</strong></div>${state.pending && entry.playerId === state.pending.playerId ? `<p class="voice-correct">Mauvaise identité ? Corrigez avant la décision.</p>${voiceCandidateList(entry)}` : ""}`
+      : strike;
+  return `<section class="voice-player voice-player--${index + 1} ${active ? "voice-player--active" : ""} ${struck ? "voice-player--struck" : ""} ${flash?.toId === player.id ? "voice-player--taking" : ""}" data-seat="${index === 1 ? "II" : "I"}" data-voice-panel="${escapeHtml(player.id)}" aria-label="${escapeHtml(player.name)}${active ? ", à vous de jouer" : ", en attente"}"><div class="voice-player__head"><div><small><i class="voice-seat" aria-hidden="true">${index === 1 ? "II" : "I"}</i>${active ? "À vous" : `Joueur ${index + 1}`}</small><h2>${escapeHtml(player.name)}</h2></div>${livesMarkup(player.lives, true, { dying: struck })}</div><div class="voice-clock ${active && seconds !== null && seconds <= 5 ? "voice-clock--urgent" : ""}"><span>${timer}</span><small>${active ? "À vous de parler" : "En attente"}</small></div><div class="voice-detection">${body}</div></section>`;
 }
 
 function voiceChainMarkup() {
   const chain = state.game.chain.slice(-6);
   if (!chain.length) return `<p class="voice-chain voice-chain--empty">La chaîne est vide : le premier nom validé l’ouvre.</p>`;
   return `<p class="voice-chain"><small>Chaîne (${state.game.chain.length})</small>${state.game.chain.length > chain.length ? "<span>…</span>" : ""}${chain.map((actor) => `<span>${escapeHtml(actor)}</span>`).join("")}${state.pending ? `<span class="voice-chain__pending">${escapeHtml(state.pending.proposedActor)} ?</span>` : ""}</p>`;
+}
+
+function voiceBatonMarkup() {
+  const flash = state.voice.flash;
+  if (!flash?.toId) return "";
+  const incoming = state.game.players.find((player) => player.id === flash.toId);
+  const seat = state.game.players.findIndex((player) => player.id === flash.toId) === 1 ? 2 : 1;
+  // A recreated node would replay the wipe from zero; the negative delay resumes it where it stood.
+  const elapsed = Math.min(VOICE_FLASH_MS, Date.now() - flash.at);
+  return `<div class="voice-baton voice-baton--${seat}" style="animation-delay:-${elapsed}ms" aria-hidden="true"><small>${state.pending ? "À vous de trancher" : "À vous de jouer"}</small><strong>${escapeHtml(incoming?.name ?? "")}</strong>${flash.reason ? `<em>${escapeHtml(flash.reason)}</em>` : ""}</div>`;
 }
 
 function voiceStageMarkup() {
@@ -513,7 +558,7 @@ function voiceMarkup() {
   syncVoiceTurn();
   const activePlayer = voiceActivePlayer();
   const listeningLabel = state.voice.listening ? "Écoute active" : state.voice.consent ? "Démarrage du micro…" : "Micro en pause";
-  return shell(`<section class="voice-page"><div class="voice-status"><span class="voice-listening ${state.voice.listening ? "voice-listening--on" : ""}"><i></i>${listeningLabel}</span><span>${database.snapshotId ?? "Base locale"}</span></div><p class="voice-turn" data-voice-turn role="status">Au tour de <b>${escapeHtml(activePlayer.name)}</b> · dites un nom, puis touchez la bonne proposition pour valider et passer la main.</p><div class="voice-stage" data-voice-stage>${voiceStageMarkup()}</div>${voiceChainMarkup()}<details class="voice-manual" data-voice-manual ${state.voice.manualOpen ? "open" : ""}><summary>Correction / saisie de secours</summary><form data-voice-manual-form><label for="voice-manual-input">Nom entendu pour ${escapeHtml(activePlayer.name)}</label><div><input id="voice-manual-input" class="field" autocomplete="off" placeholder="Nom de l’artiste"><button class="button button--gold" type="submit">Détecter</button></div></form></details><p class="voice-privacy">Le voyant rouge indique l’écoute. Vous pouvez couper le micro immédiatement; aucun fichier audio n’est stocké par Ciné-Fil.</p></section>`, { back: "/", eyebrow: "Passive voice mode" });
+  return shell(`<section class="voice-page"><div class="voice-status"><span class="voice-listening ${state.voice.listening ? "voice-listening--on" : ""}"><i></i>${listeningLabel}</span><span>${database.snapshotId ?? "Base locale"}</span></div><p class="voice-turn" data-voice-turn role="status">Au tour de <b>${escapeHtml(activePlayer.name)}</b> · dites un nom, puis touchez la bonne proposition pour valider et passer la main.</p><div class="voice-stage" data-voice-stage>${voiceStageMarkup()}</div>${voiceBatonMarkup()}${voiceChainMarkup()}<details class="voice-manual" data-voice-manual ${state.voice.manualOpen ? "open" : ""}><summary>Correction / saisie de secours</summary><form data-voice-manual-form><label for="voice-manual-input">Nom entendu pour ${escapeHtml(activePlayer.name)}</label><div><input id="voice-manual-input" class="field" autocomplete="off" placeholder="Nom de l’artiste"><button class="button button--gold" type="submit">Détecter</button></div></form></details><p class="voice-privacy">Le voyant rouge indique l’écoute. Vous pouvez couper le micro immédiatement; aucun fichier audio n’est stocké par Ciné-Fil.</p></section>`, { back: "/", eyebrow: "Passive voice mode" });
 }
 
 function ensureVoiceSession() {
@@ -556,6 +601,54 @@ function stopVoiceSession({ destroy = true } = {}) {
   state.voice.listening = false;
   state.voice.consent = false;
   stopTimer();
+}
+
+function voiceSnapshot() {
+  return {
+    activeId: voiceActivePlayer().id,
+    lives: Object.fromEntries(state.game.players.map((player) => [player.id, player.lives])),
+  };
+}
+
+function strikeReason(game) {
+  const turn = game.turns.at(-1);
+  if (!turn) return "Vie perdue";
+  if (turn.method === "timeout") return "Chrono expiré";
+  if (turn.challenged && !turn.accepted) return "Bluff démasqué";
+  if (turn.challenged && turn.accepted) return "Buzz injustifié";
+  return "Liaison invalide";
+}
+
+// One commit costs at most one life — applyResolution strikes the challenger or the proposer, never both — so a
+// single flash can carry the whole story: who lost what, why, and whose turn it now is.
+function flashVoiceTransition(before) {
+  if (!before || state.game?.config?.mode !== "voice" || state.game.status !== "in-progress") return;
+  const after = voiceSnapshot();
+  const struck = state.game.players.find((player) => after.lives[player.id] < (before.lives[player.id] ?? 0));
+  const turned = after.activeId !== before.activeId;
+  if (!struck && !turned) return;
+  const nameOf = (id) => state.game.players.find((player) => player.id === id)?.name ?? "";
+  const token = (state.voice.flashToken = (state.voice.flashToken ?? 0) + 1);
+  state.voice.flash = {
+    token,
+    at: Date.now(),
+    toId: turned ? after.activeId : null,
+    strikeId: struck?.id ?? null,
+    reason: struck ? strikeReason(state.game) : null,
+    remaining: struck ? after.lives[struck.id] : null,
+  };
+  announceVoice([
+    struck ? `${nameOf(struck.id)} perd une vie : ${state.voice.flash.reason.toLocaleLowerCase("fr")}. Il lui reste ${state.voice.flash.remaining}.` : "",
+    turned ? `Au tour de ${nameOf(after.activeId)}.` : "",
+  ].filter(Boolean).join(" "));
+  window.clearTimeout(state.voice.flashTimer);
+  state.voice.flashTimer = window.setTimeout(() => {
+    if (state.voice?.flash?.token !== token) return;
+    state.voice.flash = null;
+    // Nothing else clears the verdict line, so it used to show a result from two turns ago.
+    state.voice.verdict = null;
+    if (path() === "/play") renderRoute();
+  }, VOICE_FLASH_MS);
 }
 
 function syncVoiceTurn() {
@@ -638,6 +731,7 @@ async function validateVoiceCandidate(reference) {
   state.voice.error = null;
   try {
     const speaker = voiceActivePlayer();
+    const before = voiceSnapshot();
     if (state.pending) {
       state.game = resolvePending(state.game, state.pending, { challenged: false });
       state.pending = null;
@@ -664,6 +758,7 @@ async function validateVoiceCandidate(reference) {
     if (result.type === "pending") state.pending = result.pending;
     else state.game = result.game;
     state.voice.verdict = `${active.name} valide ${actorName}`;
+    flashVoiceTransition(before);
     syncVoiceTurn();
     storage.saveCurrent(state.game);
     if (state.game.status === "finished") navigate("/results");
@@ -731,7 +826,9 @@ async function verifyPendingLink(game, pending) {
 function completeVoiceReview(game, pending, { challenged }) {
   const review = state.voice.review;
   const before = game.chain.length;
+  const snapshot = voiceSnapshot();
   state.game = resolvePending(game, pending, { challenged });
+  flashVoiceTransition(snapshot);
   if (review) {
     review.left.selected = review.selected.left;
     review.right.selected = review.selected.right;
@@ -827,12 +924,14 @@ function ensureVoiceTimer() {
     document.querySelector(".voice-player--active .voice-clock")?.classList.toggle("voice-clock--urgent", state.timeLeft <= 5);
     if (state.timeLeft > 0) return;
     stopTimer();
+    const before = voiceSnapshot();
     if (state.pending) {
       state.game = resolvePending(state.game, state.pending, { challenged: false });
       state.pending = null;
     }
     state.game = resolvePending(state.game, timeoutPending(state.game), { challenged: false });
     state.voice.verdict = "Temps écoulé";
+    flashVoiceTransition(before);
     state.timeLeft = null;
     storage.saveCurrent(state.game);
     if (state.game.status === "finished") navigate("/results");
@@ -904,8 +1003,8 @@ function playMarkup() {
     return shell(`<section class="play-page play-page--center"><p class="kicker">Passez l’écran à</p><h1 class="player-call">${escapeHtml(player.name)}</h1><div class="player-lives">${livesMarkup(player.lives, true)}</div><div class="scene-card"><small>${previous ? "Acteur précédent" : "C’est toi qui démarres"}</small><strong>${escapeHtml(previous || "Choisis l’acteur de départ")}</strong></div><button class="button button--gold button--wide" data-ready>Je suis prêt <span>→</span></button></section>`, { back: "/", eyebrow: "One screen · many players" });
   }
   if (state.phase === "input") {
-    if (!state.suggestions.length && state.input) state.suggestions = database.searchPeople(state.input, { themeId: game.config.themeId, excluded: game.chain, limit: 8 });
-    return shell(`<section class="play-page"><div class="play-page__top">${gameHeader()}</div><div class="prompt-card"><small>${previous ? "Relie cet acteur à" : "Acteur de départ"}</small><h1>${escapeHtml(previous || "À toi de lancer la partie")}</h1></div><label class="field-label" for="actor-input">Ton artiste</label><input id="actor-input" class="field field--actor" value="${escapeHtml(state.input)}" placeholder="Nom de l’artiste…" autocomplete="off" aria-autocomplete="list" aria-controls="actor-suggestions" autofocus><div id="actor-suggestions" class="suggestions suggestions--people" role="listbox">${suggestionsMarkup()}</div><p class="input-hint" aria-live="polite">${suggestionHint()}</p><button class="button button--gold button--wide" data-submit-actor ${!state.input.trim() ? "disabled" : ""}>Valider <span>→</span></button></section>`, { back: "/", eyebrow: "The chain" });
+    if (!state.suggestions.length && state.input && !state.selectedPerson) state.suggestions = database.searchPeople(state.input, { themeId: game.config.themeId, excluded: game.chain, limit: 8 });
+    return shell(`<section class="play-page"><div class="play-page__top">${gameHeader()}</div><div class="prompt-card"><small>${previous ? "Relie cet acteur à" : "Acteur de départ"}</small><h1>${escapeHtml(previous || "À toi de lancer la partie")}</h1></div><label class="field-label" for="actor-input">Ton artiste</label><input id="actor-input" class="field field--actor" value="${escapeHtml(state.input)}" placeholder="Nom de l’artiste…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="${state.suggestions.length > 0}" aria-controls="actor-suggestions" autofocus><div id="actor-suggestions" class="suggestions suggestions--people" role="listbox" aria-label="Artistes proposés">${suggestionsMarkup()}</div><p class="input-hint" aria-live="polite">${suggestionHint()}</p><button class="button button--gold button--wide" data-submit-actor ${!state.input.trim() ? "disabled" : ""}>Valider <span>→</span></button></section>`, { back: "/", eyebrow: "The chain" });
   }
   if (state.phase === "challenge" && state.pending) {
     const challenger = game.players.find((candidate) => candidate.id === state.pending.challengerId);
@@ -947,6 +1046,10 @@ function bindPlay() {
     });
     actorInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") submitActor();
+      if (event.key === "Escape" && state.suggestions.length) {
+        state.suggestions = [];
+        renderSuggestions();
+      }
     });
   }
   document.querySelector("#actor-suggestions")?.addEventListener("click", (event) => {
@@ -954,12 +1057,15 @@ function bindPlay() {
     if (!button) return;
     const person = state.suggestions[Number(button.dataset.suggestionIndex)];
     if (!person) return;
+    stopSearch();
     state.selectedPerson = person;
     state.input = person.name;
     actorInput.value = person.name;
+    // Closing the list is what brings the button back above the fold: eight rows are some five hundred pixels,
+    // and moving focus off the field also dismisses the phone keyboard.
+    state.suggestions = [];
     renderSuggestions();
-    document.querySelector("[data-submit-actor]")?.removeAttribute("disabled");
-    actorInput.focus();
+    document.querySelector("[data-submit-actor]")?.focus({ preventScroll: false });
   });
   document.querySelector("[data-submit-actor]")?.addEventListener("click", submitActor);
   document.querySelector("[data-pass-challenge]")?.addEventListener("click", () => {
@@ -1008,7 +1114,10 @@ function revealVarDecision(valid) {
 }
 
 async function submitActor() {
-  if (!state.input.trim()) return;
+  // The button disables itself, but Enter bypasses the button entirely, and hydration holds the door open for a
+  // whole network round trip — long enough to send the same artist twice.
+  if (state.submitting || !state.input.trim()) return;
+  state.submitting = true;
   stopSearch();
   const button = document.querySelector("[data-submit-actor]");
   if (button) {
@@ -1041,7 +1150,13 @@ async function submitActor() {
       hint.textContent = error.message;
       hint.classList.add("input-hint--error");
     }
-    if (button) button.disabled = false;
+    if (button) {
+      button.disabled = false;
+      // Without this the button keeps reading "Vérification…" for the rest of the turn.
+      button.firstChild.textContent = state.selectedPerson ? `Valider ${state.selectedPerson.name} ` : "Valider ";
+    }
+  } finally {
+    state.submitting = false;
   }
 }
 
