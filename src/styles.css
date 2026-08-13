@@ -36,3 +36,5 @@ html[data-large-text]{font-size:118%}html[data-large-text] .page__body{width:min
 @media (max-width:760px){.portrait--lead{width:3.3rem;height:4.4rem}.voice-player:not(.voice-player--active){min-height:auto}.voice-player:not(.voice-player--active) .voice-clock{min-height:4rem;margin:.9rem 0}.var-step{grid-template-columns:1.4rem 1fr auto;row-gap:.15rem}.var-step__time{grid-column:2/-1;text-align:left}}
 
 .build-stamp{margin:1rem 0 0;padding-top:.8rem;border-top:1px solid rgba(232,223,203,.08);color:rgba(232,223,203,.34);font-size:.56rem;letter-spacing:.1em;text-transform:uppercase}
+
+.voice-fix{display:block;width:100%;min-height:auto;margin-top:.45rem;padding:.3rem;font-size:.53rem}

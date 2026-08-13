@@ -451,17 +451,32 @@ function voiceTurnCandidates() {
   return state.voice.turn.buffer.candidates();
 }
 
+// Whatever the player said, spelled as the recogniser heard it. It stays reachable unless the catalogue answered
+// with near-certainty — an artist we simply do not know must never be a dead end.
+function offCatalogueOffer() {
+  const guess = spokenNameGuess(state.voice.turn.buffer.lastTranscript());
+  if (!guess) return null;
+  const known = database.findActor(guess, state.game.config.themeId);
+  const name = known?.name ?? guess;
+  const key = normalizeText(name);
+  const taken = [...state.game.chain, state.pending?.proposedActor].filter(Boolean).map(normalizeText);
+  if (taken.includes(key)) return null;
+  const pool = voiceTurnCandidates();
+  if (pool.some((candidate) => normalizeText(candidate.name) === key)) return null;
+  if ((pool[0]?.confidence ?? 0) >= 0.93) return null;
+  return { name, known: Boolean(known) };
+}
+
 // Nothing reaches the chain without a deliberate tap: the pool only ever proposes.
 function voicePickListMarkup() {
   const candidates = voiceTurnCandidates();
-  if (candidates.length) {
-    return `<div class="voice-picks" role="list">${candidates.map((candidate, index) => `<button type="button" role="listitem" class="voice-pick ${index === 0 ? "voice-pick--lead" : ""}" data-voice-validate="${index}">${portraitMarkup(candidate, index === 0 ? "portrait--lead" : "")}<span class="voice-pick__body"><span class="voice-pick__name">${escapeHtml(candidate.name)}</span><small>${candidateConfidenceLabel(candidate.confidence)}${candidate.matchedText ? ` · entendu «&nbsp;${escapeHtml(candidate.matchedText)}&nbsp;»` : ""}</small></span><em>Valider</em></button>`).join("")}</div>`;
+  const offer = offCatalogueOffer();
+  if (!candidates.length && !offer) return `<p class="voice-empty">Prononcez un nom d’artiste, il apparaîtra ici.</p>`;
+  const picks = candidates.map((candidate, index) => `<button type="button" role="listitem" class="voice-pick ${index === 0 ? "voice-pick--lead" : ""}" data-voice-validate="${index}">${portraitMarkup(candidate, index === 0 ? "portrait--lead" : "")}<span class="voice-pick__body"><span class="voice-pick__name">${escapeHtml(candidate.name)}</span><small>${candidateConfidenceLabel(candidate.confidence)}${candidate.matchedText ? ` · entendu «&nbsp;${escapeHtml(candidate.matchedText)}&nbsp;»` : ""}</small></span><em>Valider</em></button>`);
+  if (offer) {
+    picks.push(`<button type="button" role="listitem" class="voice-pick voice-pick--raw" data-voice-validate="raw">${portraitMarkup({ name: offer.name })}<span class="voice-pick__body"><span class="voice-pick__name">${escapeHtml(offer.name)}</span><small>${offer.known ? "entendu tel quel" : "absent du catalogue · validez pour le soumettre au vote"}</small></span><em>Valider</em></button>`);
   }
-  const guess = spokenNameGuess(state.voice.turn.buffer.lastTranscript());
-  if (guess) {
-    return `<div class="voice-picks" role="list"><button type="button" role="listitem" class="voice-pick voice-pick--raw" data-voice-validate="raw">${portraitMarkup({ name: guess })}<span class="voice-pick__body"><span class="voice-pick__name">${escapeHtml(guess)}</span><small>hors catalogue · le groupe tranchera par vote</small></span><em>Valider</em></button></div>`;
-  }
-  return `<p class="voice-empty">Prononcez un nom d’artiste, il apparaîtra ici.</p>`;
+  return `<div class="voice-picks" role="list">${picks.join("")}</div>${offer && !offer.known ? `<button type="button" class="button button--text voice-fix" data-voice-fix="${escapeHtml(offer.name)}">Corriger l’orthographe</button>` : ""}`;
 }
 
 function voicePlayerSection(player, index, activePlayer) {
@@ -552,26 +567,32 @@ function syncVoiceTurn() {
   return true;
 }
 
-async function voiceCandidatesFor(alternatives) {
+async function voiceCandidatesFor(alternatives, { final = false } = {}) {
+  // The proposition already on the table is not a legal answer either: offering it would let a tap erase it.
+  const excluded = [...state.game.chain, state.pending?.proposedActor].filter(Boolean);
   const candidates = voiceResolver.resolve(alternatives, {
     themeId: state.game.config.themeId,
-    excluded: state.game.chain,
+    excluded,
     limit: 4,
     previousActor: state.game.chain.at(-1) ?? null,
   }).map((person) => compactVoiceCandidate(person));
   const best = candidates[0]?.confidence ?? 0;
-  const query = alternatives[0]?.transcript ?? "";
-  // The local catalogue answers first. The remote one is only worth a round trip when the local reading is
-  // weak, and never more than a couple of times per turn.
-  if (best >= 0.9 || state.voice.turn.remoteLookups >= 2 || normalizeText(query).length < 3) return candidates;
+  const query = spokenNameGuess(alternatives[0]?.transcript ?? "");
+  // The remote catalogue is asked only for what the local one cannot know: a full name, spoken to the end, that
+  // no local identity answers well. Interim fragments burn the budget on the least informative queries.
+  const worthAsking = final && CATALOG_MODE !== "static" && query && query.split(" ").length >= 2 && best < 0.84;
+  if (!worthAsking || state.voice.turn.remoteLookups >= 3) return candidates;
   state.voice.turn.remoteLookups += 1;
   try {
-    const remote = await catalog.search(query, { themeId: state.game.config.themeId, excluded: state.game.chain, limit: 4 });
+    const remote = await catalog.search(query, { themeId: state.game.config.themeId, excluded, limit: 4 });
     state.catalogStatus = remote.remote;
     const combined = [...candidates];
     for (const person of remote.results) {
-      const known = combined.some((candidate) => candidate.id === person.id || normalizeText(candidate.name) === normalizeText(person.name));
-      if (!known && Number(person.matchScore ?? 0) >= 0.72) combined.push(compactVoiceCandidate(person, Math.min(0.72, Number(person.matchScore ?? 0.64))));
+      // Only identities the snapshot genuinely lacks. A local person that the phonetic pass did not surface was
+      // not misheard — it was rejected, and letting the looser text search re-inject it is how noise gets in.
+      if (database.findActor(person.name, state.game.config.themeId)) continue;
+      if (combined.some((candidate) => normalizeText(candidate.name) === normalizeText(person.name))) continue;
+      combined.push(compactVoiceCandidate({ ...person, origin: "voice-tmdb" }, 0.7));
     }
     return combined.sort((left, right) => right.confidence - left.confidence).slice(0, 4);
   } catch {
@@ -598,7 +619,7 @@ async function ingestVoiceUtterance({ id, transcript, alternatives = [], final =
   const turn = state.voice.turn;
   state.voice.interim = final ? "" : spoken;
   const readings = (alternatives.length ? alternatives : [{ transcript: spoken, confidence: 1 }]).filter((reading) => reading.transcript);
-  const candidates = await voiceCandidatesFor(readings);
+  const candidates = await voiceCandidatesFor(readings, { final });
   // The recogniser may have moved on to another turn while the catalogue answered.
   if (state.voice.turn !== turn) return;
   turn.buffer.ingest({ id: id ?? `manual-${(state.voice.utterances += 1)}`, transcript: spoken, final, candidates, at: Date.now() });
@@ -608,12 +629,10 @@ async function ingestVoiceUtterance({ id, transcript, alternatives = [], final =
 async function validateVoiceCandidate(reference) {
   if (state.voice.processing || state.voice.review || state.game.status !== "in-progress") return;
   const pool = voiceTurnCandidates();
-  const candidate = reference === "raw"
-    ? (() => {
-      const guess = spokenNameGuess(state.voice.turn.buffer.lastTranscript());
-      return guess ? { id: `spoken:${normalizeText(guess)}`, name: guess, confidence: 0.35, origin: "vote", externalIds: {} } : null;
-    })()
-    : pool[Number(reference)];
+  const offer = reference === "raw" ? offCatalogueOffer() : null;
+  const candidate = offer
+    ? { id: `spoken:${normalizeText(offer.name)}`, name: offer.name, confidence: 0.35, origin: offer.known ? "local" : "vote", externalIds: {} }
+    : (reference === "raw" ? null : pool[Number(reference)]);
   if (!candidate) return;
   state.voice.processing = true;
   state.voice.error = null;
@@ -622,10 +641,14 @@ async function validateVoiceCandidate(reference) {
     if (state.pending) {
       state.game = resolvePending(state.game, state.pending, { challenged: false });
       state.pending = null;
+      // Conceding the previous proposition is a decision of its own: persist it before anything else can fail.
+      storage.saveCurrent(state.game);
     }
     const active = currentPlayer(state.game);
     if (active.id !== speaker.id) throw new Error("Le tour a changé. Reprenez la proposition.");
     const person = await hydrateVoiceCandidate(candidate);
+    // Hydration is a network round trip. The chrono may have run out meanwhile and handed the turn over.
+    if (currentPlayer(state.game).id !== speaker.id || state.pending) throw new Error("Le tour a changé pendant la vérification. Reprenez la proposition.");
     const actorName = person?.name ?? candidate.name;
     const result = proposeActor(state.game, actorName, database);
     state.voice.entries = [...state.voice.entries, {
@@ -669,7 +692,8 @@ function openVoiceReview() {
   if (!state.pending) return;
   stopVoiceSession({ destroy: false });
   // A reloaded page has no spoken history: the pending move and the chain still describe both sides.
-  const currentEntry = state.voice.entries.at(-1) ?? {
+  const lastEntry = state.voice.entries.at(-1);
+  const currentEntry = (lastEntry && normalizeText(lastEntry.actorName ?? "") === normalizeText(state.pending.proposedActor)) ? lastEntry : {
     id: "pending-proposal",
     playerId: state.pending.playerId,
     playerName: state.game.players.find((player) => player.id === state.pending.playerId)?.name ?? "Joueur",
@@ -678,12 +702,17 @@ function openVoiceReview() {
     candidates: [{ id: "pending-proposal", name: state.pending.proposedActor, confidence: 1, origin: "chain", externalIds: {} }],
     selected: 0,
   };
-  const previousEntry = state.voice.entries.at(-2) ?? {
+  // The left side is whatever the chain actually ends with. Spoken history can hold names that were rejected by a
+  // previous bluff and never entered the chain; trusting it here would let the correction overwrite a real link.
+  const chainTail = state.game.chain.at(-1);
+  const spokenTail = [...state.voice.entries].reverse().find((entry) => normalizeText(entry.actorName ?? "") === normalizeText(chainTail ?? ""));
+  const previousEntry = spokenTail ?? {
     id: "chain-previous",
     playerId: state.pending.challengerId,
     playerName: state.game.players.find((player) => player.id === state.pending.challengerId)?.name ?? "Joueur précédent",
-    transcript: state.game.chain.at(-1),
-    candidates: [{ id: "chain-previous", name: state.game.chain.at(-1), confidence: 1, origin: "chain", externalIds: {} }],
+    actorName: chainTail,
+    transcript: chainTail,
+    candidates: [{ id: "chain-previous", name: chainTail, confidence: 1, origin: "chain", externalIds: {} }],
     selected: 0,
   };
   state.voice.review = { left: previousEntry, right: currentEntry, selected: { left: previousEntry.selected ?? 0, right: currentEntry?.selected ?? 0 } };
@@ -701,10 +730,15 @@ async function verifyPendingLink(game, pending) {
 
 function completeVoiceReview(game, pending, { challenged }) {
   const review = state.voice.review;
+  const before = game.chain.length;
   state.game = resolvePending(game, pending, { challenged });
   if (review) {
     review.left.selected = review.selected.left;
     review.right.selected = review.selected.right;
+    review.left.actorName = review.left.candidates?.[review.selected.left]?.name ?? review.left.actorName;
+    // A refused proposition never reaches the chain, so its spoken entry must not outlive it either: the next
+    // buzzer reads the last entry as the chain tail.
+    if (state.game.chain.length === before) state.voice.entries = state.voice.entries.filter((entry) => entry !== review.right);
   }
   state.voice.verdict = challenged
     ? (pending.wasValid ? `Liaison valide${pending.sharedFilms.length ? ` · ${pending.sharedFilms.join(" · ")}` : ""}` : "Bluff confirmé · aucune œuvre commune")
@@ -760,9 +794,17 @@ function resolveVoiceVar(valid, challenged = true) {
 async function selectCurrentVoiceCandidate(entryId, candidateIndex) {
   const entry = state.voice.entries.find((candidate) => candidate.id === entryId);
   if (!entry || entry !== state.voice.entries.at(-1) || !state.pending) return;
+  // The proposition this correction replaces must still be the one on the table when hydration comes back;
+  // otherwise proposeActor would arm a brand new proposition on an already advanced game.
+  const armed = state.pending;
   try {
     const candidate = entry.candidates[candidateIndex];
     const person = await hydrateVoiceCandidate(candidate);
+    if (state.pending !== armed) {
+      state.voice.error = "Trop tard : le tour a changé pendant la correction. Utilisez le buzzer pour rectifier.";
+      renderRoute();
+      return;
+    }
     const result = proposeActor(state.game, person?.name ?? candidate.name, database);
     if (result.type !== "pending") return;
     entry.selected = candidateIndex;
@@ -801,13 +843,23 @@ function ensureVoiceTimer() {
 function bindVoice() {
   // The stage is repainted on every utterance, so its buttons answer through one delegated listener.
   document.querySelector(".voice-page")?.addEventListener("click", (event) => {
-    const target = event.target.closest("[data-voice-validate],[data-voice-candidate],[data-voice-toggle],[data-voice-buzzer],[data-voice-clear]");
+    const target = event.target.closest("[data-voice-validate],[data-voice-candidate],[data-voice-toggle],[data-voice-buzzer],[data-voice-clear],[data-voice-fix]");
     if (!target) return;
     if (target.dataset.voiceValidate !== undefined) validateVoiceCandidate(target.dataset.voiceValidate);
     else if (target.dataset.voiceCandidate !== undefined) selectCurrentVoiceCandidate(target.dataset.voiceEntry, Number(target.dataset.voiceCandidate));
     else if (target.dataset.voiceBuzzer !== undefined) openVoiceReview();
-    else if (target.dataset.voiceClear !== undefined) {
-      state.voice.turn.buffer.reset();
+    else if (target.dataset.voiceFix !== undefined) {
+      // Hand the misheard spelling to the fallback field rather than leaving the player to retype it.
+      state.voice.manualOpen = true;
+      renderRoute();
+      const input = document.querySelector("#voice-manual-input");
+      if (input) {
+        input.value = target.dataset.voiceFix;
+        input.focus();
+        input.select();
+      }
+    } else if (target.dataset.voiceClear !== undefined) {
+      state.voice.turn.buffer.clearCandidates();
       state.voice.interim = "";
       updateVoiceLive();
     } else {
@@ -1130,7 +1182,9 @@ function renderRoute() {
     return;
   }
   if (currentPath === "/play") {
-    state.game = storage.loadCurrent() ?? state.game;
+    // Only adopt the stored game when this session has none. Re-reading on every render would roll back a move
+    // that is already applied in memory but not yet persisted, destroying it along with the pending proposition.
+    state.game ??= storage.loadCurrent();
     if (!state.game || state.game.status === "finished") {
       navigate(state.game?.status === "finished" ? "/results" : "/");
       return;

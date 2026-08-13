@@ -27,8 +27,12 @@ const MAX_SPAN_TOKENS = 4;
 const MIN_SPAN_CODE = 3;
 const MIN_MULTI_SCORE = 0.7;
 const MIN_SINGLE_SCORE = 0.84;
-const SURNAME_FACTOR = 0.94;
+// A surname alone identifies an artist far less than a full name does, and it must stay out of the top
+// confidence band: hearing "Lellouche" is not hearing "Camille Lellouche".
+const SURNAME_FACTOR = 0.86;
+// A reading the recogniser itself doubts should not win over the one it proposed first.
 const ALTERNATIVE_DECAY = 0.035;
+const PARTIAL_PENALTY = 0.9;
 const LINK_BONUS = 0.05;
 
 function tailForms(tokens) {
@@ -63,7 +67,11 @@ function compareCodes(left, right) {
 }
 
 function scoreSpanAgainstForm(span, form) {
-  if (span.normalized === form.normalized) return { score: 1, via: form.kind, exact: true };
+  // A span that leaves informative words of the utterance unaccounted for is a partial reading: the player said
+  // more than this name. It stays a candidate, but never a confident one — that is how the ordinary word
+  // "prince" in a sentence stopped outranking the name nobody could enter.
+  const partial = span.informative < span.utterance;
+  if (span.normalized === form.normalized) return { score: partial ? PARTIAL_PENALTY : 1, via: form.kind, exact: !partial };
   let score = compareCodes(span.code, form.code);
   let via = form.kind;
   for (const tail of form.tails) {
@@ -73,7 +81,7 @@ function scoreSpanAgainstForm(span, form) {
       via = "surname";
     }
   }
-  return { score, via, exact: false };
+  return { score: partial ? score * PARTIAL_PENALTY : score, via, exact: false };
 }
 
 const isInformative = (token) => token.normalized.length > 1 && !STOPWORDS.has(token.normalized);
@@ -91,12 +99,13 @@ function pushSpan(spans, tokens, start, end) {
     raw: slice.map((token) => token.raw).join(" "),
     normalized: slice.map((token) => token.normalized).join(" "),
     size: slice.length,
+    informative: slice.filter(isInformative).length,
   });
 }
 
 function spansOf(transcript) {
   const words = phoneticNormalize(transcript).split(" ").filter(Boolean);
-  if (!words.length) return [];
+  if (!words.length) return { spans: [], informative: 0 };
   const tokens = words.map((word) => ({ raw: word, normalized: word, code: phoneticCode(word) })).filter((token) => token.code);
   const condensed = tokens.filter((token) => !FILLER_WORDS.has(token.normalized));
   const spans = new Map();
@@ -105,16 +114,20 @@ function spansOf(transcript) {
       for (let start = 0; start + size <= list.length; start += 1) pushSpan(spans, list, start, start + size);
     }
   }
-  return [...spans.values()];
+  return { spans: [...spans.values()], informative: tokens.filter(isInformative).length };
 }
 
 function collectSpans(alternatives) {
   const merged = new Map();
   alternatives.forEach((alternative, index) => {
-    const weight = Math.max(0.8, 1 - index * ALTERNATIVE_DECAY);
-    for (const span of spansOf(alternative.transcript)) {
+    // Chrome reports a real confidence on final results and zero on interim ones; fall back to rank alone then.
+    const reported = Number(alternative.confidence);
+    const trust = Number.isFinite(reported) && reported > 0 ? 0.72 + 0.28 * Math.min(1, reported) : 1;
+    const weight = Math.max(0.55, trust * (1 - index * ALTERNATIVE_DECAY));
+    const { spans, informative } = spansOf(alternative.transcript);
+    for (const span of spans) {
       const previous = merged.get(span.code);
-      if (!previous || weight > previous.weight) merged.set(span.code, { ...span, weight, source: alternative.transcript });
+      if (!previous || weight > previous.weight) merged.set(span.code, { ...span, weight, utterance: informative, source: alternative.transcript });
     }
   });
   return [...merged.values()];
@@ -223,13 +236,38 @@ export function resolveVoiceTranscript(transcript, database, options = {}) {
   return resolver.resolve(transcript, options);
 }
 
-// A last-resort reading of a sentence when no catalogue entry matches: the players may still vote it in.
+// Particles belong to a name but are never capitalised inside it, and never start or end one.
+const PARTICLES = new Set(["de", "du", "des", "d", "le", "la", "les", "van", "von", "der", "den", "di", "da", "dos", "del", "della", "el", "al", "ibn", "ben", "bin", "mac", "mc", "o"]);
+
+const capitalisePart = (part) => (part ? part.charAt(0).toLocaleUpperCase("fr") + part.slice(1) : part);
+
+function titleCase(word, index) {
+  const key = normalizeText(word);
+  if (index > 0 && PARTICLES.has(key)) return word.toLocaleLowerCase("fr");
+  // Split on the separators French names carry inside a single word: Jean-Pierre, N'Diaye, O'Neill.
+  return word.split(/([-’'])/).map((part, offset) => (offset % 2 ? part : capitalisePart(part))).join("");
+}
+
+// A last-resort reading of a sentence when no catalogue entry matches: the players may still vote it in. It is
+// built from the raw transcript, so the recogniser's own accents and capitals survive.
 export function spokenNameGuess(transcript) {
-  const words = phoneticNormalize(transcript).split(" ").filter((word) => word && !FILLER_WORDS.has(word));
-  const meaningful = words.filter((word) => !STOPWORDS.has(word) || words.length <= 3);
-  const kept = (meaningful.length ? meaningful : words).slice(0, MAX_SPAN_TOKENS);
-  if (!kept.length || kept.join("").length < 4) return null;
-  return kept.map((word) => word.charAt(0).toLocaleUpperCase("fr") + word.slice(1)).join(" ");
+  const words = String(transcript ?? "")
+    .split(/\s+/)
+    .map((word) => word.replace(/^[^\p{L}\p{N}]+/u, "").replace(/[^\p{L}\p{N}'’-]+$/u, ""))
+    .filter(Boolean)
+    .map((word) => ({ word, key: normalizeText(word) }))
+    .filter((entry) => entry.key);
+  // Only the conversational wrapper is stripped, and only from the ends: a particle in the middle is part of
+  // the name, while "du" in "du coup" never survives at an edge.
+  const droppable = (entry) => FILLER_WORDS.has(entry.key) || entry.key.length < 2 || PARTICLES.has(entry.key);
+  let start = 0;
+  let end = words.length;
+  while (start < end && droppable(words[start])) start += 1;
+  while (end > start && droppable(words[end - 1])) end -= 1;
+  const kept = words.slice(start, end).slice(0, MAX_SPAN_TOKENS);
+  if (!kept.length || kept.every((entry) => STOPWORDS.has(entry.key))) return null;
+  if (kept.reduce((total, entry) => total + entry.key.length, 0) < 4) return null;
+  return kept.map((entry, index) => titleCase(entry.word, index)).join(" ");
 }
 
 export function candidateConfidenceLabel(confidence) {
