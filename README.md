@@ -133,4 +133,13 @@ La progression détaillée et les quelques tâches nécessitant un jeton ou une 
 
 GitHub Pages est donc un premier hébergement, pas une limite produit : le frontend et le moteur ne dépendent pas de cette plateforme.
 
+### Déployer la pile complète
+
+Le serveur n'a **aucune dépendance d'exécution** et ne demande aucune étape de construction : il sert le dépôt tel quel. Déployer se résume à lancer `node server.mjs` avec un `PORT`.
+
+- **Sans clé TMDb**, la cible Node apporte déjà ce que Pages ne peut pas faire : la cascade de vérification interroge réellement Wikidata puis Wikipédia, avec ses preuves, ses durées et l'étape qui a trouvé le film. Les filmographies sont servies par l'overlay publié.
+- **Avec `TMDB_API_TOKEN`**, s'ajoute la recherche des artistes absents du snapshot de 1 523 identités — le cas « je prononce un nom que le catalogue ignore » — et l'étape TMDb de la cascade, la plus rapide et la mieux structurée.
+
+Deux fichiers rendent l'opération immédiate : `render.yaml` (bouton *Deploy to Render*, plan gratuit, aucune ligne de commande) et un `Dockerfile` de sept lignes utilisable tel quel sur Cloud Run, Railway, Koyeb ou Fly. Le jeton reste côté serveur dans tous les cas; le navigateur ne le voit jamais.
+
 Les données et portraits enrichis proviennent de TMDb. This product uses the TMDB API but is not endorsed or certified by TMDB.

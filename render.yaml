@@ -1,0 +1,15 @@
+# One-click deployment for the full stack: https://render.com/deploy
+# Everything the game hides on GitHub Pages — the verification cascade and the extended catalogue — needs a
+# server. This one has no dependency to install and no build step.
+services:
+  - type: web
+    name: cinefil
+    runtime: node
+    plan: free
+    buildCommand: "echo 'aucune dépendance à installer'"
+    startCommand: node server.mjs
+    healthCheckPath: /api/catalog/status
+    envVars:
+      # Optional. Leave unset to play without TMDb: Wikidata and Wikipédia still answer the bluff verifications.
+      - key: TMDB_API_TOKEN
+        sync: false
