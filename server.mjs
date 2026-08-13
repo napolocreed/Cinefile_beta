@@ -11,6 +11,20 @@ const port = Number(process.env.PORT || 4173);
 const tmdb = createTmdbClient();
 const publishedCatalog = createPublishedCatalog();
 const linkVerifier = createLinkVerifier({ tmdb });
+// A borrowed API is opened by name, never by reflex. This server fronts a TMDb token with a quota and a
+// verification cascade that hits Wikidata and Wikipédia under its own User-Agent: "*" would publish both as a
+// free proxy for any page on the web. The owner declares the editions allowed to borrow it, and only those get an
+// Access-Control-Allow-Origin. ALLOWED_ORIGINS=* stays possible, but has to be asked for.
+const allowedOriginList = String(process.env.ALLOWED_ORIGINS ?? "").split(/[\s,]+/).filter(Boolean);
+const allowAnyOrigin = allowedOriginList.includes("*");
+const allowedOrigins = new Set(allowedOriginList.flatMap((value) => {
+  try {
+    return [new URL(value).origin];
+  } catch {
+    return [];
+  }
+}));
+const corsEnabled = allowAnyOrigin || allowedOrigins.size > 0;
 const mime = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -32,13 +46,39 @@ function sendJson(response, status, payload, cacheControl = "no-store") {
   response.end(JSON.stringify(payload));
 }
 
+// Applied to /api/* only: the static files are served to whoever asks for them anyway, and a page that could read
+// them cross-origin gains nothing it cannot already fetch.
+function applyCors(request, response) {
+  const origin = request.headers.origin;
+  if (!corsEnabled || !origin) return false;
+  // Responses here carry public Cache-Control; without this a proxy could replay one origin's answer to another.
+  response.setHeader("Vary", "Origin");
+  if (!allowAnyOrigin && !allowedOrigins.has(origin)) return false;
+  response.setHeader("Access-Control-Allow-Origin", origin);
+  return true;
+}
+
 async function handleApi(request, response, url) {
+  const allowed = applyCors(request, response);
+  // The preflight has to be answered before the method check below, which knows nothing but GET.
+  if (request.method === "OPTIONS") {
+    response.statusCode = allowed ? 204 : 403;
+    if (allowed) {
+      response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+      response.setHeader("Access-Control-Allow-Headers", request.headers["access-control-request-headers"] ?? "Accept");
+      response.setHeader("Access-Control-Max-Age", "600");
+    }
+    response.end();
+    return true;
+  }
   if (request.method !== "GET") {
+    response.setHeader("Allow", "GET, OPTIONS");
     sendJson(response, 405, { error: "Méthode non autorisée." });
     return true;
   }
   if (url.pathname === "/api/catalog/status") {
-    sendJson(response, 200, { configured: tmdb.configured, source: tmdb.configured ? "tmdb" : "local", snapshot: "cinema-knowledge-v2", verification: linkVerifier.status() }, "public, max-age=60");
+    // A borrowed origin can die between two games; a minute of cached optimism is a minute of wrong wording.
+    sendJson(response, 200, { configured: tmdb.configured, source: tmdb.configured ? "tmdb" : "local", snapshot: "cinema-knowledge-v2", verification: linkVerifier.status() }, "public, max-age=15");
     return true;
   }
   if (url.pathname === "/api/verify-link") {
@@ -139,5 +179,6 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, "0.0.0.0", () => {
-  console.log(`CinéFil disponible sur http://localhost:${port} · catalogue ${tmdb.configured ? "TMDb + local" : "local"}`);
+  const borrowers = allowAnyOrigin ? "toutes origines" : allowedOrigins.size ? [...allowedOrigins].join(", ") : "même origine seulement";
+  console.log(`CinéFil disponible sur http://localhost:${port} · catalogue ${tmdb.configured ? "TMDb + local" : "local"} · API ${borrowers}`);
 });

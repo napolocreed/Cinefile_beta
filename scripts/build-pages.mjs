@@ -16,9 +16,27 @@ function normalizeBasePath(value) {
   return base.replace(/\/{2,}/g, "/");
 }
 
+// The Pages edition has no server. Pointed at a deployed Node instance it borrows one, which is the only way a
+// static build can reach an artist the snapshot never had. No value means today's build, unchanged and offline.
+// A malformed one stops the build rather than shipping a page that calls nowhere.
+function normalizeApiBaseUrl(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(`API_BASE_URL invalide: ${raw}`);
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error(`API_BASE_URL doit être en http(s): ${raw}`);
+  if (url.search || url.hash) throw new Error(`API_BASE_URL ne doit porter ni requête ni fragment: ${raw}`);
+  return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
+}
+
 const repositoryName = String(process.env.GITHUB_REPOSITORY ?? "").split("/")[1];
 const inferredBase = repositoryName ? `/${repositoryName}/` : "/";
 const basePath = normalizeBasePath(argumentMap.get("base") ?? process.env.PAGES_BASE_PATH ?? process.env.BASE_PATH ?? inferredBase);
+const apiBase = normalizeApiBaseUrl(argumentMap.get("api-base") ?? process.env.API_BASE_URL);
 const output = resolve(String(argumentMap.get("output") ?? process.env.OUTPUT_DIR ?? resolve(root, "dist")));
 const unsafeOutputs = new Set([root, parse(output).root, resolve(root, "public"), resolve(root, "src")]);
 if (unsafeOutputs.has(output)) throw new Error(`Dossier de sortie refusé: ${output}`);
@@ -74,6 +92,7 @@ const sourceHtml = await readFile(resolve(root, "public/index.html"), "utf8");
 const appHtml = sourceHtml
   .replace('<base href="/" />', `<base href="${basePath}" />`)
   .replace('<meta name="app-base" content="/" />', `<meta name="app-base" content="${basePath}" />`)
+  .replace('<meta name="api-base" content="" />', `<meta name="api-base" content="${apiBase}" />`)
   .replace('<meta name="catalog-mode" content="remote" />', `<meta name="catalog-mode" content="static" />\n    <meta name="build-stamp" content="${buildStamp.replace(/[^\w .:·-]/g, "")}" />`);
 
 await writeFile(resolve(output, "index.html"), appHtml);
@@ -85,4 +104,10 @@ for (const route of ["setup", "play", "results", "profiles"]) {
   await writeFile(resolve(routeDirectory, "index.html"), appHtml);
 }
 
-console.log(`Build GitHub Pages prêt dans ${output} (base ${basePath}).`);
+// An https page cannot call an http API: the browser blocks it as mixed content, and the edition would look
+// broken rather than merely static.
+if (apiBase.startsWith("http://") && !/^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(apiBase)) {
+  console.warn(`Attention: API_BASE_URL est en http (${apiBase}); une page servie en https refusera cet appel.`);
+}
+
+console.log(`Build GitHub Pages prêt dans ${output} (base ${basePath}, API ${apiBase || "aucune — catalogue embarqué"}).`);

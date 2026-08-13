@@ -1,0 +1,9 @@
+node_modules
+dist
+test-results
+playwright-report
+recovery
+e2e
+test
+.git
+.github

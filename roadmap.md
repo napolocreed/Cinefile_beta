@@ -71,12 +71,13 @@ Mise à jour le 13 août 2026. La reconstruction, le déploiement statique, la c
 - [x] Cascade de vérification rendue lisible : étapes ordonnées, issue et durée de chacune, mise en évidence de celle qui a fourni la preuve.
 - [x] **Intégrité de la chaîne** : chaque maillon vient d'une touche et d'elle seule. Correction tardive refusée, concession persistée dès qu'elle est accordée, artiste déjà sur la table jamais reproposé, et le buzzer corrige le vrai dernier maillon plutôt que l'historique parlé. Harnais déterministe (reconnaissance scriptée + horloge pilotée) dans `e2e/voice.spec.mjs`.
 - [x] **Artiste absent du catalogue** : le nom entendu est toujours proposable dès que le catalogue n'est pas certain, avec correction de l'orthographe et recherche TMDb sur la cible Node pour les identités que le snapshot ignore.
-- [x] **Lisibilité des transitions** : bandeau de passation, identité de siège (or / rouge, filet plein ou pointillé, chiffre romain), cœur qui meurt sur un emplacement conservé, motif de la perte de vie affiché, annonce vocale pour les lecteurs d'écran, repli complet en `prefers-reduced-motion`.
+- [x] **Lisibilité des transitions** : identité de siège (or / rouge, filet plein ou pointillé, chiffre romain), cœur qui meurt sur un emplacement conservé, motif de la perte de vie affiché, annonce vocale pour les lecteurs d'écran, repli complet en `prefers-reduced-motion`.
+- [x] **Verdict de bluff sur son propre écran** : liaison ou absence, motif, preuve, vie perdue et cascade complète, y compris quand le défi met fin à la partie — le générique ne vient qu'après.
 - [ ] Tester et calibrer les accents/bruits réels sur un panel de téléphones; la disponibilité de Web Speech dépend du navigateur et du système.
 
 ## Phase 5 — qualité produit — livrée
 
-- [x] 71 tests unitaires, d’intégration, de données et de propriétés, dont 250 parties pseudo-aléatoires et un banc phonétique français.
+- [x] 91 tests unitaires, d’intégration, de données et de propriétés, dont 250 parties pseudo-aléatoires et un banc phonétique français.
 - [x] 17 parcours navigateur locaux et 20 parcours Pages réussis sur desktop/mobile, avec contrôles hors-ligne, sous-chemin, chargement différé, validation vocale explicite et cascade VAR.
 - [x] CI GitHub avec rapport Playwright en cas d’échec.
 - [x] Déploiement GitHub Pages depuis Actions, artefact sur liste blanche et garde anti-secret.
@@ -101,6 +102,18 @@ Mise à jour le 13 août 2026. La reconstruction, le déploiement statique, la c
 - [x] Repli statique Pages sans appel API et sans verdict négatif automatique.
 - [x] Tests simulant réponses, timeouts, panne QLever, repli WDQS, cooccurrence Wikipédia, cache, surcharge, moteur, sauvegarde et parcours navigateur.
 - [ ] Mesurer sur des parties réelles la distribution des sources, les latences P95 et les liens encore introuvables avant d’envisager IMDb local.
+
+## Phase 7 — catalogue vivant — livrée
+
+- [x] Import des artistes absents du snapshot depuis les distributions des films français populaires, budgété, reprenable et idempotent : deux exécutions successives n'écrivent rien la seconde fois.
+- [x] Écriture simultanée du snapshot et de l'overlay, filtrage des doublons par identifiant TMDb puis par nom normalisé, rattachement des crédits aux œuvres canoniques déjà présentes.
+- [x] Workflow manuel `Import TMDb cast` : import, index de portraits reconstruit, tests, puis commit seulement si tout passe.
+- [x] Mesure du manque réel : 89 identités contemporaines présentes sur 102 testées; le déficit porte sur la génération 2010-2025 et les humoristes passés au cinéma.
+- [x] **La cible Pages peut emprunter l'API d'une instance Node déployée** (`API_BASE_URL`), et obtient alors la recherche TMDb en direct et la cascade de vérification complète, sans jamais approcher le jeton.
+- [x] Liste blanche d'origines côté serveur (`ALLOWED_ORIGINS`), en-têtes limités à `/api/*`, préflight traité avant le refus de méthode, `Vary: Origin` pour ne jamais rejouer une réponse à une autre origine.
+- [x] Repli intégral sur le catalogue embarqué dès que l'origine empruntée est injoignable ou l'appareil hors connexion, vérifié en navigateur.
+- [x] Recherche distante du mode vocal recalibrée : déclenchée sur les énoncés terminés dont la lecture locale reste incertaine, jamais deux fois pour la même phrase, et la proposition locale reste affichée pendant l'aller-retour.
+- [x] Libellés qui disent le catalogue réellement en jeu : embarqué, emprunté, serveur complet, ou hors connexion.
 
 ## Prochain cycle éditorial
 
