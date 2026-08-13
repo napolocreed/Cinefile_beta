@@ -18,7 +18,8 @@ Ouvrir <http://localhost:4173>. Depuis un téléphone sur le même Wi-Fi, utilis
 ## Modes de jeu
 
 - **Classique** : passage d’écran, saisie assistée, chrono, vies et défis de bluff, de 2 à 10 joueurs.
-- **Vocal passif** : deux joueurs, écoute continue, propositions de reconnaissance, timers séparés et buzzer central. Si Web Speech n’est pas disponible, la saisie de secours conserve tout le déroulé du mode.
+- **Vocal passif** : deux joueurs, écoute continue, timers séparés et buzzer central. L’écoute ne fait que **proposer** : les noms entendus s’accumulent sur le tour du joueur actif, qui touche la bonne carte pour valider et passer la main. Rien n’entre dans la chaîne sans ce geste. Si Web Speech n’est pas disponible, la saisie de secours conserve tout le déroulé du mode.
+- La reconnaissance des noms est **phonétique et française** : « jean du jardin » retrouve Jean Dujardin, « de pardieu » Gérard Depardieu, « omar six » Omar Sy. Une phrase sans nom d’artiste n’efface jamais les propositions déjà entendues.
 
 Le micro ne démarre jamais sans action explicite et Ciné-Fil ne stocke aucun fichier audio.
 
@@ -111,7 +112,7 @@ L’écran Profils permet d’exporter puis de restaurer ces données dans un JS
 - `src/game/database.js` : index canonique, alias, liens et recherche.
 - `src/game/catalog.js` : recherche hybride et cache navigateur.
 - `src/server/` : adaptateurs TMDb, catalogue publié et vérification Wikidata/Wikipédia côté serveur.
-- `src/voice/` : capture vocale et résolution d’entités séparées.
+- `src/voice/` : capture vocale, phonétique française, résolution d’entités et accumulateur de tour, séparés de l’interface.
 - `src/data/` : snapshot, synonymes, registre d’identités revues, overlay TMDb compact, journal de fusion et métriques.
 - `scripts/` : reconstruction des données, build Pages et synchronisation incrémentale.
 - `test/` et `e2e/` : non-régression logique et navigateur.

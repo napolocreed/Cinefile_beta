@@ -60,6 +60,13 @@ Mise à jour le 13 août 2026. La reconstruction, le déploiement statique, la c
 - [x] Après buzzer, sélection indépendante des deux derniers noms avant résolution.
 - [x] Correction de la dernière identité sans corrompre la chaîne ni les statistiques.
 - [x] Arrêt immédiat du micro, indicateur d’écoute et saisie de secours si le micro ou le réseau manque.
+- [x] **Validation explicite** : l’écoute ne fait que proposer, seule une touche sur une carte engage le nom, passe la main et alimente la chaîne. Le tour est annoncé par un bandeau, le panneau actif et le chrono.
+- [x] **Reconnaissance phonétique française** : nasales, `ill`, `gn`, liaisons de particules et consonnes finales muettes, comparées par distance de Damerau-Levenshtein sur n-grammes concaténés. « jean du jardin », « de pardieu » ou « omar six » retombent sur la bonne fiche.
+- [x] Lecture de toutes les alternatives du moteur vocal, des deux tokenisations et du nom de famille seul; un prénom ou un mot courant ne déclenche jamais une proposition.
+- [x] Accumulateur de tour : une phrase sans nom n’efface plus les propositions déjà entendues, et un nom répété remonte au classement.
+- [x] Départage discret par filmographie commune, jamais affiché pour ne pas trahir le bluff.
+- [x] Ruban de chaîne permanent et repli « hors catalogue » explicitement soumis au vote.
+- [x] Banc d’essai de 30 déformations vocales françaises : 29 bonnes réponses en tête, 30 dans les trois premières, résolution en ~10 ms sur 1 523 identités.
 - [ ] Tester et calibrer les accents/bruits réels sur un panel de téléphones; la disponibilité de Web Speech dépend du navigateur et du système.
 
 ## Phase 5 — qualité produit — livrée

@@ -50,24 +50,54 @@ test("portable backup downloads as a validated JSON document", async ({ page }) 
   expect(backup.data.profiles).toEqual({});
 });
 
-test("passive voice fallback detects two names and opens bluff review", async ({ page }) => {
+test("passive voice only advances the chain on an explicit validation", async ({ page }) => {
   await page.goto(appPath("/setup"));
   await page.getByRole("button", { name: /Vocal passif/i }).click();
   await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
   await page.getByRole("button", { name: /Lancer la partie/i }).click();
-  await expect(page.getByText(/Disponible après deux noms/i)).toBeVisible();
+  // The opening player is drawn at random, so the test follows the banner instead of naming them.
+  const turn = page.locator("[data-voice-turn]");
+  await expect(turn).toContainText(/Au tour de/);
+  const speaker = await turn.innerText();
+
   await page.getByText("Correction / saisie de secours").click();
   await page.getByLabel(/Nom entendu pour/i).fill("Leonardo DiCaprio");
   await page.getByRole("button", { name: "Détecter" }).click();
   await expect(page.locator(".voice-detection strong").filter({ hasText: "Leonardo DiCaprio" })).toBeVisible();
-  await page.getByText("Correction / saisie de secours").click();
+  // A detection alone must not hand the turn over.
+  expect(await turn.innerText()).toBe(speaker);
+  await expect(page.getByRole("button", { name: /BLUFF/i })).toBeDisabled();
+
+  // A sentence without any artist leaves the pending proposition untouched.
+  await page.getByLabel(/Nom entendu pour/i).fill("euh attends je réfléchis");
+  await page.getByRole("button", { name: "Détecter" }).click();
+  await expect(page.locator(".voice-pick__name").filter({ hasText: "Leonardo DiCaprio" })).toBeVisible();
+
+  await page.locator(".voice-pick").filter({ hasText: "Leonardo DiCaprio" }).click();
+  await expect(turn).not.toHaveText(speaker);
+  await expect(page.locator(".voice-chain")).toContainText("Leonardo DiCaprio");
+
   await page.getByLabel(/Nom entendu pour/i).fill("Kate Winslet");
   await page.getByRole("button", { name: "Détecter" }).click();
+  await page.locator(".voice-pick").filter({ hasText: "Kate Winslet" }).click();
   await expect(page.getByRole("button", { name: /BLUFF/i })).toBeEnabled();
   await page.getByRole("button", { name: /BLUFF/i }).click();
   await expect(page.getByRole("heading", { name: /Qu’avez-vous vraiment dit/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /Vérifier le bluff/i })).toBeEnabled();
+});
+
+test("passive voice recognises a French name through recognition spelling drift", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "One browser project covers the matching behaviour.");
+  await page.goto(appPath("/setup"));
+  await page.getByRole("button", { name: /Vocal passif/i }).click();
+  await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
+  await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+  await page.getByText("Correction / saisie de secours").click();
+  await page.getByLabel(/Nom entendu pour/i).fill("alors moi je dis jean du jardin");
+  await page.getByRole("button", { name: "Détecter" }).click();
+  await expect(page.locator(".voice-pick__name").first()).toHaveText("Jean Dujardin");
 });
 
 test("GitHub Pages keeps routes inside the repository subpath and makes no runtime API call", async ({ page }) => {
