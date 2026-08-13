@@ -3,12 +3,14 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname, join, normalize, sep } from "node:path";
 import { createTmdbClient } from "./src/server/tmdb.js";
 import { createPublishedCatalog } from "./src/server/published-catalog.js";
+import { createLinkVerifier } from "./src/server/verify.js";
 
 const workspaceRoot = process.cwd();
 const publicRoot = join(workspaceRoot, "public");
 const port = Number(process.env.PORT || 4173);
 const tmdb = createTmdbClient();
 const publishedCatalog = createPublishedCatalog();
+const linkVerifier = createLinkVerifier({ tmdb });
 const mime = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -36,7 +38,25 @@ async function handleApi(request, response, url) {
     return true;
   }
   if (url.pathname === "/api/catalog/status") {
-    sendJson(response, 200, { configured: tmdb.configured, source: tmdb.configured ? "tmdb" : "local", snapshot: "cinema-knowledge-v2" }, "public, max-age=60");
+    sendJson(response, 200, { configured: tmdb.configured, source: tmdb.configured ? "tmdb" : "local", snapshot: "cinema-knowledge-v2", verification: linkVerifier.status() }, "public, max-age=60");
+    return true;
+  }
+  if (url.pathname === "/api/verify-link") {
+    const left = String(url.searchParams.get("left") ?? "");
+    const right = String(url.searchParams.get("right") ?? "");
+    try {
+      const result = await linkVerifier.verify({
+        left,
+        right,
+        leftTmdbId: url.searchParams.get("leftTmdbId"),
+        rightTmdbId: url.searchParams.get("rightTmdbId"),
+        locale: String(url.searchParams.get("locale") ?? "fr-FR").slice(0, 12),
+      });
+      const maxAge = result.verdict === "CONFIRMED" ? 86_400 : result.verdict === "NOT_FOUND" ? 3_600 : 300;
+      sendJson(response, 200, result, `public, max-age=${maxAge}`);
+    } catch (error) {
+      sendJson(response, error.status === 400 ? 400 : 500, { error: error.status === 400 ? error.message : "La vérification est momentanément indisponible." });
+    }
     return true;
   }
   if (url.pathname === "/api/catalog/search") {

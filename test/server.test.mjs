@@ -27,6 +27,9 @@ test("the standalone server serves the app shell, source modules and SPA routes"
     assert.equal((await fetch(`http://127.0.0.1:${port}/sw.js`)).status, 200);
     const catalogStatus = await (await fetch(`http://127.0.0.1:${port}/api/catalog/status`)).json();
     assert.equal(catalogStatus.configured, false);
+    assert.equal(catalogStatus.verification.enabled, true);
+    const invalidVerification = await fetch(`http://127.0.0.1:${port}/api/verify-link?left=A&right=B`);
+    assert.equal(invalidVerification.status, 400);
     const database = await (await fetch(`http://127.0.0.1:${port}/src/data/cinema-database.json`)).json();
     assert.equal(database.actors.length > 1000, true);
     const snapshot = await (await fetch(`http://127.0.0.1:${port}/src/data/cinema-knowledge.json`)).json();
