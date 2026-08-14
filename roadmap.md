@@ -143,7 +143,7 @@ Mise à jour le 14 août 2026. La reconstruction, le déploiement continu sur Cl
 - [x] Cinquante succès en quatre familles et quatre paliers, cinq secrets, quinze à progression mesurable, chacun jugeant un joueur et non la table.
 - [x] Neuf compteurs de profil ajoutés, alimentés en un seul dépouillement du générique ; garde contre l'horloge reculée et contre la partie trop courte.
 - [x] Rubrique statistiques : trois jauges à socle, registre complet, faits de bobine, bande de forme sur dix parties, adversaires marquants.
-- [x] Le verdict « rien trouvé » de la VAR porte la citation de Huey Freeman et un sceau original dessiné dans la DA, avec ses replis en texte agrandi, écran étroit et couleurs forcées.
+- [x] Le verdict « rien trouvé » de la VAR porte la citation de The Boondocks et un sceau original dessiné dans la DA, avec ses replis en texte agrandi, écran étroit et couleurs forcées.
 
 ## Prochain cycle éditorial
 
