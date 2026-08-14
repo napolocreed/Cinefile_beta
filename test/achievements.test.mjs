@@ -58,7 +58,8 @@ function playedGame({ players = ["Alice", "Bob"], lives = 1, config = {}, actors
   for (const [round, spare] of [null, ...SPARE].entries()) {
     if (spare) play(spare, false);
     if (game.status === "finished") return game;
-    // Sans défis de bluff, une liaison invalide est acceptée d'office : seul le chrono peut coûter une vie.
+    // Le chrono coûte une vie quel que soit le mode, sans passer par la vérification de liaison : c'est le coup
+    // fatal le plus simple à provoquer ici.
     if (kill === "timeout") game = resolvePending(game, timeoutPending(game), { challenged: false });
     else play(killer(round), true);
     if (game.status === "finished") return game;

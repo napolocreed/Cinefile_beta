@@ -213,6 +213,7 @@ export function playMarkup() {
     ${connectionMarkup(previous, state.pending?.proposedActor)}
     ${films}
     ${state.revealChallenged ? `<p class="reveal-note">Bluff annoncé — ${valid ? "ce n’était pas un bluff." : "c’était bien un bluff."}</p>` : ""}
+    ${state.pending?.autoVerify ? `<p class="reveal-note">Défis de bluff coupés — la liaison est vérifiée automatiquement entre chaque acteur.</p>` : ""}
     ${state.pending?.verification ? verificationCascadeMarkup(state.pending.verification) : ""}
     ${provenance}
     ${state.pending?.method === "timeout" ? `<p class="reveal-note">Le chrono a mangé la réplique.</p>` : ""}
@@ -275,7 +276,7 @@ export function bindPlay() {
   document.querySelector("[data-call-bluff]")?.addEventListener("click", callBluff);
   document.querySelector("[data-var-valid]")?.addEventListener("click", () => revealVarDecision(true));
   document.querySelector("[data-var-invalid]")?.addEventListener("click", () => revealVarDecision(false));
-  document.querySelector("[data-var-pass]")?.addEventListener("click", () => commitResolved(resolvePending(state.game, state.pending, { challenged: false })));
+  document.querySelector("[data-var-pass]")?.addEventListener("click", passVarDecision);
   document.querySelector("[data-continue]")?.addEventListener("click", () => {
     commitResolved(resolvePending(state.game, state.pending, { challenged: state.revealChallenged }));
   });
@@ -307,10 +308,54 @@ async function callBluff() {
   }
 }
 
+// Le mode sans défi de bluff : entre chaque acteur, on vérifie la liaison sans attendre qu'un joueur la conteste.
+// Une preuve positive (catalogue local ou cascade) valide le coup en silence ; à défaut, la table tranche via la
+// VAR — jamais un verdict négatif automatique, fidèle au principe « une absence n'est pas une preuve ».
+async function runAutoVerification() {
+  if (!state.pending) return;
+  if (state.pending.wasValid) {
+    // Le catalogue local atteste déjà la paire : on l'accepte comme un coup non contesté, sans écran.
+    commitResolved(resolvePending(state.game, state.pending, { challenged: false }));
+    return;
+  }
+  state.verificationStatus = "loading";
+  state.phase = "verifying";
+  renderRoute();
+  try {
+    state.pending = await verifyPendingLink(state.game, state.pending);
+  } catch (error) {
+    app.diagnostics.capture(error, { phase: "auto-verify-link" });
+    state.pending = applyLinkVerification(state.pending, { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks: {} });
+  } finally {
+    state.verificationStatus = "idle";
+  }
+  if (state.pending.wasValid) {
+    // La cascade a trouvé une preuve : on valide automatiquement, sans déranger la table.
+    commitResolved(resolvePending(state.game, state.pending, { challenged: false }));
+  } else {
+    // Rien n'a pu être prouvé : on rend la décision aux joueurs plutôt que d'inventer une liaison absente.
+    state.phase = "var";
+    renderRoute();
+  }
+}
+
+function passVarDecision() {
+  if (!state.pending) return;
+  // « Laisser passer sans trancher » est un choix positif d'accepter faute de preuve — jamais une rupture de chaîne
+  // silencieuse. En mode auto-vérifié, le coup ne s'accepte qu'à travers un verdict « valide » : on l'y porte
+  // explicitement, sans preuve filmographique, plutôt que de le laisser tomber.
+  const pending = state.pending.autoVerify
+    ? adjudicatePending(state.pending, { valid: true, source: "let-pass" })
+    : state.pending;
+  commitResolved(resolvePending(state.game, pending, { challenged: false }));
+}
+
 function revealVarDecision(valid) {
   if (!state.pending) return;
   state.pending = adjudicatePending(state.pending, { valid });
-  state.revealChallenged = true;
+  // En mode sans défi, il n'y a pas eu de bluff annoncé : la révélation ne doit ni afficher « bluff annoncé » ni
+  // rejouer le barème du défi lorsqu'on tranchera.
+  state.revealChallenged = !state.pending.autoVerify;
   state.phase = "reveal";
   renderRoute();
 }
@@ -350,9 +395,15 @@ async function submitActor() {
     state.selectedPerson = null;
     if (result.type === "pending") {
       state.pending = result.pending;
-      state.phase = "challenge";
       stopTimer();
-      renderRoute();
+      if (result.pending.autoVerify) {
+        // Pas de défi de bluff : aucun joueur ne va lever la main, c'est donc au jeu de vérifier la liaison avant
+        // que la chaîne ne s'allonge.
+        await runAutoVerification();
+      } else {
+        state.phase = "challenge";
+        renderRoute();
+      }
     } else commitResolved(result.game);
   } catch (error) {
     const hint = document.querySelector(".input-hint");

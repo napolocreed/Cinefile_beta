@@ -86,7 +86,9 @@ function applyResolution(game, pending, { challenged }) {
   const proposer = next.players[next.currentPlayerIdx];
   const challenger = next.players.find((player) => player.id === pending.challengerId);
   const valid = Boolean(pending.wasValid);
-  const acceptedAsMove = !pending.forceInvalid && (valid || !challenged);
+  // Without bluff challenges the automatic check is the sole referee: an unchallenged move never "gets away", only a
+  // proven link stands. With challenges, an unchallenged proposition is accepted as before.
+  const acceptedAsMove = !pending.forceInvalid && (valid || (!challenged && !pending.autoVerify));
   const attemptedBluff = !valid;
 
   if (pending.opening) {
@@ -99,7 +101,9 @@ function applyResolution(game, pending, { challenged }) {
   if (challenged && challenger) {
     challenger.challengesMade += 1;
   }
-  if (attemptedBluff) proposer.bluffsAttempted += 1;
+  // An unproven link outside the bluff game is a plain invalid move, not a bluff attempt: it never touches the
+  // bluff counters.
+  if (attemptedBluff && !pending.autoVerify) proposer.bluffsAttempted += 1;
 
   if (acceptedAsMove) {
     next.chain.push(pending.proposedActor);
@@ -127,7 +131,9 @@ function applyResolution(game, pending, { challenged }) {
     ...pending,
     challenged,
     accepted: acceptedAsMove,
-    wasBluff: attemptedBluff,
+    // Hors du jeu de bluff, une liaison non prouvée est un maillon invalide, pas un bluff : le générique et ses
+    // compteurs ne doivent pas l'y confondre.
+    wasBluff: attemptedBluff && !pending.autoVerify,
   });
 
   if (!resolveWinner(next)) next.currentPlayerIdx = nextAliveIndex(next, next.currentPlayerIdx);
@@ -157,7 +163,13 @@ export function proposeActor(game, actorName, database) {
   };
 
   if (!previousActor) return { type: "resolved", game: applyResolution(game, pending, { challenged: false }), pending: null };
-  if (!game.config.allowBluffChallenge) return { type: "resolved", game: applyResolution(game, pending, { challenged: false }), pending: null };
+  if (!game.config.allowBluffChallenge) {
+    // Le vocal garde son acceptation directe : son buzzer central tient lieu de défi et il n'a pas d'écran VAR de
+    // repli. En classique en revanche, couper les défis de bluff ne doit pas laisser passer les liaisons : chaque
+    // maillon est vérifié automatiquement, et le coup reste en attente le temps de cette vérification.
+    if (game.config.mode === "voice") return { type: "resolved", game: applyResolution(game, pending, { challenged: false }), pending: null };
+    pending.autoVerify = true;
+  }
   return { type: "pending", game, pending };
 }
 

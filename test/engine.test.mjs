@@ -67,13 +67,67 @@ test("an invalid link called as a bluff removes the proposer life and leaves the
   assert.equal(game.players[0].score, 1);
 });
 
-test("the no-challenge rule accepts an unknown actor as a vote", () => {
+test("without bluff challenges an unproven link is held for automatic verification, not waved through", () => {
   let game = makeGame({ allowBluffChallenge: false });
   game = proposeActor(game, "Leonardo DiCaprio", database).game;
   const result = proposeActor(game, "An Acteur Inventé", database);
+  // The move waits for the automatic check instead of resolving on the spot.
+  assert.equal(result.type, "pending");
+  assert.equal(result.pending.autoVerify, true);
+  assert.equal(result.pending.wasValid, false);
+  // The chain has NOT grown: an unproven actor is no longer accepted by default.
+  assert.deepEqual(result.game.chain, ["Leonardo DiCaprio"]);
+});
+
+test("without bluff challenges a catalogue-proven link is accepted automatically", () => {
+  let game = makeGame({ allowBluffChallenge: false });
+  game = proposeActor(game, "Leonardo DiCaprio", database).game;
+  const result = proposeActor(game, "Kate Winslet", database);
+  assert.equal(result.type, "pending");
+  assert.equal(result.pending.autoVerify, true);
+  assert.equal(result.pending.wasValid, true);
+  game = resolvePending(result.game, result.pending, { challenged: false });
+  assert.deepEqual(game.chain, ["Leonardo DiCaprio", "Kate Winslet"]);
+  assert.equal(game.players[1].score, 1);
+  assert.equal(game.turns[1].accepted, true);
+  assert.equal(game.turns[1].wasBluff, false);
+});
+
+test("without bluff challenges a link ruled invalid breaks the chain and costs a life, not a bluff", () => {
+  let game = makeGame({ allowBluffChallenge: false, livesPerPlayer: 2 });
+  game = proposeActor(game, "Leonardo DiCaprio", database).game;
+  const result = proposeActor(game, "Louis de Funès", database);
+  assert.equal(result.pending.autoVerify, true);
+  // The table rules it invalid on the VAR screen ("bluff confirmé").
+  const ruled = adjudicatePending(result.pending, { valid: false });
+  game = resolvePending(result.game, ruled, { challenged: false });
+  assert.deepEqual(game.chain, ["Leonardo DiCaprio"]);
+  assert.equal(game.players[1].lives, 1);
+  // No bluff was attempted in this mode: the loss is a plain invalid link.
+  assert.equal(game.players[1].bluffsAttempted, 0);
+  assert.equal(game.players[1].bluffsCaught, 0);
+  assert.equal(game.turns[1].wasBluff, false);
+});
+
+test("without bluff challenges letting a link pass accepts it without a life lost", () => {
+  let game = makeGame({ allowBluffChallenge: false, livesPerPlayer: 2 });
+  game = proposeActor(game, "Leonardo DiCaprio", database).game;
+  const result = proposeActor(game, "Louis de Funès", database);
+  // "Laisser passer sans trancher" accepts the move on the benefit of the doubt.
+  const passed = adjudicatePending(result.pending, { valid: true, source: "let-pass" });
+  game = resolvePending(result.game, passed, { challenged: false });
+  assert.deepEqual(game.chain, ["Leonardo DiCaprio", "Louis de Funès"]);
+  assert.equal(game.players[1].lives, 2);
+  assert.equal(game.turns[1].accepted, true);
+});
+
+test("voice keeps its direct accept when bluff challenges are off", () => {
+  let game = makeGame({ allowBluffChallenge: false, mode: "voice" }, ["Alice", "Bob"]);
+  game = proposeActor(game, "Leonardo DiCaprio", database).game;
+  const result = proposeActor(game, "An Acteur Inventé", database);
+  // The passive voice mode has no VAR screen to fall back on: it resolves as before.
   assert.equal(result.type, "resolved");
   assert.deepEqual(result.game.chain, ["Leonardo DiCaprio", "An Acteur Inventé"]);
-  assert.equal(result.game.players[1].bluffsSucceeded, 1);
 });
 
 test("duplicate actors are rejected before changing the game", () => {
