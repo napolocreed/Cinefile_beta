@@ -1,6 +1,8 @@
 # Ciné-Fil
 
-Ciné-Fil est un jeu local de chaîne cinéma et de bluff, reconstruit sans dépendance d’exécution à Lovable. L’application est mobile-first, installable, jouable hors connexion et habillée dans une direction artistique **Old School Hollywood**.
+Ciné-Fil est un jeu local de chaîne cinéma et de bluff, reconstruit sans dépendance d’exécution à Lovable. L’application est mobile-first, installable, jouable hors connexion et habillée dans une direction artistique **« Bobine & Souche »** : la pellicule 35 mm et la billetterie de cinéma.
+
+Chaque écran du jeu tient dans une hauteur de téléphone, sans défilement. Les rails de perforation, les crans de souche de billet, les tampons d’archive et le grain argentique sont fabriqués en CSS : l’habillage ne coûte aucun fichier image et reste intact hors connexion. Trois familles portent la voix du jeu — Oswald pour la marquise, Courier Prime pour le scénario, Inter pour le corps de texte.
 
 Version publique : <https://napolocreed.github.io/Cinefile_beta/>.
 
@@ -87,11 +89,13 @@ Le cadrage, les alternatives étudiées et les écarts assumés sont consignés 
 ## Tests
 
 ```bash
-npm test             # 59 tests unitaires, intégration, données et propriétés
+npm test             # 95 tests unitaires, intégration, données, propriétés et manifeste de modules
 npm run test:e2e     # desktop + mobile avec un Chromium reproductible
 npm run test:e2e:pages # mêmes parcours sous /Cinefile_beta/
 npm run test:all     # totalité de la quality gate
 ```
+
+Comme l’interface est découpée en modules chargés directement par le navigateur, chaque fichier doit être nommé dans `public/sw.js` et dans `scripts/build-pages.mjs`. `test/module-manifest.test.mjs` parcourt le graphe d’imports depuis `src/main.js` et échoue si l’une des deux listes a divergé — une dérive ne se manifesterait sinon qu’hors connexion, ou en production seulement.
 
 La suite vérifie notamment le moteur de partie, 250 séquences pseudo-aléatoires, la phonétique française du mode vocal, la déduplication, les alias, l’unicité TMDb, les preuves filmographiques, les shards différés, le cache hors ligne, le vocal, l’export/import, le serveur, la PWA et les parcours critiques sur deux tailles d’écran. GitHub Actions rejoue cette quality gate à chaque push et pull request.
 
@@ -111,8 +115,9 @@ L’écran Profils permet d’exporter puis de restaurer ces données dans un JS
 
 ## Architecture
 
-- `src/main.js` : routes et interface navigateur.
-- `src/styles.css` : système visuel responsive et accessibilité.
+- `src/main.js` : amorçage — lecture du déploiement, chargement du snapshot, construction des services.
+- `src/ui/` : l’interface. `runtime.js` (état partagé et indirections de rendu), `router.js` (table de routes), `shell.js`, `format.js`, `verification.js`, `link-check.js`, et `ui/screens/` (un module par écran : accueil, setup, partie classique, mode vocal, générique, profils).
+- `src/styles.css` : le système de design complet — jetons, mobilier de pellicule, composants, écrans, mouvement.
 - `src/game/engine.js` : règles déterministes et transitions immuables.
 - `src/game/database.js` : index canonique, alias, liens et recherche.
 - `src/game/catalog.js` : recherche hybride et cache navigateur.

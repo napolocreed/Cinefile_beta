@@ -73,7 +73,7 @@ async function startVoiceGame(page, { withClock = false, lives = null } = {}) {
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
   if (lives) await page.locator("#lives-range").fill(String(lives));
   await page.getByRole("button", { name: /Lancer la partie/i }).click();
-  await expect(page.locator("[data-voice-turn]")).toContainText(/Au tour de/);
+  await expect(page.locator("[data-voice-stage]")).toHaveAttribute("data-voice-turn", /\w/);
 }
 
 const chainOf = (page) => page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? "{}").chain ?? [], CURRENT_GAME_KEY);

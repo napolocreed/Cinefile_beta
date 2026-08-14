@@ -16,8 +16,8 @@ test("classic game setup and opening turn work without browser errors", async ({
   await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
   await page.getByRole("button", { name: /Lancer la partie/i }).click();
-  await expect(page.getByText(/Passez l’écran à/i)).toBeVisible();
-  await page.getByRole("button", { name: /Je suis prêt/i }).click();
+  // No hand-over screen any more: launching a game lands straight on the field the first player types into.
+  await expect(page.getByLabel("Ton artiste")).toBeVisible();
   await page.getByLabel("Ton artiste").fill("Leonardo DiCaprio");
   await expect(page.getByRole("option", { name: /Leonardo DiCaprio/i }).first()).toBeVisible();
   await page.getByRole("option", { name: /Leonardo DiCaprio/i }).first().click();
@@ -56,17 +56,19 @@ test("passive voice only advances the chain on an explicit validation", async ({
   await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
   await page.getByRole("button", { name: /Lancer la partie/i }).click();
-  // The opening player is drawn at random, so the test follows the banner instead of naming them.
-  const turn = page.locator("[data-voice-turn]");
-  await expect(turn).toContainText(/Au tour de/);
-  const speaker = await turn.innerText();
+  // The opening player is drawn at random, so the test follows the stage instead of naming them.
+  // The banner that spelled out whose turn it was is gone — the dimmed seat says it. The stage still names the
+  // active player for the test, which cannot see which panel is lit.
+  const turn = page.locator("[data-voice-stage]");
+  await expect(turn).toHaveAttribute("data-voice-turn", /\w/);
+  const speaker = await turn.getAttribute("data-voice-turn");
 
   await page.getByText("Correction / saisie de secours").click();
   await page.getByLabel(/Nom entendu pour/i).fill("Leonardo DiCaprio");
   await page.getByRole("button", { name: "Détecter" }).click();
   await expect(page.locator(".voice-pick__name").filter({ hasText: "Leonardo DiCaprio" })).toBeVisible();
   // A detection alone must not hand the turn over.
-  expect(await turn.innerText()).toBe(speaker);
+  expect(await turn.getAttribute("data-voice-turn")).toBe(speaker);
   await expect(page.getByRole("button", { name: /BLUFF/i })).toBeDisabled();
 
   // A sentence without any artist leaves the pending proposition untouched.
@@ -75,7 +77,7 @@ test("passive voice only advances the chain on an explicit validation", async ({
   await expect(page.locator(".voice-pick__name").filter({ hasText: "Leonardo DiCaprio" })).toBeVisible();
 
   await page.locator(".voice-pick").filter({ hasText: "Leonardo DiCaprio" }).click();
-  await expect(turn).not.toHaveText(speaker);
+  await expect(turn).not.toHaveAttribute("data-voice-turn", speaker);
   await expect(page.locator(".voice-chain")).toContainText("Leonardo DiCaprio");
 
   await page.getByLabel(/Nom entendu pour/i).fill("Kate Winslet");
@@ -128,7 +130,6 @@ test("GitHub Pages lazily fetches only the selected enriched filmography", async
   await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
   await page.getByRole("button", { name: /Lancer la partie/i }).click();
-  await page.getByRole("button", { name: /Je suis prêt/i }).click();
   await page.getByLabel("Ton artiste").fill("Gérard Depardieu");
   await page.getByRole("option", { name: /Gérard Depardieu/i }).first().click();
   await page.getByRole("button", { name: /Valider/i }).click();
@@ -163,11 +164,9 @@ test("an uncertain bluff opens the human VAR without treating absence as proof",
   await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
   await page.getByRole("button", { name: /Lancer la partie/i }).click();
-  await page.getByRole("button", { name: /Je suis prêt/i }).click();
   await page.getByLabel("Ton artiste").fill("Leonardo DiCaprio");
   await page.getByRole("option", { name: /Leonardo DiCaprio/i }).first().click();
   await page.getByRole("button", { name: /Valider/i }).click();
-  await page.getByRole("button", { name: /Je suis prêt/i }).click();
   await page.getByLabel("Ton artiste").fill("Artiste Totalement Inconnu");
   await page.getByRole("button", { name: /Valider/i }).click();
   await page.getByRole("button", { name: /Bluff !/i }).click();

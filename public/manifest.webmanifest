@@ -8,8 +8,8 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#07080b",
-  "theme_color": "#090b10",
+  "background_color": "#0d0a08",
+  "theme_color": "#171310",
   "icons": [
     {
       "src": "__l5e/assets-v1/8a9f592b-23da-4698-8a14-e0016a7b6c74/cinefil-logo.png",
