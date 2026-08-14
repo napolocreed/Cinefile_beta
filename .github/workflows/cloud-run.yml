@@ -1,0 +1,165 @@
+# Déploiement continu de la cible Node sur Cloud Run.
+#
+# Le déclencheur n'est pas le push mais la réussite de la quality gate sur main : ce service sert l'API de
+# vérification et la recherche TMDb, un main rouge n'a rien à y faire. Le déploiement manuel reste possible
+# (workflow_dispatch) pour rejouer une mise en ligne sans nouveau commit.
+#
+# Rien n'est codé en dur : tant que la variable de dépôt GCP_PROJECT_ID est vide, ce workflow ne s'exécute pas.
+# Voir « Déploiement continu sur Cloud Run » dans le README pour les commandes de mise en place.
+
+name: Deploy Cloud Run
+
+on:
+  workflow_run:
+    workflows: ["Quality gate"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Exigé par la fédération d'identité : c'est ce jeton OIDC que Google échange contre un accès temporaire.
+  id-token: write
+
+# Deux déploiements ne se doublent pas, et on n'annule jamais celui qui est en vol.
+concurrency:
+  group: cloud-run
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Déployer sur Cloud Run
+    if: >-
+      vars.GCP_PROJECT_ID != '' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: cloud-run
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      # workflow_run part de la branche par défaut : on recharge le commit exact qui a passé les tests.
+      - name: Checkout du commit validé
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - name: Vérifier qu'un mode d'authentification est configuré
+        if: vars.GCP_WIF_PROVIDER == '' && secrets.GCP_SA_KEY == ''
+        run: |
+          echo "::error::Aucune authentification Google Cloud configurée. Renseignez les variables"\
+               "GCP_WIF_PROVIDER et GCP_DEPLOY_SERVICE_ACCOUNT (recommandé), ou le secret GCP_SA_KEY."
+          exit 1
+
+      # Deux façons de s'authentifier, par ordre de préférence. La fédération d'identité ne dépose aucune clé
+      # durable dans GitHub ; la clé de compte de service reste acceptée pour un dépannage.
+      - name: Authentification Google Cloud (fédération d'identité)
+        if: vars.GCP_WIF_PROVIDER != ''
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Authentification Google Cloud (clé de compte de service)
+        if: vars.GCP_WIF_PROVIDER == '' && secrets.GCP_SA_KEY != ''
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Installer gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Les options sont assemblées et consommées dans le même shell : un tableau bash ne traverse pas une
+      # sortie d'étape sans se faire redécouper au premier espace. Ce qui n'est pas configuré n'est pas envoyé,
+      # et un déploiement automatique n'efface donc jamais un réglage posé à la main dans la console.
+      - name: Déployer la révision
+        id: deploy
+        env:
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION || 'europe-west1' }}
+          SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'cinefil' }}
+          ALLOWED_ORIGINS: ${{ vars.CLOUD_RUN_ALLOWED_ORIGINS }}
+          EXTRA_ENV: ${{ vars.CLOUD_RUN_ENV_VARS }}
+          TMDB_SECRET: ${{ vars.CLOUD_RUN_TMDB_SECRET }}
+          PUBLIC_SERVICE: ${{ vars.CLOUD_RUN_ALLOW_UNAUTHENTICATED }}
+          REVISION_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          flags=()
+
+          # Le délimiteur ^##^ laisse passer les virgules à l'intérieur d'une valeur : ALLOWED_ORIGINS en contient.
+          pairs=""
+          if [ -n "${ALLOWED_ORIGINS}" ]; then
+            pairs="ALLOWED_ORIGINS=${ALLOWED_ORIGINS}"
+          fi
+          if [ -n "${EXTRA_ENV}" ]; then
+            [ -n "${pairs}" ] && pairs="${pairs}##"
+            pairs="${pairs}${EXTRA_ENV}"
+          fi
+          if [ -n "${pairs}" ]; then
+            flags+=("--set-env-vars=^##^${pairs}")
+          fi
+
+          # Le jeton TMDb ne transite jamais par GitHub : la variable ne nomme qu'un secret de Secret Manager.
+          if [ -n "${TMDB_SECRET}" ]; then
+            flags+=("--set-secrets=TMDB_API_TOKEN=${TMDB_SECRET}:latest")
+          fi
+
+          # Un jeu public, mais seulement si le dépôt l'a demandé : cette option exige le droit d'écrire la
+          # stratégie IAM du service.
+          if [ "${PUBLIC_SERVICE:-true}" = "true" ]; then
+            flags+=("--allow-unauthenticated")
+          fi
+
+          # L'image est l'arbre source plus un runtime Node : rien à installer, rien à compiler. Cloud Build lit
+          # le Dockerfile du dépôt, et .dockerignore écarte déjà node_modules, les tests et l'historique git.
+          gcloud run deploy "${SERVICE}" \
+            --source . \
+            --project "${PROJECT_ID}" \
+            --region "${REGION}" \
+            --platform managed \
+            --port 8080 \
+            --labels "commit=${REVISION_SHA::7}" \
+            --quiet \
+            "${flags[@]}"
+
+          url=$(gcloud run services describe "${SERVICE}" \
+            --project "${PROJECT_ID}" --region "${REGION}" --format 'value(status.url)')
+          printf 'url=%s\n' "${url}" >> "$GITHUB_OUTPUT"
+
+      # Une mise en ligne qui ne répond pas n'est pas une mise en ligne. La sonde interroge la route que
+      # l'édition Pages appelle pour savoir si elle peut emprunter ce catalogue.
+      - name: Vérifier que le service répond
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -sS -o /tmp/status.json -w '%{http_code}' "${URL}/api/catalog/status" || echo 000)
+            if [ "${code}" = "200" ]; then
+              echo "Service en ligne : ${URL}"
+              cat /tmp/status.json
+              exit 0
+            fi
+            echo "Tentative ${attempt} : HTTP ${code}, nouvelle tentative dans $((attempt * 5)) s."
+            sleep $((attempt * 5))
+          done
+          echo "::error::Le service déployé ne répond pas sur ${URL}/api/catalog/status"
+          exit 1
+
+      - name: Résumé
+        if: always()
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+        run: |
+          {
+            echo "## Cloud Run"
+            echo
+            echo "- Service : ${URL:-non déployé}"
+            echo "- Commit : \`${{ github.event.workflow_run.head_sha || github.sha }}\`"
+            if [ -n "${URL}" ] && [ "${API_BASE_URL}" != "${URL}" ]; then
+              echo "- ⚠️ La variable de dépôt \`API_BASE_URL\` vaut \`${API_BASE_URL:-vide}\`."
+              echo "  La régler sur \`${URL}\` fait emprunter ce catalogue par l'édition GitHub Pages."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

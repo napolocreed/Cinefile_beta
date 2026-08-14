@@ -148,6 +148,7 @@ La progression détaillée et les quelques tâches nécessitant un jeton ou une 
 ## Déploiements
 
 - **GitHub Pages** : `.github/workflows/pages.yml` construit une liste blanche statique compatible avec le sous-chemin du dépôt, génère les filmographies à la demande, teste le jeu et publie `dist/`. Aucun secret ni code serveur n’entre dans l’artefact.
+- **Cloud Run** : `.github/workflows/cloud-run.yml` redéploie le serveur à chaque `main` qui passe la quality gate, sans clé durable dans le dépôt (fédération d'identité), et vérifie que la révision répond avant de se déclarer verte.
 - **Serveur Node** : `npm start` respecte `PORT`, sert le fallback SPA et expose `/api/catalog/*` ainsi que `/api/verify-link`, sans transmettre le jeton TMDb au navigateur. Cette cible est prête pour Railway, Render, Fly.io ou un hébergement équivalent dès qu’une fonction demande un backend permanent.
 
 GitHub Pages est donc un premier hébergement, pas une limite produit : le frontend et le moteur ne dépendent pas de cette plateforme.
@@ -169,6 +170,72 @@ Une fois une instance Node déployée, l'édition statique peut lui emprunter so
 - Côté dépôt, la variable `API_BASE_URL` (Settings → Variables, pas un secret : l'origine est publique) est estampillée dans le build Pages. Variable absente, l'artefact est exactement celui d'aujourd'hui.
 
 L'édition qui emprunte annonce clairement son état — « Catalogue emprunté · TMDb en direct » — et retombe intégralement sur le catalogue embarqué dès que l'origine ne répond plus ou que l'appareil est hors connexion.
+
+### Déploiement continu sur Cloud Run
+
+`.github/workflows/cloud-run.yml` remet le service en ligne **à chaque `main` qui passe la quality gate** — pas à chaque push : ce service sert l'API de vérification, un `main` rouge n'a rien à y faire. Le workflow reste inerte tant que la variable de dépôt `GCP_PROJECT_ID` est vide, et se relance à la main depuis l'onglet Actions (*Deploy Cloud Run* → *Run workflow*) pour rejouer une mise en ligne sans nouveau commit. Chaque déploiement se termine par une sonde sur `/api/catalog/status` : une révision qui ne répond pas fait échouer le job.
+
+**Mise en place, une fois.** Le mode recommandé est la fédération d'identité : GitHub échange un jeton OIDC de courte durée, aucune clé ne dort dans le dépôt.
+
+```bash
+PROJECT_ID=votre-projet
+REGION=europe-west1
+SERVICE=cinefil
+REPO=napolocreed/Cinefile_beta
+
+gcloud config set project "$PROJECT_ID"
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com iamcredentials.googleapis.com
+
+# Le compte de service qui déploie, et le strict nécessaire pour construire puis publier une révision.
+gcloud iam service-accounts create github-deploy --display-name "Déploiement GitHub Actions"
+SA="github-deploy@${PROJECT_ID}.iam.gserviceaccount.com"
+for ROLE in roles/run.admin roles/cloudbuild.builds.editor roles/artifactregistry.admin \
+            roles/storage.admin roles/iam.serviceAccountUser; do
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:$SA" --role "$ROLE"
+done
+
+# La fédération, restreinte à ce dépôt : aucun autre dépôt ne peut emprunter cette identité.
+gcloud iam workload-identity-pools create github --location global --display-name GitHub
+gcloud iam workload-identity-pools providers create-oidc github \
+  --location global --workload-identity-pool github --display-name "GitHub Actions" \
+  --issuer-uri "https://token.actions.githubusercontent.com" \
+  --attribute-mapping "google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-condition "assertion.repository == '${REPO}'"
+
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format 'value(projectNumber)')
+gcloud iam service-accounts add-iam-policy-binding "$SA" \
+  --role roles/iam.workloadIdentityUser \
+  --member "principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/attribute.repository/${REPO}"
+
+echo "GCP_WIF_PROVIDER = projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/providers/github"
+```
+
+**Réglages du dépôt** (Settings → Secrets and variables → Actions → *Variables*) :
+
+| Variable | Rôle |
+| --- | --- |
+| `GCP_PROJECT_ID` | **Requise.** Vide, le workflow ne s'exécute pas. |
+| `GCP_WIF_PROVIDER` | Le chemin affiché par la dernière commande ci-dessus. |
+| `GCP_DEPLOY_SERVICE_ACCOUNT` | `github-deploy@<projet>.iam.gserviceaccount.com`. |
+| `GCP_REGION` | Par défaut `europe-west1`. |
+| `CLOUD_RUN_SERVICE` | Par défaut `cinefil`. |
+| `CLOUD_RUN_ALLOWED_ORIGINS` | Qui a le droit d'emprunter l'API, séparé par des virgules — typiquement `https://napolocreed.github.io`. |
+| `CLOUD_RUN_TMDB_SECRET` | Nom d'un secret Secret Manager monté en `TMDB_API_TOKEN`. Le jeton ne transite jamais par GitHub. |
+| `CLOUD_RUN_ENV_VARS` | Réglages supplémentaires, `CLE=valeur##AUTRE=valeur`. |
+| `CLOUD_RUN_ALLOW_UNAUTHENTICATED` | `false` pour ne pas rendre le service public (par défaut il l'est). |
+
+À défaut de fédération, le secret `GCP_SA_KEY` (JSON d'un compte de service) est accepté en repli. Ce qui n'est pas renseigné n'est pas envoyé à `gcloud` : un réglage posé à la main dans la console survit aux déploiements automatiques.
+
+Pour le jeton TMDb, un secret Secret Manager plutôt qu'une variable d'environnement :
+
+```bash
+printf '%s' "$TMDB_API_TOKEN" | gcloud secrets create tmdb-api-token --data-file=-
+gcloud secrets add-iam-policy-binding tmdb-api-token --role roles/secretmanager.secretAccessor \
+  --member "serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+```
+
+Enfin, une fois l'URL du service connue, la régler dans la variable `API_BASE_URL` fait emprunter ce catalogue par l'édition GitHub Pages (section précédente). Le résumé de chaque déploiement rappelle cette étape tant que les deux valeurs divergent.
 
 ### Agrandir le catalogue embarqué
 
