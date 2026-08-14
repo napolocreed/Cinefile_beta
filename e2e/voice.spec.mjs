@@ -61,14 +61,16 @@ async function stubCatalog(page, { hydrateDelayMs = 0 } = {}) {
   });
 }
 
-async function startVoiceGame(page, { withClock = false, lives = null } = {}) {
+async function startVoiceGame(page, { withClock = false, lives = null, players = ["Alice", "Bob"] } = {}) {
   if (withClock) await page.clock.install();
   await page.addInitScript(RECOGNISER);
   await stubCatalog(page);
   await page.goto("/setup");
   await page.getByRole("button", { name: /Vocal passif/i }).click();
-  await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
-  await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
+  for (const [index, name] of players.entries()) {
+    if (index >= 2) await page.getByRole("button", { name: /Ajouter un joueur/i }).click();
+    await page.getByPlaceholder(`Nom du joueur ${index + 1}`).fill(name);
+  }
   if (lives) await page.locator("#lives-range").fill(String(lives));
   await page.getByRole("button", { name: /Lancer la partie/i }).click();
   await expect(page.locator("[data-voice-stage]")).toHaveAttribute("data-voice-turn", /\w/);
@@ -219,4 +221,31 @@ test("a bluff that ends the game still says what was verified", async ({ page })
   await expect(page.locator(".credits-roll")).toHaveClass(/credits-roll--playing/);
   await page.getByRole("button", { name: /Voir les scores/i }).click();
   await expect(page.getByText(/Dans le rôle du vainqueur/i)).toBeVisible();
+});
+
+// À trois joueurs et plus, le siège qui peut buzzer n'est plus celui qui parle ensuite. Pointer le pool sur le
+// challenger — ce que faisait la scène tant qu'elle n'existait qu'en duel — faisait échouer toute validation sur
+// « le tour a changé ». Ce test suit la chaîne sur un tour de table complet, puis un tour de plus.
+test("the tour de table hands the microphone round the whole cast", async ({ page }) => {
+  await startVoiceGame(page, { players: ["Alice", "Bob", "Carol", "Dan"] });
+  await page.getByRole("button", { name: /Activer le micro/i }).click();
+
+  const stage = page.locator("[data-voice-stage]");
+  await expect(stage).toHaveClass(/voice-stage--table/);
+  await expect(page.locator(".voice-seat-chip")).toHaveCount(4);
+  // Un seul panneau allumé : celui du joueur au micro, jamais quatre sièges de détail sur un téléphone.
+  await expect(page.locator(".voice-player")).toHaveCount(1);
+
+  const seen = [];
+  for (const name of ["Leonardo DiCaprio", "Kate Winslet", "Tom Hanks", "Meg Ryan", "Tom Cruise"]) {
+    seen.push(await stage.getAttribute("data-voice-turn"));
+    await validate(page, name, name);
+  }
+  // Quatre joueurs distincts, dans un ordre qui reprend au premier au cinquième nom.
+  expect(new Set(seen).size).toBe(4);
+  expect(seen[4]).toBe(seen[0]);
+  // Le dernier nom reste en attente de verdict : la chaîne s'arrête un cran avant.
+  expect(await chainOf(page)).toEqual(["Leonardo DiCaprio", "Kate Winslet", "Tom Hanks", "Meg Ryan"]);
+  await expect(page.locator(".voice-tabled")).toContainText("Tom Cruise");
+  await expect(page.getByRole("button", { name: /BLUFF/i })).toBeEnabled();
 });

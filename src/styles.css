@@ -1521,8 +1521,12 @@ h2.marquee {
 
 /* -----------------------------------------------------------------------------
    12. MODE VOCAL
-   Deux sièges, un buzzer au centre. Le joueur inactif est éteint : c'est ce qui
-   dit à qui est le tour, sans bandeau explicatif.
+   À deux, deux sièges face à face et un buzzer au centre : le joueur inactif est
+   éteint, c'est ce qui dit à qui est le tour sans bandeau explicatif.
+   Au-delà, le face-à-face ne décrit plus la table et huit sièges de détail ne
+   tiennent pas sur un téléphone. La scène se scinde alors : une bande de
+   vignettes porte le tour de table entier, un seul panneau allumé porte celui
+   qui parle, et la proposition en attente prend sa propre rangée.
    -------------------------------------------------------------------------- */
 
 .voice-page {
@@ -1563,14 +1567,37 @@ h2.marquee {
   animation: throb 1.1s ease-in-out infinite alternate;
 }
 
-/* La scène occupe la hauteur disponible : les deux sièges se partagent l'écran
-   au lieu de laisser un vide sous la saisie de secours. */
+/* La scène occupe la hauteur disponible : à deux, les deux sièges se partagent
+   l'écran au lieu de laisser un vide sous la saisie de secours. En tour de
+   table, les rangées gardent leur hauteur naturelle — étirer la bande de
+   vignettes ne dirait rien de plus, et le panneau du joueur au micro doit
+   rester à portée de pouce. */
 .voice-stage {
   display: grid;
   flex: 1;
-  align-content: stretch;
   gap: var(--gap-sm);
   min-height: 0;
+}
+
+.voice-stage--duel {
+  align-content: stretch;
+}
+
+/* Le tour de table empile des rangées de hauteurs très différentes selon le
+   nombre de joueurs et l'état du coup : une colonne flex les laisse à leur
+   taille naturelle, et pousse le buzzer en bas de scène — à portée de pouce,
+   au lieu de flotter au milieu d'un vide. */
+.voice-stage--table {
+  display: flex;
+  flex-direction: column;
+}
+
+.voice-stage--table > * {
+  flex: none;
+}
+
+.voice-stage--table .voice-center {
+  margin-top: auto;
 }
 
 /* Le siège d'un joueur. Éteint par défaut, éclairé quand c'est son tour. */
@@ -1592,8 +1619,113 @@ h2.marquee {
   background: linear-gradient(180deg, rgba(233, 163, 60, 0.12), var(--ink-raised));
 }
 
-.voice-player--2 {
+.voice-stage--duel .voice-player--2 {
   order: 3;
+}
+
+/* Le tour de table : une vignette par joueur, dans l'ordre de passage. Elle
+   tient l'essentiel — rang, nom, vies, rôle du moment — et rien de plus, pour
+   que quatre tiennent sur une ligne de 390 px et dix sur trois. */
+.voice-roster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.4rem, 1fr));
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.voice-seat-chip {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: 2px;
+  background: var(--ink-raised);
+  opacity: 0.55;
+  transition: opacity 0.3s, border-color 0.3s, background 0.3s;
+}
+
+.voice-seat-chip__name {
+  display: block;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-seat-chip .voice-seat {
+  margin-right: 0.25rem;
+  font-size: 0.62rem;
+}
+
+.voice-seat-chip .heart {
+  width: 0.4rem;
+  height: 0.6rem;
+}
+
+.voice-seat-chip small {
+  overflow: hidden;
+  font-family: var(--font-script);
+  font-size: 0.5rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--kraft-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Le micro est ambre, le buzzer est rouge : la vignette reprend le code de la
+   scène plutôt que d'inventer une troisième couleur. */
+.voice-seat-chip--active {
+  opacity: 1;
+  border-color: var(--ambre);
+  background: linear-gradient(180deg, rgba(233, 163, 60, 0.14), var(--ink-raised));
+}
+
+.voice-seat-chip--active small {
+  color: var(--ambre-bright);
+}
+
+.voice-seat-chip--buzzing {
+  opacity: 1;
+  border-left-color: var(--rouge-bright);
+}
+
+.voice-seat-chip--buzzing small {
+  color: var(--rouge-bright);
+}
+
+.voice-seat-chip--out {
+  opacity: 0.3;
+}
+
+.voice-seat-chip--out .voice-seat-chip__name {
+  text-decoration: line-through;
+}
+
+.voice-seat-chip--taking {
+  animation: seat-take 0.9s ease-out;
+}
+
+.voice-seat-chip--struck {
+  animation: seat-strike 0.7s ease-out;
+}
+
+/* La proposition posée sur la table, entre celui qui parle et le buzzer. */
+.voice-tabled {
+  display: grid;
+  gap: var(--gap-xs);
+  padding: 0.5rem 0.6rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--ink-raised);
 }
 
 .voice-player__head {
@@ -1733,8 +1865,11 @@ h2.marquee {
   display: grid;
   gap: var(--gap-xs);
   justify-items: center;
-  order: 2;
   padding: var(--gap-xs) 0;
+}
+
+.voice-stage--duel .voice-center {
+  order: 2;
 }
 
 .voice-wave {
@@ -3445,30 +3580,36 @@ h2.marquee {
     gap: 0 var(--gap-lg);
   }
 
-  /* Le mode vocal se joue en face-à-face : les deux sièges méritent la largeur
-     de la table, et non la colonne de lecture d'un formulaire. */
-  .page__body:has(.voice-page) {
+  /* Le duel se joue en face-à-face : les deux sièges méritent la largeur de la
+     table, et non la colonne de lecture d'un formulaire. Le tour de table, lui,
+     empile un seul siège : il garde la colonne de lecture, où le regard n'a pas
+     à traverser l'écran entre la bande de vignettes et le buzzer. */
+  .page__body:has(.voice-stage--duel) {
     width: min(100% - 2 * var(--gutter), 68rem);
   }
 
-  .voice-stage {
+  .voice-stage--duel {
     grid-template-columns: 1fr minmax(9rem, auto) 1fr;
     align-items: stretch;
     max-height: 36rem;
   }
 
-  .voice-center {
+  .voice-stage--duel .voice-center {
+    order: 0;
     align-self: center;
-  }
-
-  .voice-player--2 {
-    order: 0;
-  }
-
-  .voice-center {
-    order: 0;
     align-content: start;
     min-width: 9rem;
+  }
+
+  .voice-stage--duel .voice-player--2 {
+    order: 0;
+  }
+
+  /* Sur un grand écran, une colonne unique étirée sur toute la hauteur éloigne
+     le buzzer du siège qu'il conteste : la scène garde sa taille de jeu et le
+     reste de la page suit dessous. */
+  .voice-stage--table {
+    max-height: 34rem;
   }
 
   .voice-buzzer small {

@@ -1,14 +1,21 @@
-// Passive voice mode. Two seats facing each other, a buzzer between them.
+// Passive voice mode. Two seats facing each other at two players, a tour de table beyond.
 //
 // Listening never changes the game: it only fills the pool of propositions for whoever's turn it is, and nothing
 // reaches the chain without a deliberate tap. The banner that used to spell out whose turn it was is gone — the
 // inactive seat is dimmed, which says it without costing a line. What stayed is the hand-over animation: it is
 // the confirmation that a validation actually landed.
+//
+// Beyond two, a duel of facing panels stops describing the table: eight seats of detail do not fit a phone, and
+// the seat that may buzz stops being the seat that speaks next. So the stage splits in two. A roster of chips
+// holds the whole table — turn order, lives, who is out, who may buzz — while a single lit panel carries the
+// player actually speaking, with the pool of names their voice is filling. The proposition awaiting a verdict
+// gets its own row between the two, because at three players and up nobody's seat is showing it.
 
 import { normalizeText } from "../../game/database.js";
 import {
   adjudicatePending,
   currentPlayer,
+  nextAliveIndex,
   proposeActor,
   replaceLastActor,
   resolvePending,
@@ -77,12 +84,22 @@ function announceVoice(message) {
    Candidates
    -------------------------------------------------------------------------- */
 
+// While a proposition waits, the seat that owns the microphone is the one that will speak next — accepting the
+// link by chaining onto it. At two players that seat is also the challenger, which is why reading the pending
+// move's challengerId used to work; at three and up they are two different people, and pointing the pool at the
+// challenger meant every validation died on "le tour a changé".
 function voiceActivePlayer() {
-  if (state.pending?.challengerId) {
-    return state.game.players.find((player) => player.id === state.pending.challengerId) ?? currentPlayer(state.game);
-  }
+  if (state.pending) return state.game.players[nextAliveIndex(state.game, state.game.currentPlayerIdx)];
   return currentPlayer(state.game);
 }
+
+// Only the previous link's author may buzz — the engine credits nobody else — so the buzzer says whose it is.
+function voiceChallenger() {
+  if (!state.pending?.challengerId) return null;
+  return state.game.players.find((player) => player.id === state.pending.challengerId) ?? null;
+}
+
+const isDuel = () => state.game.players.length === 2;
 
 function compactVoiceCandidate(person, confidence = person.confidence ?? person.matchScore ?? 0.65) {
   return {
@@ -229,6 +246,18 @@ function voicePickListMarkup() {
   return `<div class="voice-picks" role="list">${picks.join("")}</div>${offer && !offer.known ? `<button type="button" class="button button--text voice-fix" data-voice-fix="${escapeHtml(offer.name)}">Corriger l’orthographe</button>` : ""}`;
 }
 
+const SEAT_MARKS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+const seatMark = (index) => SEAT_MARKS[index] ?? String(index + 1);
+
+// A life lost is announced where the loser is drawn. At two players that is always one of the two panels; at
+// three and up the loser is often a roster chip with no room for a sentence, so the stage hoists it out.
+function voiceStrikeMarkup(playerId) {
+  const flash = state.voice.flash;
+  if (!flash || flash.strikeId !== playerId) return "";
+  const name = state.game.players.find((player) => player.id === playerId)?.name ?? "";
+  return `<p class="voice-strike"><b>${escapeHtml(name)}</b> ${escapeHtml(flash.reason.toLocaleLowerCase("fr"))}<small>${flash.remaining > 0 ? `${flash.remaining} vie${flash.remaining > 1 ? "s" : ""} restante${flash.remaining > 1 ? "s" : ""}` : "éliminé"}</small></p>`;
+}
+
 function voicePlayerSection(player, index, activePlayer) {
   const active = player.id === activePlayer.id;
   const entry = lastVoiceEntryFor(player.id);
@@ -237,9 +266,7 @@ function voicePlayerSection(player, index, activePlayer) {
   const heard = state.voice.turn.buffer.heard().slice(-2).map((line) => escapeHtml(line.transcript)).join(" · ");
   const flash = state.voice.flash;
   const struck = flash?.strikeId === player.id;
-  const strike = struck
-    ? `<p class="voice-strike"><b>${escapeHtml(player.name)}</b> ${escapeHtml(flash.reason.toLocaleLowerCase("fr"))}<small>${flash.remaining > 0 ? `${flash.remaining} vie${flash.remaining > 1 ? "s" : ""} restante${flash.remaining > 1 ? "s" : ""}` : "éliminé"}</small></p>`
-    : "";
+  const strike = voiceStrikeMarkup(player.id);
   const body = active
     ? `${strike}${voicePickListMarkup()}${heard ? `<p class="voice-heard">Entendu : ${heard}</p>` : ""}`
     : entry
@@ -250,7 +277,68 @@ function voicePlayerSection(player, index, activePlayer) {
   const clock = active
     ? `<span class="voice-clock ${seconds !== null && seconds <= 5 ? "voice-clock--urgent" : ""}"><span>${timer}</span></span>`
     : "";
-  return `<section class="voice-player voice-player--${index + 1} ${active ? "voice-player--active" : ""} ${struck ? "voice-player--struck" : ""} ${flash?.toId === player.id ? "voice-player--taking" : ""}" data-voice-panel="${escapeHtml(player.id)}" aria-label="${escapeHtml(player.name)}${active ? ", à vous de jouer" : ", en attente"}"><div class="voice-player__head"><h2><i class="voice-seat" aria-hidden="true">${index === 1 ? "II" : "I"}</i>${escapeHtml(player.name)}</h2>${clock}${livesMarkup(player.lives, true, { dying: struck })}</div><div class="voice-detection">${body}</div></section>`;
+  return `<section class="voice-player voice-player--${index + 1} ${active ? "voice-player--active" : ""} ${struck ? "voice-player--struck" : ""} ${flash?.toId === player.id ? "voice-player--taking" : ""}" data-voice-panel="${escapeHtml(player.id)}" aria-label="${escapeHtml(player.name)}${active ? ", à vous de jouer" : ", en attente"}"><div class="voice-player__head"><h2><i class="voice-seat" aria-hidden="true">${seatMark(index)}</i>${escapeHtml(player.name)}</h2>${clock}${livesMarkup(player.lives, true, { dying: struck })}</div><div class="voice-detection">${body}</div></section>`;
+}
+
+// The whole table on one strip: turn order, lives, who is out, who holds the microphone and who may buzz. It is
+// the only element that grows with the cast, so it grows sideways then wraps rather than pushing the seat that
+// is actually playing off the bottom of the phone.
+function voiceRosterMarkup(activePlayer) {
+  const flash = state.voice.flash;
+  const challengerId = voiceChallenger()?.id ?? null;
+  const proposerId = state.pending?.playerId ?? null;
+  const seats = state.game.players.map((player, index) => {
+    const out = player.lives <= 0;
+    const active = !out && player.id === activePlayer.id;
+    const buzzing = !active && !out && player.id === challengerId && state.game.config.allowBluffChallenge;
+    const role = out ? "éliminé" : active ? "au micro" : buzzing ? "peut buzzer" : player.id === proposerId ? "a proposé" : "en attente";
+    const classes = [
+      "voice-seat-chip",
+      active ? "voice-seat-chip--active" : "",
+      out ? "voice-seat-chip--out" : "",
+      buzzing ? "voice-seat-chip--buzzing" : "",
+      flash?.strikeId === player.id ? "voice-seat-chip--struck" : "",
+      flash?.toId === player.id ? "voice-seat-chip--taking" : "",
+    ].filter(Boolean).join(" ");
+    return `<li class="${classes}" aria-label="${escapeHtml(`${player.name}, ${role}, ${player.lives} vie${player.lives > 1 ? "s" : ""}`)}"><span class="voice-seat-chip__name"><i class="voice-seat" aria-hidden="true">${seatMark(index)}</i>${escapeHtml(player.name)}</span>${livesMarkup(player.lives, false, { dying: flash?.strikeId === player.id })}<small aria-hidden="true">${escapeHtml(role)}</small></li>`;
+  });
+  return `<ol class="voice-roster" aria-label="Le tour de table">${seats.join("")}</ol>`;
+}
+
+// At two players the proposition awaiting a verdict lives in the proposer's own panel. Beyond that only one seat
+// is drawn, so the name on the table — and the correction list that can still fix a mishearing — needs a row of
+// its own, placed between the speaker and the buzzer because that is the order in which they are used.
+function voiceTabledMarkup() {
+  if (!state.pending) return "";
+  const proposer = state.game.players.find((player) => player.id === state.pending.playerId);
+  const entry = state.voice.entries.at(-1);
+  const correctable = Boolean(entry)
+    && entry.playerId === state.pending.playerId
+    && normalizeText(entry.actorName ?? "") === normalizeText(state.pending.proposedActor);
+  return `<div class="voice-tabled">
+    <span class="slug">Sur la table · ${escapeHtml(proposer?.name ?? "Joueur")}</span>
+    <div class="voice-validated">${portraitMarkup({ name: state.pending.proposedActor })}<strong>${escapeHtml(state.pending.proposedActor)}</strong></div>
+    ${correctable ? `<p class="voice-correct">Mauvaise identité ? Corrigez avant la décision.</p>${voiceCandidateList(entry)}` : ""}
+  </div>`;
+}
+
+// Whose move it is stops being obvious once two names are involved: the seat that may buzz is no longer the seat
+// that speaks next. The live line names both rather than leaving the table to work it out.
+function voicePromptLine() {
+  if (!state.pending) return "Dites un nom, puis touchez-le.";
+  const challenger = voiceChallenger();
+  if (isDuel() || !challenger || !state.game.config.allowBluffChallenge) return "Laissez passer en parlant, ou buzzez.";
+  return `${challenger.name} peut buzzer · à ${voiceActivePlayer().name} d’enchaîner.`;
+}
+
+function voiceCenterMarkup() {
+  const buzzerReady = Boolean(state.pending && state.game.config.allowBluffChallenge);
+  const challenger = voiceChallenger();
+  const buzzHint = !buzzerReady
+    ? "Après une proposition"
+    : isDuel() || !challenger ? "Interrompre et vérifier" : `À ${challenger.name} de buzzer`;
+  const live = state.voice.interim || state.voice.verdict || voicePromptLine();
+  return `<div class="voice-center"><div class="voice-wave ${state.voice.listening ? "voice-wave--on" : ""}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><p data-voice-live aria-live="polite">${escapeHtml(live)}</p><button class="voice-buzzer" data-voice-buzzer ${buzzerReady ? "" : "disabled"}><span>BLUFF</span><small>${escapeHtml(buzzHint)}</small></button>${state.voice.supported ? `<button class="button button--ghost voice-mic" data-voice-toggle>${state.voice.consent ? "Pause micro" : "Activer le micro"}</button>` : `<p class="voice-error">Reconnaissance vocale indisponible. La saisie de secours reste jouable.</p>`}${voiceTurnCandidates().length ? `<button class="button button--text voice-clear" data-voice-clear>Effacer</button>` : ""}${state.voice.error ? `<p class="voice-error" role="alert">${escapeHtml(state.voice.error)}</p>` : ""}</div>`;
 }
 
 function voiceChainMarkup() {
@@ -262,10 +350,13 @@ function voiceChainMarkup() {
 function voiceStageMarkup() {
   const activePlayer = voiceActivePlayer();
   const players = state.game.players;
-  const buzzerReady = Boolean(state.pending && state.game.config.allowBluffChallenge);
-  const live = state.voice.interim || state.voice.verdict || (state.pending ? "Laissez passer en parlant, ou buzzez." : "Dites un nom, puis touchez-le.");
-  const center = `<div class="voice-center"><div class="voice-wave ${state.voice.listening ? "voice-wave--on" : ""}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><p data-voice-live aria-live="polite">${escapeHtml(live)}</p><button class="voice-buzzer" data-voice-buzzer ${buzzerReady ? "" : "disabled"}><span>BLUFF</span><small>${buzzerReady ? "Interrompre et vérifier" : "Après une proposition"}</small></button>${state.voice.supported ? `<button class="button button--ghost voice-mic" data-voice-toggle>${state.voice.consent ? "Pause micro" : "Activer le micro"}</button>` : `<p class="voice-error">Reconnaissance vocale indisponible. La saisie de secours reste jouable.</p>`}${voiceTurnCandidates().length ? `<button class="button button--text voice-clear" data-voice-clear>Effacer</button>` : ""}${state.voice.error ? `<p class="voice-error" role="alert">${escapeHtml(state.voice.error)}</p>` : ""}</div>`;
-  return `${voicePlayerSection(players[0], 0, activePlayer)}${center}${voicePlayerSection(players[1], 1, activePlayer)}`;
+  if (isDuel()) {
+    return `${voicePlayerSection(players[0], 0, activePlayer)}${voiceCenterMarkup()}${voicePlayerSection(players[1], 1, activePlayer)}`;
+  }
+  const strikeId = state.voice.flash?.strikeId ?? null;
+  const strike = strikeId && strikeId !== activePlayer.id ? voiceStrikeMarkup(strikeId) : "";
+  const seat = voicePlayerSection(activePlayer, players.indexOf(activePlayer), activePlayer);
+  return `${voiceRosterMarkup(activePlayer)}${strike}${seat}${voiceTabledMarkup()}${voiceCenterMarkup()}`;
 }
 
 function voiceReviewMarkup() {
@@ -327,7 +418,7 @@ export function voiceMarkup() {
       <span class="voice-listening ${state.voice.listening ? "voice-listening--on" : ""}"><i aria-hidden="true"></i>${listeningLabel}</span>
       <span data-catalog-label>${escapeHtml(catalogStatusLabel())}</span>
     </div>
-    <div class="voice-stage" data-voice-stage data-voice-turn="${escapeHtml(voiceActivePlayer().name)}">${voiceStageMarkup()}</div>
+    <div class="voice-stage voice-stage--${isDuel() ? "duel" : "table"}" data-voice-stage data-voice-turn="${escapeHtml(voiceActivePlayer().name)}">${voiceStageMarkup()}</div>
     ${voiceChainMarkup()}
     <details class="voice-manual" data-voice-manual ${state.voice.manualOpen ? "open" : ""}>
       <summary>Correction / saisie de secours</summary>
