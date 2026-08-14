@@ -5,7 +5,7 @@
 // *under* the list on purpose — the name it writes appears above the finger, never hidden by the hand.
 
 import { normalizeText } from "../../game/database.js";
-import { createGame } from "../../game/engine.js";
+import { createGame, MAX_PLAYERS } from "../../game/engine.js";
 import { castingRoster } from "../../game/storage.js";
 import { app, navigate, renderRoute, state } from "../runtime.js";
 import { escapeHtml, initialOf } from "../format.js";
@@ -29,8 +29,9 @@ const FILTER_FROM = 7;
 
 const seatKeys = (names) => names.map((name) => normalizeText(name));
 const filledSeats = (names) => seatKeys(names).filter(Boolean);
-const maxSeats = (setup) => (setup.mode === "voice" ? 2 : 10);
-const castingIsFull = (setup) => filledSeats(setup.names).length >= maxSeats(setup);
+// Le vocal n'a plus de plafond à lui : le tour de table s'y joue au même nombre qu'en classique, le micro
+// écoutant celui dont c'est le tour et la scène ne montrant qu'un siège à la fois.
+const castingIsFull = (setup) => filledSeats(setup.names).length >= MAX_PLAYERS;
 
 /* -----------------------------------------------------------------------------
    La planche de contact
@@ -89,7 +90,7 @@ export function setupMarkup() {
   setup.themeId ??= "classic";
   state.setup = setup;
 
-  const removable = setup.mode !== "voice" && setup.names.length > 2;
+  const removable = setup.names.length > 2;
   const names = setup.names.map((name, index) => `<div class="player-row"><span class="player-row__number">${String(index + 1).padStart(2, "0")}</span><input class="field" data-player-index="${index}" value="${escapeHtml(name)}" placeholder="Nom du joueur ${index + 1}" maxlength="24" autocomplete="off">${removable ? `<button class="icon-button" data-remove-player="${index}" aria-label="Retirer ${escapeHtml(name || `le joueur ${index + 1}`)}">×</button>` : ""}</div>`).join("");
   // Le compteur comptait des lignes ; il compte désormais des noms, qui est ce que la table lit.
   const filled = filledSeats(setup.names).length;
@@ -98,17 +99,17 @@ export function setupMarkup() {
     <h1 class="marquee">Nouvelle partie</h1>
 
     <div class="block">
-      <div class="block__head"><span class="slug slug--ambre">Le casting</span><span class="slug" data-casting-count aria-label="${filled} joueur${filled > 1 ? "s" : ""} sur ${maxSeats(setup)}">${String(filled).padStart(2, "0")} / ${String(maxSeats(setup)).padStart(2, "0")}</span></div>
+      <div class="block__head"><span class="slug slug--ambre">Le casting</span><span class="slug" data-casting-count aria-label="${filled} joueur${filled > 1 ? "s" : ""} sur ${MAX_PLAYERS}">${String(filled).padStart(2, "0")} / ${String(MAX_PLAYERS).padStart(2, "0")}</span></div>
       <div class="players-list">${names}</div>
       ${castingMarkup(setup)}
-      ${setup.mode === "classic" && setup.names.length < 10 ? `<button class="add-player" data-add-player>＋ Ajouter un joueur</button>` : ""}
+      ${setup.names.length < MAX_PLAYERS ? `<button class="add-player" data-add-player>＋ Ajouter un joueur</button>` : ""}
     </div>
 
     <div class="block">
       <div class="block__head"><span class="slug slug--ambre">La prise</span></div>
       <div class="mode-grid">
         <button class="mode-card ${setup.mode === "classic" ? "mode-card--selected" : ""}" data-mode="classic"><span class="mode-card__icon" aria-hidden="true">⌨</span><b>Classique</b><small>Saisie et passage d’écran</small></button>
-        <button class="mode-card ${setup.mode === "voice" ? "mode-card--selected" : ""}" data-mode="voice"><span class="mode-card__icon" aria-hidden="true">◉</span><b>Vocal passif</b><small>Deux joueurs, buzzer central</small></button>
+        <button class="mode-card ${setup.mode === "voice" ? "mode-card--selected" : ""}" data-mode="voice"><span class="mode-card__icon" aria-hidden="true">◉</span><b>Vocal passif</b><small>Tour de table, buzzer central</small></button>
       </div>
     </div>
 
@@ -151,9 +152,8 @@ function castingVerdict() {
   const keys = filledSeats(setup.names);
   const doubles = new Set(keys.filter((key, index) => keys.indexOf(key) !== index));
   if (doubles.size) return { blocked: true, doubles, message: "Deux joueurs portent le même nom : changez-en un." };
-  if (setup.mode === "voice" && keys.length !== 2) return { blocked: true, doubles, message: "Le vocal se joue à deux, pas un de plus." };
   if (keys.length < 2) return { blocked: true, doubles, message: "Il faut deux noms pour lancer la partie." };
-  if (castingIsFull(setup)) return { blocked: false, doubles, message: setup.mode === "voice" ? "Les deux sièges sont pris." : "Casting complet : dix noms." };
+  if (castingIsFull(setup)) return { blocked: false, doubles, message: "Casting complet : dix noms." };
   return { blocked: false, doubles, message: "" };
 }
 
@@ -192,8 +192,8 @@ function refreshCasting() {
   const counter = document.querySelector("[data-casting-count]");
   if (counter) {
     const filled = filledSeats(state.setup.names).length;
-    counter.textContent = `${String(filled).padStart(2, "0")} / ${String(maxSeats(state.setup)).padStart(2, "0")}`;
-    counter.setAttribute("aria-label", `${filled} joueur${filled > 1 ? "s" : ""} sur ${maxSeats(state.setup)}`);
+    counter.textContent = `${String(filled).padStart(2, "0")} / ${String(MAX_PLAYERS).padStart(2, "0")}`;
+    counter.setAttribute("aria-label", `${filled} joueur${filled > 1 ? "s" : ""} sur ${MAX_PLAYERS}`);
   }
 
   syncChips();
@@ -204,18 +204,18 @@ function refreshCasting() {
    -------------------------------------------------------------------------- */
 
 // Un tap remplit la première ligne vide de haut en bas ; retaper une vignette déjà retenue libère son siège.
-// En classique, une planche pleine allonge le casting plutôt que de demander d'abord « ＋ Ajouter un joueur ».
+// Une planche pleine allonge le casting plutôt que de demander d'abord « ＋ Ajouter un joueur ».
 function toggleSeat(key, name) {
   const setup = state.setup;
   const keys = seatKeys(setup.names);
   const taken = keys.indexOf(key);
   if (taken >= 0) {
-    if (setup.mode === "classic" && setup.names.length > 2) setup.names.splice(taken, 1);
+    if (setup.names.length > 2) setup.names.splice(taken, 1);
     else setup.names[taken] = "";
   } else {
     const free = keys.indexOf("");
     if (free >= 0) setup.names[free] = name;
-    else if (setup.mode === "classic" && setup.names.length < 10) setup.names.push(name);
+    else if (setup.names.length < MAX_PLAYERS) setup.names.push(name);
     else return;
   }
   // Le repeint est complet, comme pour l'ajout et le retrait d'une ligne ; le focus est rendu ensuite.
@@ -258,7 +258,7 @@ export function bindSetup() {
   bindCastingFilter();
 
   document.querySelector("[data-add-player]")?.addEventListener("click", () => {
-    if (state.setup.names.length < 10) {
+    if (state.setup.names.length < MAX_PLAYERS) {
       state.setup.names.push("");
       renderRoute();
     }
@@ -270,8 +270,8 @@ export function bindSetup() {
   }));
 
   document.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => {
+    // Les deux prises acceptent désormais le même casting : changer de mode ne rogne plus la feuille.
     state.setup.mode = button.dataset.mode;
-    if (state.setup.mode === "voice") state.setup.names = [...state.setup.names.slice(0, 2), "", ""].slice(0, 2);
     renderRoute();
   }));
 

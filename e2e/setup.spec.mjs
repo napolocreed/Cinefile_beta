@@ -96,19 +96,24 @@ test("a duplicate typed by hand blocks the launch and says why", async ({ page }
   await expect(page.getByRole("button", { name: /Lancer la partie/i })).toBeEnabled();
 });
 
-test("voice mode seats exactly two, and the sheet says so instead of failing silently", async ({ page }) => {
+// Le vocal plafonnait à deux sièges : la feuille rognait le casting au changement de mode et refusait de lancer
+// au troisième nom. Il se joue désormais au même nombre que le classique, et rien dans la feuille ne distingue
+// plus les deux prises.
+test("voice mode seats the whole table, and switching to it keeps the casting", async ({ page }) => {
   await seedProfiles(page, {
     alice: profile("Alice", { lastSeenAt: 300 }),
     bob: profile("Bob", { lastSeenAt: 200 }),
     carol: profile("Carol", { lastSeenAt: 100 }),
   });
   await page.goto("/setup");
-  await page.getByRole("button", { name: /Vocal passif/i }).click();
   await chip(page, "Alice").click();
   await chip(page, "Bob").click();
-  await expect(seat(page, 3)).toHaveCount(0);
-  await expect(chip(page, "Carol")).toBeDisabled();
-  await expect(page.locator("[data-casting-hint]")).toContainText("sièges");
+  await chip(page, "Carol").click();
+  await page.getByRole("button", { name: /Vocal passif/i }).click();
+  await expect(seat(page, 3)).toHaveValue("Carol");
+  await expect(page.locator("[data-casting-count]")).toHaveText("03 / 10");
+  await expect(page.locator("[data-casting-hint]")).toHaveText("");
+  await expect(page.getByRole("button", { name: /Lancer la partie/i })).toBeEnabled();
 });
 
 test("forty profiles: six on the sheet, the rest folded away behind a filter", async ({ page }) => {
