@@ -58,6 +58,7 @@ const files = [
   "src/styles.css",
   "src/game/achievements.js",
   "src/game/catalog.js",
+  "src/game/credits.js",
   "src/game/database.js",
   "src/game/diagnostics.js",
   "src/game/engine.js",
@@ -72,6 +73,7 @@ const files = [
   "src/ui/shell.js",
   "src/ui/verification.js",
   "src/ui/voice-state.js",
+  "src/ui/screens/credits.js",
   "src/ui/screens/home.js",
   "src/ui/screens/play.js",
   "src/ui/screens/profiles.js",
@@ -114,7 +116,7 @@ const appHtml = sourceHtml
 await writeFile(resolve(output, "index.html"), appHtml);
 await writeFile(resolve(output, "404.html"), appHtml);
 await writeFile(resolve(output, ".nojekyll"), "");
-for (const route of ["setup", "play", "results", "profiles"]) {
+for (const route of ["setup", "play", "credits", "results", "profiles"]) {
   const routeDirectory = resolve(output, route);
   await mkdir(routeDirectory, { recursive: true });
   await writeFile(resolve(routeDirectory, "index.html"), appHtml);

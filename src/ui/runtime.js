@@ -2,6 +2,7 @@
 // two indirections — render and navigate — that let a screen ask for a repaint without importing the router.
 // Nothing here imports a screen, so the module graph stays acyclic.
 
+import { buildCredits, creditsSignature } from "../game/credits.js";
 import { createVoiceState } from "./voice-state.js";
 
 // Filled once by main.js. Screens read it; nothing else writes to it.
@@ -62,6 +63,8 @@ export const state = {
   verificationStatus: "idle",
   voice: createVoiceState(),
   transferNotice: null,
+  // The end credits, kept one turn ahead of the players. See queueCreditsRefresh below.
+  credits: null,
 };
 
 // Late-bound so a screen can trigger a repaint or a route change without depending on the router module.
@@ -87,6 +90,43 @@ export function stopSearch() {
   state.searchTimer = null;
   state.searchAbort?.abort();
   state.searchAbort = null;
+}
+
+/* -----------------------------------------------------------------------------
+   The credits, assembled between two turns
+   -------------------------------------------------------------------------- */
+
+// Reading the whole log back — and asking the archive about every link the engine could not prove — is work that
+// has no business happening while a player is waiting to see the winner. So it happens during the game instead,
+// on idle time after each committed turn: by the time the last life goes, the roll is already built.
+let cancelCreditsBuild = null;
+
+function buildCreditsNow(game) {
+  cancelCreditsBuild = null;
+  state.credits = buildCredits(game, { database: app.database });
+}
+
+export function queueCreditsRefresh(game = state.game) {
+  if (!game) return;
+  if (state.credits?.signature === creditsSignature(game)) return;
+  cancelCreditsBuild?.();
+  if (typeof window.requestIdleCallback === "function") {
+    const handle = window.requestIdleCallback(() => buildCreditsNow(game), { timeout: 1500 });
+    cancelCreditsBuild = () => window.cancelIdleCallback(handle);
+  } else {
+    const handle = window.setTimeout(() => buildCreditsNow(game), 0);
+    cancelCreditsBuild = () => window.clearTimeout(handle);
+  }
+}
+
+// What the credits screen asks for. A hit costs nothing; a miss — a reloaded game, a roll asked for twice —
+// builds on the spot rather than showing an empty stage.
+export function creditsFor(game = state.game) {
+  if (!game) return null;
+  if (state.credits?.signature === creditsSignature(game)) return state.credits;
+  cancelCreditsBuild?.();
+  buildCreditsNow(game);
+  return state.credits;
 }
 
 // Three deployments, three truths: the snapshot alone, a borrowed API origin, or this deployment's own server.

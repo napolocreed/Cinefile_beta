@@ -51,6 +51,8 @@ export function renderResults() {
       </div>
     </details>
 
+    <a class="button button--ghost button--wide" href="${routeUrl("/credits")}" data-nav>Revoir le générique <span aria-hidden="true">↺</span></a>
+
     <div class="results-actions">
       <button class="button button--gold" data-replay>Rejouer <span aria-hidden="true">↗</span></button>
       <a class="button button--ghost" href="/" data-nav>Accueil</a>

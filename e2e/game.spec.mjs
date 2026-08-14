@@ -184,3 +184,59 @@ test("an uncertain bluff opens the human VAR without treating absence as proof",
   await page.getByRole("button", { name: /Bluff confirmé/i }).click();
   await expect(page.locator(".verdict--invalid")).toContainText("Invalide");
 });
+
+test("the closing credits replay the game, name the bluff nobody called, and step aside on a tap", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "One browser project covers the credits roll.");
+  // The credits scroll; the assertions below read the document, so the roll is frozen rather than raced.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.route("**/api/verify-link?*", async (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ verdict: "NOT_FOUND", source: "none", films: [], evidence: [], durationMs: 900, steps: [], searchLinks: {} }),
+  }));
+  await page.goto(appPath("/setup"));
+  await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
+  await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
+  await page.locator("#lives-range").fill("1");
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+
+  // Alice opens the reel.
+  await page.getByLabel("Ton artiste").fill("Leonardo DiCaprio");
+  await page.getByRole("option", { name: /Leonardo DiCaprio/i }).first().click();
+  await page.getByRole("button", { name: /Valider/i }).click();
+
+  // Bob bluffs, and Alice lets it through: nothing on screen ever says so again — until the credits.
+  await page.getByLabel("Ton artiste").fill("Bourvil");
+  await page.getByRole("option", { name: /Bourvil/i }).first().click();
+  await page.getByRole("button", { name: /Valider/i }).click();
+  await page.getByRole("button", { name: /Laisser passer/i }).click();
+
+  // Alice bluffs in turn, Bob buzzes, and the last life goes.
+  await page.getByLabel("Ton artiste").fill("Kate Winslet");
+  await page.getByRole("option", { name: /Kate Winslet/i }).first().click();
+  await page.getByRole("button", { name: /Valider/i }).click();
+  await page.getByRole("button", { name: /Bluff !/i }).click();
+  await page.getByRole("button", { name: /Bluff confirmé/i }).click();
+  await page.getByRole("button", { name: /Continuer/i }).click();
+
+  const credits = page.locator(".end-credits");
+  await expect(credits).toBeVisible();
+  await expect(credits).toContainText("Ciné-Fil présente");
+  await expect(credits).toContainText("Distribution");
+  // The chain, with the film that holds a pair together and the plain admission when there is none.
+  await expect(credits.locator(".roll-chain__actor").first()).toContainText("Leonardo DiCaprio");
+  await expect(credits.locator(".roll-chain__link--bluff")).toContainText("Bourvil");
+  await expect(credits.locator(".roll-badge--bluff")).toContainText("Bluff jamais démasqué");
+  // Named but never retained, and the sequence log tells the whole story back.
+  await expect(credits.locator(".roll-guests")).toContainText("Kate Winslet");
+  await expect(credits.locator(".roll-bluff--slipped")).toContainText("Bourvil");
+  await expect(credits.locator(".roll-bluff--unmasked")).toContainText("Kate Winslet");
+  await expect(credits.locator(".roll-log__scene")).toHaveCount(3);
+
+  // A tap anywhere on the stage is all it takes to reach the scores.
+  await credits.click({ position: { x: 5, y: 5 } });
+  await expect(page.getByText(/Dans le rôle du vainqueur/i)).toBeVisible();
+  // And the roll stays available afterwards, for whoever wants to read it properly.
+  await page.getByRole("link", { name: /Revoir le générique/i }).click();
+  await expect(page.locator(".end-credits")).toBeVisible();
+});

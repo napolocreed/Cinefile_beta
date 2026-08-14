@@ -26,9 +26,10 @@
      11. Partie classique
      12. Mode vocal
      13. VAR et vérification
-     14. Générique de fin (résultats)
-     15. Archives (profils)
-     16. Mouvement et accessibilité
+     14. Générique déroulant (fin de partie)
+     15. Écran des scores
+     16. Archives (profils)
+     17. Mouvement et accessibilité
    ========================================================================== */
 
 /* -----------------------------------------------------------------------------
@@ -1913,7 +1914,452 @@ h2.marquee {
 }
 
 /* -----------------------------------------------------------------------------
-   14. GÉNÉRIQUE DE FIN (RÉSULTATS)
+   14. GÉNÉRIQUE DÉROULANT (FIN DE PARTIE)
+   Un générique, pas un tableau : fond de salle, colonne étroite, capitales
+   condensées pour les noms et machine à écrire pour ce qui les relie. Le film
+   commun s'écrit entre deux acteurs, et ce qui manque — le bluff que personne
+   n'a relevé — s'écrit en rouge à la même place. Tout défile d'un bloc ; un
+   appui n'importe où sur la scène passe aux scores.
+   -------------------------------------------------------------------------- */
+
+.end-credits {
+  display: grid;
+  align-content: start;
+  gap: var(--gap);
+  cursor: pointer;
+}
+
+.credits-viewport {
+  position: relative;
+  height: clamp(320px, calc(100dvh - 13rem), 760px);
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(130% 70% at 50% 0%, rgba(233, 163, 60, 0.09), transparent 62%),
+    var(--ink-deep);
+  /* Les noms entrent et sortent par un fondu : un générique ne se coupe pas net. */
+  mask-image: linear-gradient(to bottom, transparent, #000 9%, #000 88%, transparent);
+}
+
+.credits-roll {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  display: grid;
+  gap: 2.6rem;
+  max-width: 30rem;
+  margin-inline: auto;
+  padding: 0 var(--gap);
+  text-align: center;
+}
+
+.credits-roll--playing {
+  animation: credits-roll var(--roll-duration, 60s) linear forwards;
+}
+
+/* Sans mouvement, le générique devient un document : on le fait défiler soi-même. */
+.credits-viewport--static {
+  overflow-y: auto;
+  mask-image: none;
+}
+
+.credits-viewport--static .credits-roll {
+  position: static;
+  padding: var(--gap-lg) var(--gap);
+}
+
+.roll-card,
+.roll-block {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.roll-studio,
+.roll-role {
+  font-family: var(--font-script);
+  font-size: 0.66rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--kraft-dim);
+}
+
+.roll-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 8.5vw, 3rem);
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ambre-bright);
+}
+
+.roll-subtitle {
+  font-family: var(--font-script);
+  font-size: 0.7rem;
+  color: var(--kraft-soft);
+}
+
+.roll-stamp {
+  font-family: var(--font-script);
+  font-size: 0.6rem;
+  color: var(--kraft-dim);
+}
+
+.roll-headline {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--kraft);
+}
+
+.roll-heading {
+  margin-bottom: 0.6rem;
+  font-family: var(--font-script);
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--ambre);
+}
+
+/* Distribution ------------------------------------------------------------ */
+
+.roll-cast {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.roll-cast__row {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.roll-cast__row b {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--kraft);
+}
+
+.roll-cast__row span {
+  font-size: 0.78rem;
+  color: var(--ambre);
+}
+
+.roll-cast__row small,
+.roll-guests small {
+  font-family: var(--font-script);
+  font-size: 0.6rem;
+  color: var(--kraft-dim);
+}
+
+.roll-cast__row--winner b {
+  color: var(--ambre-bright);
+}
+
+/* La chaîne --------------------------------------------------------------- */
+
+.roll-chain {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.roll-chain__link {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.roll-chain__arrow {
+  font-family: var(--font-script);
+  font-size: 0.8rem;
+  line-height: 1;
+  color: var(--line-strong);
+}
+
+.roll-chain__actor {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--kraft);
+}
+
+.roll-chain__link--bluff .roll-chain__actor {
+  color: var(--rouge-bright);
+}
+
+.roll-chain__films {
+  font-family: var(--font-script);
+  font-size: 0.65rem;
+  color: var(--vert-soft);
+}
+
+.roll-chain__films em,
+.roll-log__line em {
+  color: var(--kraft-dim);
+  font-style: normal;
+}
+
+.roll-chain__films--none {
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rouge-bright);
+}
+
+.roll-chain__open {
+  font-family: var(--font-script);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ambre);
+}
+
+.roll-chain__by {
+  font-family: var(--font-script);
+  font-size: 0.58rem;
+  color: var(--kraft-dim);
+}
+
+.roll-badge {
+  justify-self: center;
+  margin-top: 0.2rem;
+  padding: 0.08rem 0.45rem;
+  border: 1px solid var(--line-strong);
+  font-family: var(--font-script);
+  font-size: 0.54rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--kraft-dim);
+}
+
+.roll-badge--bluff {
+  border-color: var(--rouge);
+  color: var(--rouge-bright);
+}
+
+.roll-badge--held {
+  border-color: var(--line-ambre);
+  color: var(--ambre);
+}
+
+/* Avec la participation de ------------------------------------------------ */
+
+.roll-guests {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.roll-guests b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--kraft-soft);
+}
+
+/* Cascades ---------------------------------------------------------------- */
+
+.roll-bluffs {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.roll-bluff {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.5rem 0.6rem;
+  border-left: 2px solid var(--line-strong);
+  background: rgba(0, 0, 0, 0.28);
+  text-align: left;
+}
+
+.roll-bluff--slipped {
+  border-left-color: var(--rouge);
+}
+
+.roll-bluff--unmasked {
+  border-left-color: var(--vert);
+}
+
+.roll-bluff--false {
+  border-left-color: var(--ambre);
+}
+
+.roll-bluff__pair {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--kraft);
+}
+
+.roll-bluff__note {
+  font-size: 0.72rem;
+  color: var(--kraft-soft);
+}
+
+.roll-bluff__note b {
+  color: var(--ambre);
+}
+
+.roll-bluff__act,
+.roll-note {
+  font-family: var(--font-script);
+  font-size: 0.58rem;
+  color: var(--kraft-dim);
+}
+
+.roll-note {
+  margin-top: 0.6rem;
+}
+
+/* Séquencier -------------------------------------------------------------- */
+
+.roll-log {
+  display: grid;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.roll-log__scene {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.roll-log__slate {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
+  font-family: var(--font-script);
+  font-size: 0.56rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--kraft-dim);
+}
+
+.roll-log__slate span {
+  padding: 0 0.3rem;
+  border: 1px solid var(--line-strong);
+  letter-spacing: 0.06em;
+  color: var(--ambre);
+}
+
+.roll-log__scene--bluff-slipped .roll-log__slate span {
+  border-color: var(--rouge);
+  color: var(--rouge-bright);
+}
+
+.roll-log__scene--bluff-unmasked .roll-log__slate span {
+  border-color: var(--vert);
+  color: var(--vert-soft);
+}
+
+.roll-log__line {
+  font-size: 0.78rem;
+  color: var(--kraft-soft);
+}
+
+.roll-log__line b {
+  color: var(--kraft);
+}
+
+.roll-log__toll {
+  font-family: var(--font-script);
+  font-size: 0.6rem;
+  color: var(--rouge-bright);
+}
+
+.roll-log__toll--out {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.roll-log__note {
+  font-family: var(--font-script);
+  font-size: 0.56rem;
+  color: var(--kraft-dim);
+}
+
+/* Générique technique ----------------------------------------------------- */
+
+.roll-technical {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.roll-technical div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding-bottom: 0.22rem;
+  border-bottom: 1px dotted var(--line);
+  text-align: left;
+}
+
+.roll-technical dt {
+  font-family: var(--font-script);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--kraft-dim);
+}
+
+.roll-technical dd {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  color: var(--kraft);
+}
+
+/* Carton final ------------------------------------------------------------ */
+
+.roll-card--end {
+  gap: 0.5rem;
+  padding-bottom: 2rem;
+}
+
+.roll-fin {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 13vw, 4rem);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ambre-bright);
+}
+
+.roll-fineprint {
+  font-family: var(--font-script);
+  font-size: 0.56rem;
+  color: var(--kraft-dim);
+}
+
+/* Commandes --------------------------------------------------------------- */
+
+.credits-controls {
+  display: grid;
+  gap: var(--gap-sm);
+  justify-items: center;
+}
+
+.credits-hint {
+  font-family: var(--font-script);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--kraft-dim);
+}
+
+/* -----------------------------------------------------------------------------
+   15. ÉCRAN DES SCORES
    -------------------------------------------------------------------------- */
 
 .results-page {
@@ -2057,7 +2503,7 @@ h2.marquee {
 }
 
 /* -----------------------------------------------------------------------------
-   15. ARCHIVES (PROFILS)
+   16. ARCHIVES (PROFILS)
    -------------------------------------------------------------------------- */
 
 .profiles-page {
@@ -2251,7 +2697,7 @@ h2.marquee {
 }
 
 /* -----------------------------------------------------------------------------
-   16. MOUVEMENT ET ACCESSIBILITÉ
+   17. MOUVEMENT ET ACCESSIBILITÉ
    -------------------------------------------------------------------------- */
 
 @keyframes reel-spin {
@@ -2289,6 +2735,11 @@ h2.marquee {
   40% { transform: translateX(6px); }
   60% { transform: translateX(-3px); }
   80% { transform: translateX(3px); }
+}
+
+@keyframes credits-roll {
+  from { transform: translate3d(0, var(--roll-from, 100%), 0); }
+  to { transform: translate3d(0, var(--roll-to, -100%), 0); }
 }
 
 @keyframes burn-out {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v11-bobine-et-souche";
+const CACHE_NAME = "cinefil-v12-generique";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [
@@ -10,6 +10,7 @@ const CORE = [
   "src/main.js",
   "src/game/achievements.js",
   "src/game/catalog.js",
+  "src/game/credits.js",
   "src/game/database.js",
   "src/game/diagnostics.js",
   "src/game/engine.js",
@@ -24,6 +25,7 @@ const CORE = [
   "src/ui/shell.js",
   "src/ui/verification.js",
   "src/ui/voice-state.js",
+  "src/ui/screens/credits.js",
   "src/ui/screens/home.js",
   "src/ui/screens/play.js",
   "src/ui/screens/profiles.js",

@@ -14,6 +14,7 @@ import {
 import {
   app,
   navigate,
+  queueCreditsRefresh,
   renderRoute,
   setCatalogStatus,
   state,
@@ -384,7 +385,9 @@ function commitResolved(game) {
   state.input = "";
   state.timeLeft = null;
   app.storage.saveCurrent(game);
-  if (game.status === "finished") navigate("/results");
+  // The roll is assembled between turns, on idle time, so the last life never costs the table a wait.
+  queueCreditsRefresh(game);
+  if (game.status === "finished") navigate("/credits");
   else {
     // Straight back to the field the next player needs, with the counter clapping their name into place.
     state.phase = "input";

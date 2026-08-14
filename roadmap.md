@@ -115,6 +115,18 @@ Mise à jour le 13 août 2026. La reconstruction, le déploiement statique, la c
 - [x] Recherche distante du mode vocal recalibrée : déclenchée sur les énoncés terminés dont la lecture locale reste incertaine, jamais deux fois pour la même phrase, et la proposition locale reste affichée pendant l'aller-retour.
 - [x] Libellés qui disent le catalogue réellement en jeu : embarqué, emprunté, serveur complet, ou hors connexion.
 
+## Phase 8 — générique de fin — livrée
+
+- [x] Écran `/credits` intercalé entre la dernière vie perdue et le tableau des scores, dans les deux modes de jeu.
+- [x] Distribution : un titre de rôle par joueur, déduit de sa partie, et sa ligne de crédits.
+- [x] Chaîne relue dans l'ordre d'apparition avec le film qui tient chaque paire, et la mention explicite quand il n'y en a aucun.
+- [x] **Les bluffs jamais démasqués sont révélés là, et seulement là** : le jeu ne les nomme à aucun autre moment.
+- [x] Rubrique « avec la participation de » pour les artistes nommés mais refusés, registre des cascades, séquencier complet et générique technique.
+- [x] Liens que le moteur n'avait pas su prouver redemandés au catalogue au moment du montage : une paire apprise depuis est créditée.
+- [x] Rouleau assemblé en arrière-plan après chaque tour validé (temps mort du navigateur), jamais pendant que la table attend.
+- [x] Passage immédiat sur un appui n'importe où, Échap, Entrée ou Espace ; document défilable en mouvement réduit ; lien « revoir le générique » depuis les scores.
+- [x] Tests unitaires du montage à partir de parties réellement jouées, et parcours navigateur du générique jusqu'aux scores.
+
 ## Prochain cycle éditorial
 
 1. Ajouter le secret GitHub `TMDB_API_TOKEN`, puis laisser les vagues hebdomadaires rafraîchir la couverture complète.

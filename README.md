@@ -86,6 +86,19 @@ Les confirmations positives enrichissent `cinefil.verification-cache.v1` sur l�
 
 Le cadrage, les alternatives étudiées et les écarts assumés sont consignés dans [le rapport de fallback universel](docs/rapport-fallback-universel.md).
 
+## Générique de fin
+
+Entre la dernière vie perdue et le tableau des scores, la partie déroule son propre générique — capitales condensées sur fond de salle, colonne étroite, machine à écrire pour ce qui relie les noms :
+
+- **Distribution** : chaque joueur reçoit un titre tiré de sa manière de jouer (le dernier à l’écran, cascades sans doublure, au montage, à la documentation…) et sa ligne de crédits — raccords, films, bluffs, série, séquence de sortie.
+- **Dans l’ordre d’apparition** : la chaîne complète, avec **le film qui tient chaque paire** écrit entre deux acteurs. Quand rien ne les relie, le générique l’écrit en rouge : c’est le bluff que personne n’a relevé, révélé ici et nulle part ailleurs. Un lien que le moteur n’avait pas su prouver est redemandé au catalogue au moment du générique, et crédité si les archives ont appris la paire depuis.
+- **Avec la participation de** : les artistes nommés mais jamais retenus, avec le motif du refus.
+- **Cascades et doublures** : le registre des bluffs — ceux qui sont passés, ceux qui ont été démasqués et par qui, et les buzz tombés à côté.
+- **Séquencier** : le journal de la partie, séquence par séquence, avec les vies dépensées et les sorties de plateau.
+- **Générique technique** : le décompte de la partie, puis le carton **FIN**.
+
+Le générique est **assemblé en arrière-plan pendant la partie**, sur le temps mort après chaque tour validé : la table ne l’attend jamais. Il défile seul à vitesse de lecture et se passe d’un appui n’importe où sur l’écran (ou Échap, Entrée, Espace) ; il s’efface aussi de lui-même à la fin du rouleau. En mouvement réduit, il devient un document que l’on fait défiler soi-même. L’écran des scores garde un lien pour le revoir.
+
 ## Tests
 
 ```bash
@@ -97,7 +110,7 @@ npm run test:all     # totalité de la quality gate
 
 Comme l’interface est découpée en modules chargés directement par le navigateur, chaque fichier doit être nommé dans `public/sw.js` et dans `scripts/build-pages.mjs`. `test/module-manifest.test.mjs` parcourt le graphe d’imports depuis `src/main.js` et échoue si l’une des deux listes a divergé — une dérive ne se manifesterait sinon qu’hors connexion, ou en production seulement.
 
-La suite vérifie notamment le moteur de partie, 250 séquences pseudo-aléatoires, la phonétique française du mode vocal, la déduplication, les alias, l’unicité TMDb, les preuves filmographiques, les shards différés, le cache hors ligne, le vocal, l’export/import, le serveur, la PWA et les parcours critiques sur deux tailles d’écran. GitHub Actions rejoue cette quality gate à chaque push et pull request.
+La suite vérifie notamment le moteur de partie, 250 séquences pseudo-aléatoires, la phonétique française du mode vocal, la déduplication, les alias, l’unicité TMDb, les preuves filmographiques, les shards différés, le cache hors ligne, le vocal, le générique de fin, l’export/import, le serveur, la PWA et les parcours critiques sur deux tailles d’écran. GitHub Actions rejoue cette quality gate à chaque push et pull request.
 
 ## Données et confidentialité
 
@@ -116,9 +129,10 @@ L’écran Profils permet d’exporter puis de restaurer ces données dans un JS
 ## Architecture
 
 - `src/main.js` : amorçage — lecture du déploiement, chargement du snapshot, construction des services.
-- `src/ui/` : l’interface. `runtime.js` (état partagé et indirections de rendu), `router.js` (table de routes), `shell.js`, `format.js`, `verification.js`, `link-check.js`, et `ui/screens/` (un module par écran : accueil, setup, partie classique, mode vocal, générique, profils).
+- `src/ui/` : l’interface. `runtime.js` (état partagé et indirections de rendu), `router.js` (table de routes), `shell.js`, `format.js`, `verification.js`, `link-check.js`, et `ui/screens/` (un module par écran : accueil, setup, partie classique, mode vocal, générique déroulant, scores, profils).
 - `src/styles.css` : le système de design complet — jetons, mobilier de pellicule, composants, écrans, mouvement.
 - `src/game/engine.js` : règles déterministes et transitions immuables.
+- `src/game/credits.js` : relecture du journal de partie en générique — distribution, chaîne et ses preuves filmographiques, registre des bluffs, séquencier.
 - `src/game/database.js` : index canonique, alias, liens et recherche.
 - `src/game/catalog.js` : recherche hybride et cache navigateur.
 - `src/server/` : adaptateurs TMDb, catalogue publié et vérification Wikidata/Wikipédia côté serveur.

@@ -216,5 +216,9 @@ test("a bluff that ends the game still says what was verified", async ({ page })
   await expect(page.locator(".voice-outcome__penalty")).toContainText("éliminé");
   await expect(page.locator(".var-step")).toHaveCount(4);
   await page.getByRole("button", { name: /Voir le générique/i }).click();
+  // The credits come first, and they are the only place the table sees the whole reel back.
+  await expect(page.locator(".end-credits")).toBeVisible();
+  await expect(page.locator(".credits-roll")).toHaveClass(/credits-roll--playing/);
+  await page.getByRole("button", { name: /Voir les scores/i }).click();
   await expect(page.getByText(/Dans le rôle du vainqueur/i)).toBeVisible();
 });
