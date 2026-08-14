@@ -30,6 +30,22 @@ Ouvrir <http://localhost:4173>. Depuis un téléphone sur le même Wi-Fi, utilis
 
 Le micro ne démarre jamais sans action explicite et Ciné-Fil ne stocke aucun fichier audio.
 
+## Ce qui compte comme un film
+
+Une liaison se prouve par **un film de cinéma**, et rien d'autre tant que la table ne le demande pas. Trois extensions s'ouvrent à la mise en place, indépendamment l'une de l'autre, et sont **coupées par défaut** :
+
+| Extension | Ce qu'elle ouvre |
+| --- | --- |
+| Documentaires | Portraits, films d'archives, making-of |
+| Séries & téléfilms | Fiction télévisée, mini-séries |
+| Émissions & plateaux | Talk-shows, jeux, cérémonies |
+
+Le périmètre appartient à la **partie**, pas à l'appareil : il est gravé dans sa configuration au lancement, une sauvegarde rouverte se rejoue donc sous les règles sous lesquelles elle a été jouée, et une sauvegarde antérieure aux extensions se rejoue au socle. Le dernier périmètre lancé devient le défaut de la mise en place suivante.
+
+Le point délicat est que `media_type: "movie"` chez TMDb **n'est pas** « film de cinéma » : le même support porte les documentaires d'archives, les captations de plateau et les téléfilms. Chaque œuvre porte donc une **nature** (`cinema`, `documentary`, `series`, `show`, `unknown`), décidée à un seul endroit — `src/game/work-kinds.js` — à partir des genres TMDb, des sous-classes Wikidata (`Q11424` a pour sous-classes le film documentaire `Q93204` et le téléfilm `Q506240`, qu'une requête sur la chaîne des sous-classes ne peut pas ne pas ramener) ou des catégories Wikipédia. Cette nature voyage avec l'œuvre, du serveur au cache hors ligne, et le périmètre part avec la question jusque dans la clé de cache du serveur : deux tables qui ne jouent pas les mêmes extensions ne partagent jamais une réponse.
+
+`unknown` joue **avec** le cinéma. C'est un choix assumé : une fiche de catalogue publiée avant cette version ne porte aucun genre, et refuser tout ce qu'on ne sait pas classer viderait le jeu de ses films plutôt que de ses émissions. La campagne d'enrichissement ci-dessous fait reculer cette zone fiche après fiche ; en attendant, un serveur configuré avec un jeton TMDb complète à la volée toute fiche encore muette.
+
 ## Catalogue cinéma
 
 Le socle canonique contient :
@@ -84,7 +100,7 @@ La cascade rend compte d’elle-même : chaque réponse liste ses étapes dans l
 
 Seul `CONFIRMED` tranche automatiquement. Tous les autres états ouvrent une salle **VAR** avec les indices disponibles, des liens de recherche et une décision humaine. Une absence de résultat n’est donc jamais assimilée à la preuve qu’un film n’existe pas.
 
-Les confirmations positives enrichissent `cinefil.verification-cache.v1` sur l’appareil et deviennent immédiatement rejouables hors connexion. Les résultats négatifs ne sont jamais appris. Hors connexion, aucune source n’est interrogée et le verdict reste `UNKNOWN` : la VAR humaine et ses recherches externes restent disponibles. Définir `VERIFY_LINK_NETWORK=0` désactive également la cascade côté serveur sans casser le jeu.
+Les confirmations positives enrichissent `cinefil.verification-cache.v2` sur l’appareil — avec la nature de l’œuvre retrouvée, de sorte qu’une preuve apprise sous extensions ouvertes soit refusée par une table qui les a coupées — et deviennent immédiatement rejouables hors connexion. Les résultats négatifs ne sont jamais appris. Hors connexion, aucune source n’est interrogée et le verdict reste `UNKNOWN` : la VAR humaine et ses recherches externes restent disponibles. Définir `VERIFY_LINK_NETWORK=0` désactive également la cascade côté serveur sans casser le jeu.
 
 Le cadrage, les alternatives étudiées et les écarts assumés sont consignés dans [le rapport de fallback universel](docs/rapport-fallback-universel.md).
 
@@ -235,5 +251,15 @@ Le jeton TMDb vit aujourd'hui dans le service, en variable d'environnement `TMDB
 ### Agrandir le catalogue embarqué
 
 `npm run import:cast` (workflow *Import TMDb cast*, déclenchement manuel avec un budget) ajoute au snapshot les artistes qu'il ignore, en partant des distributions des films français populaires. C'est le seul moyen pour un appareil hors connexion de connaître un artiste : il ne peut interroger personne. Mesure de départ : sur 102 noms contemporains, 89 sont déjà présents; les 13 manquants sont la génération 2010-2025 et les humoristes passés au cinéma. L'import n'ajoute jamais un doublon — il filtre par identifiant TMDb puis par nom normalisé — et n'écrit rien quand il n'a rien trouvé de neuf.
+
+### Nommer la nature des œuvres déjà publiées
+
+Le catalogue publié `src/data/tmdb-overlay.json` a été écrit avant que les œuvres portent une nature : ses 75 547 entrées ne savent pas encore dire lesquelles sont des documentaires. Le workflow *Enrich TMDb catalogue* les rattrape, coché sur **only\_missing\_kinds**, par lots :
+
+```bash
+npm run sync:tmdb -- --limit=2000 --only-missing-kinds --output=src/data/tmdb-overlay.json
+```
+
+L'option ne remet en file que les fiches encore muettes : la campagne se relance autant de fois qu'il faut, ne redemande jamais à TMDb ce qu'on a déjà, et la dernière ligne affichée dit combien d'œuvres restent sans nature — zéro signale la fin. Les 1 523 identités tiennent en un seul lot d'environ sept minutes.
 
 Les données et portraits enrichis proviennent de TMDb. This product uses the TMDB API but is not endorsed or certified by TMDB.

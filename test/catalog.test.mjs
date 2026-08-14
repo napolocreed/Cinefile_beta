@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createDatabase } from "../src/game/database.js";
-import { createHybridCatalog, createVerificationSearchLinks } from "../src/game/catalog.js";
+import { CATALOG_CACHE_KEY, createHybridCatalog, createVerificationSearchLinks, VERIFICATION_CACHE_KEY } from "../src/game/catalog.js";
 
 function memoryStorage() {
   const values = new Map();
@@ -36,7 +36,7 @@ test("hydrating a TMDb result adds credits and persists an offline cache", async
   const catalog = createHybridCatalog({ database, storage, fetchImpl: async () => jsonResponse({ person }) });
   const hydrated = await catalog.hydrate({ name: person.name, externalIds: person.externalIds, origin: "tmdb" });
   assert.deepEqual(hydrated.films, ["Film B"]);
-  assert.match(storage.getItem("cinefil.catalog-cache.v1"), /Alice Remote/);
+  assert.match(storage.getItem(CATALOG_CACHE_KEY), /Alice Remote/);
 
   const offlineDatabase = createDatabase({ actors: [], films: [] });
   createHybridCatalog({ database: offlineDatabase, storage, fetchImpl: async () => { throw new Error("offline"); } });
@@ -225,7 +225,7 @@ test("positive fallback evidence teaches the local catalogue across sessions", a
   const result = await catalog.verifyLink("Alice", "Bob");
   assert.equal(result.verdict, "CONFIRMED");
   assert.deepEqual(database.sharedFilms("Alice", "Bob"), ["Film retrouvé"]);
-  assert.match(storage.getItem("cinefil.verification-cache.v1"), /Film retrouvé/);
+  assert.match(storage.getItem(VERIFICATION_CACHE_KEY), /Film retrouvé/);
 
   const reloadedDatabase = createDatabase(seed);
   // Une session plus tard, sans réseau : la preuve apprise tient toute seule.
@@ -233,4 +233,55 @@ test("positive fallback evidence teaches the local catalogue across sessions", a
   assert.deepEqual(reloadedDatabase.sharedFilms("Alice", "Bob"), ["Film retrouvé"]);
   assert.equal((await offlineCatalog.verifyLink("Alice", "Bob")).source, "local");
   assert.equal(offlineCatalog.getVerificationCache().links.length, 1);
+});
+
+/* -----------------------------------------------------------------------------
+   Le périmètre, du côté du joueur
+   -------------------------------------------------------------------------- */
+
+test("a confirmed proof enters the catalogue with its nature, not as a film by default", async () => {
+  const storage = memoryStorage();
+  const seed = { actors: [{ name: "Alice", films: [] }, { name: "Bob", films: [] }], films: [] };
+  const database = createDatabase(seed);
+  const catalog = createHybridCatalog({ database, storage, fetchImpl: async () => jsonResponse({
+    verdict: "CONFIRMED",
+    source: "tmdb",
+    films: [{ title: "Un plateau", year: 2023, kind: "show", type: "tv" }],
+    evidence: [],
+  }) });
+  const opened = await catalog.verifyLink("Alice", "Bob", { extensions: { shows: true } });
+  assert.equal(opened.verdict, "CONFIRMED");
+  // La preuve est apprise telle qu'elle est : une émission, et non « un film » comme l'écrivait la version
+  // précédente. C'est ce qui permet à la partie suivante de la refuser sans avoir à réinterroger qui que ce soit.
+  assert.equal(catalog.getVerificationCache().links[0].films[0].kind, "show");
+  assert.deepEqual(database.sharedFilms("Alice", "Bob"), []);
+  assert.deepEqual(database.sharedFilms("Alice", "Bob", "classic", { extensions: { shows: true } }), ["Un plateau"]);
+});
+
+test("an out-of-scope answer is an absence of proof, never a proof of absence", async () => {
+  const database = createDatabase({ actors: [{ name: "Alice", films: [] }, { name: "Bob", films: [] }], films: [] });
+  // Une réponse mise en cache une journée par le serveur peut arriver après que la table a refermé son périmètre.
+  const catalog = createHybridCatalog({ database, storage: memoryStorage(), fetchImpl: async () => jsonResponse({
+    verdict: "CONFIRMED",
+    source: "wikidata",
+    films: [{ title: "Un documentaire", kind: "documentary" }],
+    evidence: [{ title: "Un documentaire", kind: "documentary" }],
+  }) });
+  const result = await catalog.verifyLink("Alice", "Bob");
+  assert.equal(result.verdict, "NOT_FOUND");
+  assert.deepEqual(result.films, []);
+  assert.equal(result.source, "none");
+  assert.equal(catalog.getVerificationCache().links.length, 0);
+});
+
+test("the scope travels with the question", async () => {
+  const requests = [];
+  const database = createDatabase({ actors: [{ name: "Alice", films: [] }, { name: "Bob", films: [] }], films: [] });
+  const catalog = createHybridCatalog({ database, storage: memoryStorage(), fetchImpl: async (url) => {
+    requests.push(String(url));
+    return jsonResponse({ verdict: "NOT_FOUND", source: "none", films: [], evidence: [] });
+  } });
+  await catalog.verifyLink("Alice", "Bob", { extensions: { documentaries: true } });
+  const scope = new URL(requests[0], "https://cinefil.test").searchParams.get("scope");
+  assert.deepEqual(scope.split(","), ["cinema", "documentary", "unknown"]);
 });

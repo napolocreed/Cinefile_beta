@@ -1,4 +1,5 @@
 import { normalizeText } from "./database.js";
+import { DEFAULT_EXTENSIONS, normalizeExtensions } from "./work-kinds.js";
 
 export const GAME_VERSION = 3;
 export const MAX_PLAYERS = 10;
@@ -8,7 +9,14 @@ export const DEFAULT_CONFIG = Object.freeze({
   turnSeconds: 30,
   allowBluffChallenge: true,
   mode: "classic",
+  // Le périmètre des œuvres qui relient deux artistes. Il appartient à la partie et non aux réglages de
+  // l'appareil : une sauvegarde rouverte doit se rejouer sous les règles sous lesquelles elle a été jouée.
+  extensions: DEFAULT_EXTENSIONS,
 });
+
+// Le périmètre demandé par la partie, lisible même sur une sauvegarde antérieure aux extensions — qui n'en porte
+// aucune, et se rejoue donc au socle.
+export const configExtensions = (game) => normalizeExtensions(game?.config?.extensions);
 
 const clone = (value) => structuredClone(value);
 const fallbackId = () => Math.random().toString(36).slice(2, 10);
@@ -34,6 +42,7 @@ export function createGame({ names, config = {}, random = Math.random, now = Dat
   const cleanNames = [...new Set((names ?? []).map((name) => String(name).trim()).filter(Boolean))].slice(0, MAX_PLAYERS);
   if (cleanNames.length < 2) throw new Error("Une partie nécessite au moins deux joueurs.");
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+  mergedConfig.extensions = normalizeExtensions(config.extensions);
   const players = cleanNames.map((name) => playerTemplate(idFactory(), name, mergedConfig.livesPerPlayer));
   return {
     version: GAME_VERSION,
@@ -149,7 +158,7 @@ export function proposeActor(game, actorName, database) {
   // liaison A–B, ou il l'accepte et enchaîne. À deux joueurs les deux lectures désignent la même personne,
   // ce qui a laissé passer l'erreur ; au-delà, elle donnait la décision à quelqu'un qui avait déjà joué.
   const challenger = database && previousActor ? game.players[nextAliveIndex(game, game.currentPlayerIdx)] : null;
-  const sharedFilms = previousActor ? database.sharedFilms(previousActor, proposedActor, game.config.themeId) : [];
+  const sharedFilms = previousActor ? database.sharedFilms(previousActor, proposedActor, game.config.themeId, { extensions: configExtensions(game) }) : [];
   const knownPair = Boolean(previousActor && database.hasActor(previousActor, game.config.themeId) && database.hasActor(proposedActor, game.config.themeId));
   const pending = {
     index: game.turns.length,
@@ -241,7 +250,7 @@ export function replaceLastActor(game, actorName, database, { now = Date.now } =
   for (let index = next.turns.length - 1; index >= 0; index -= 1) {
     const turn = next.turns[index];
     if (!turn.accepted) continue;
-    const sharedFilms = previousActor ? database?.sharedFilms(previousActor, replacement, next.config.themeId) ?? [] : [];
+    const sharedFilms = previousActor ? database?.sharedFilms(previousActor, replacement, next.config.themeId, { extensions: configExtensions(next) }) ?? [] : [];
     const knownPair = previousActor && database?.hasActor(previousActor, next.config.themeId) && database?.hasActor(replacement, next.config.themeId);
     if (knownPair && !sharedFilms.length) throw new Error("Cette correction casserait la liaison précédente.");
     const proposer = next.players.find((player) => player.id === turn.playerId);

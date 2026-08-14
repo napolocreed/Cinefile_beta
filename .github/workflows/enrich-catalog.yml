@@ -11,6 +11,11 @@ on:
         required: true
         default: "100"
         type: string
+      only_missing_kinds:
+        description: Only re-fetch people whose catalogue entries have no work kind yet
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "17 3 * * 0"
 
@@ -43,7 +48,8 @@ jobs:
         env:
           TMDB_API_TOKEN: ${{ secrets.TMDB_API_TOKEN }}
           BATCH_SIZE: ${{ inputs.batch_size || '100' }}
-        run: npm run sync:tmdb -- --limit="$BATCH_SIZE" --refresh-days=60 --output=src/data/tmdb-overlay.json
+          ONLY_MISSING_KINDS: ${{ inputs.only_missing_kinds && '--only-missing-kinds' || '' }}
+        run: npm run sync:tmdb -- --limit="$BATCH_SIZE" --refresh-days=60 --output=src/data/tmdb-overlay.json $ONLY_MISSING_KINDS
       - name: Run non-regression tests
         run: npm run test:unit
       - name: Persist refreshed overlay

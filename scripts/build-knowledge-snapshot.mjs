@@ -72,6 +72,10 @@ for (const [groupKey, group] of [...workGroups].sort(([left], [right]) => left.l
     aliases,
     year: parseYear(title),
     type: "movie",
+    // La reprise Lovable est une liste de films de cinéma : la nature est donc écrite, plutôt que laissée à
+    // déduire de la source à chaque lecture. C'est ce qui permet à un crédit TMDb de nature contraire — une
+    // série qui porte le même titre — de refuser la fusion au lieu d'hériter du type par défaut.
+    kind: "cinema",
     externalIds: {},
     source: "lovable-recovery",
   };

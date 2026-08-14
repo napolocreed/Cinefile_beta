@@ -1149,6 +1149,34 @@ h2.marquee {
   gap: 0 var(--gap);
 }
 
+/* Le périmètre : une extension par ligne, chacune avec ce qu'elle ouvre écrit dessous. Trois cases empilées
+   plutôt qu'une grille à deux colonnes — le nom et son exemple doivent rester sur la même ligne de lecture. */
+.scope-grid {
+  display: grid;
+  gap: 0.15rem;
+  margin-top: 0.4rem;
+}
+
+.check-row--stacked {
+  align-items: flex-start;
+  padding: 0.35rem 0;
+}
+
+.check-row--stacked input {
+  margin-top: 0.15rem;
+}
+
+.check-row--stacked span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.check-row--stacked small {
+  font-family: var(--font-script);
+  font-size: 0.62rem;
+  color: var(--kraft-dim);
+}
+
 /* -----------------------------------------------------------------------------
    11. PARTIE CLASSIQUE
    -------------------------------------------------------------------------- */

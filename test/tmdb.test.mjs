@@ -45,3 +45,23 @@ test("TMDb person hydration combines cast and crew credits deterministically", a
   assert.equal(person.credits[0].externalIds.tmdb, undefined);
   assert.equal(person.externalIds.imdb, "nm0012");
 });
+
+test("credit genres travel with the work, because nothing else separates a documentary from a film", async () => {
+  const client = createTmdbClient({ apiKey: "api-key", fetchImpl: async () => response({
+    id: 13,
+    name: "Jane Doe",
+    combined_credits: {
+      cast: [
+        { id: 8, media_type: "movie", title: "Un film", release_date: "2020-01-01", genre_ids: [18, 35] },
+        { id: 9, media_type: "movie", title: "Un portrait", release_date: "2022-01-01", genre_ids: [99] },
+        { id: 10, media_type: "tv", name: "Un plateau", first_air_date: "2019-01-01", genre_ids: [10767] },
+      ],
+      // TMDb ne répète pas toujours les genres sur la ligne technique : la nature déjà nommée ne doit pas y
+      // retomber à l'inconnu.
+      crew: [{ id: 9, media_type: "movie", title: "Un portrait", release_date: "2022-01-01", department: "Sound" }],
+    },
+  }) });
+  const person = await client.getPerson(13);
+  const kinds = Object.fromEntries(person.credits.map((work) => [work.title, work.kind]));
+  assert.deepEqual(kinds, { "Un film": "cinema", "Un portrait": "documentary", "Un plateau": "show" });
+});

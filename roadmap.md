@@ -146,6 +146,20 @@ Mise à jour le 14 août 2026. La reconstruction, le déploiement continu sur Cl
 - [x] Rubrique statistiques : trois jauges à socle, registre complet, faits de bobine, bande de forme sur dix parties, adversaires marquants.
 - [x] Le verdict « rien trouvé » de la VAR porte la réplique de Gin Rummy dans The Boondocks et un sceau original dessiné dans la DA, avec ses replis en texte agrandi, écran étroit et couleurs forcées.
 
+## Phase 11 — le périmètre des liaisons — livrée
+
+Une partie du 14 août 2026 a servi de banc d'essai : sur vingt maillons, huit tenaient par une série, une émission ou un documentaire, et un joueur qui criait au bluff a perdu une vie sur le talk-show *LEGEND*.
+
+- [x] Nature d'œuvre (`cinema`, `documentary`, `series`, `show`, `unknown`) décidée à un seul endroit, `src/game/work-kinds.js`, et gravée sur l'œuvre plutôt que recalculée.
+- [x] Correction de la fusion par titre : une série ne se range plus dans le film homonyme et sans année du snapshot, d'où elle héritait le type `movie` et l'invisibilité qui va avec.
+- [x] Trois extensions indépendantes, coupées par défaut, gravées dans la configuration de la partie et mémorisées comme défaut de la suivante.
+- [x] Périmètre porté de bout en bout : base locale, cascade TMDb/Wikidata/Wikipédia, clé de cache serveur, cache de vérification de l'appareil.
+- [x] Genres TMDb capturés à la source ; complétion à la volée des fiches publiées encore muettes quand un jeton est configuré.
+- [x] Caches locaux versionnés v2 : les entrées v1, écrites en `type: "movie"` d'office, sont abandonnées et effacées.
+- [ ] Lancer la campagne `--only-missing-kinds` jusqu'à zéro œuvre sans nature dans `src/data/tmdb-overlay.json`.
+- [ ] Dédoublonner les titres localisés du snapshot de reprise (`Les Valseuses` / `Going Places`, `Umami` / `Umami-no Tabi`) : ce ne sont pas de fausses liaisons, mais elles allongent les listes de preuves.
+- [ ] Second filet possible : le champ `character` de TMDb sépare une apparition dans son propre rôle d'un vrai rôle, y compris dans une fiction. Le porter demande de garder l'information par crédit et non par œuvre.
+
 ## Prochain cycle éditorial
 
 1. Ajouter le secret GitHub `TMDB_API_TOKEN`, puis laisser les vagues hebdomadaires rafraîchir la couverture complète.

@@ -21,6 +21,7 @@ import {
   stopSearch,
   stopTimer,
 } from "../runtime.js";
+import { describeExtensions } from "../../game/work-kinds.js";
 import { connectionMarkup, escapeHtml, livesMarkup, pictureMarkup, portraitMarkup, roleLabel } from "../format.js";
 import { verifyPendingLink } from "../link-check.js";
 import { shell } from "../shell.js";
@@ -154,6 +155,15 @@ function consequenceMarkup(consequence) {
   return `<p class="reveal-strike reveal-strike--out" role="status"><span class="death-card" aria-hidden="true">FIN</span><b>${escapeHtml(consequence.name)}</b> est éliminé${consequence.last ? " · la partie s’arrête là" : " · sorti de la partie"}</p>`;
 }
 
+// Une partie élargie ne se joue pas comme une autre, et la preuve affichée doit pouvoir se relire à la lumière de
+// la règle qui l'a acceptée. La ligne ne paraît que lorsqu'une extension est ouverte : au socle, il n'y a rien à
+// dire — un film est un film.
+function scopeNote() {
+  const opened = describeExtensions(state.game?.config?.extensions);
+  if (!opened.length) return "";
+  return `<p class="reveal-note">Périmètre élargi · ${escapeHtml(opened.join(" · ").toLocaleLowerCase("fr"))}</p>`;
+}
+
 export function playMarkup() {
   const game = state.game;
   if (game.config.mode === "voice") return voiceMarkup();
@@ -245,6 +255,7 @@ export function playMarkup() {
     ${films}
     ${state.revealChallenged ? `<p class="reveal-note">Bluff annoncé — ${valid ? "ce n’était pas un bluff." : "c’était bien un bluff."}</p>` : ""}
     ${state.pending?.autoVerify ? `<p class="reveal-note">Défis de bluff coupés — la liaison est vérifiée automatiquement entre chaque acteur.</p>` : ""}
+    ${scopeNote()}
     ${state.pending?.verification ? verificationCascadeMarkup(state.pending.verification) : ""}
     ${provenance}
     ${state.pending?.method === "timeout" ? `<p class="reveal-note">Le chrono a mangé la réplique.</p>` : ""}

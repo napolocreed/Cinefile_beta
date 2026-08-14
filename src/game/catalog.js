@@ -1,7 +1,12 @@
 import { normalizeText } from "./identity.js";
+import { isKnownKind, isWorkInScope, normalizeExtensions, scopeFromExtensions, WORK_KINDS, workKind } from "./work-kinds.js";
 
-export const CATALOG_CACHE_KEY = "cinefil.catalog-cache.v1";
-export const VERIFICATION_CACHE_KEY = "cinefil.verification-cache.v1";
+// v2 : les caches v1 ont été écrits par une version qui gravait « type: movie » sur tout ce qu'une source
+// confirmait, séries et documentaires compris. Ils ne sont pas rattrapables entrée par entrée — rien n'y dit ce
+// que l'œuvre était vraiment — donc ils sont abandonnés, et effacés pour rendre la place qu'ils occupent.
+export const CATALOG_CACHE_KEY = "cinefil.catalog-cache.v2";
+export const VERIFICATION_CACHE_KEY = "cinefil.verification-cache.v2";
+const LEGACY_CACHE_KEYS = ["cinefil.catalog-cache.v1", "cinefil.verification-cache.v1"];
 const MAX_CACHED_PEOPLE = 80;
 const MAX_VERIFIED_LINKS = 200;
 
@@ -45,15 +50,20 @@ function compactVerifiedPerson(person) {
   };
 }
 
+// Une preuve retenue entre en base pour de bon : elle y sera relue à la partie suivante, hors connexion, sans que
+// personne ne puisse plus la contester. Elle doit donc emporter ce qu'elle est — un film, un documentaire, une
+// émission — et non le « film » que l'ancienne version écrivait d'office sur tout ce qui remontait.
 function compactVerifiedFilm(film, source) {
   const title = String(typeof film === "string" ? film : film?.title ?? "").trim().slice(0, 200);
   if (!title) return null;
   const candidateYear = Number(film?.year);
   const qid = typeof film?.qid === "string" && /^Q\d{1,20}$/.test(film.qid) ? film.qid : null;
+  const kind = isKnownKind(film?.kind) ? film.kind : WORK_KINDS.UNKNOWN;
   return {
     title,
     year: Number.isInteger(candidateYear) && candidateYear >= 1800 && candidateYear <= 2200 ? candidateYear : null,
-    type: "movie",
+    type: film?.type === "tv" ? "tv" : "movie",
+    kind,
     source: compactSource(film?.source, compactSource(source)),
     externalIds: {
       ...compactExternalIds(film?.externalIds),
@@ -153,6 +163,25 @@ export function createCatalogCache(storage = globalThis.localStorage) {
   return { load, savePerson, clear: () => storage?.removeItem(CATALOG_CACHE_KEY) };
 }
 
+// Le dernier filet, côté joueur. Une réponse de vérification est mise en cache une journée par le serveur et par
+// le navigateur : une preuve calculée avant cette version, ou par un serveur plus ancien, peut donc encore
+// arriver avec des œuvres hors périmètre. On les retire ici plutôt que de faire confiance à l'expéditeur, et un
+// verdict qui n'a plus rien pour lui redevient une absence de preuve — jamais une preuve d'absence, que seule la
+// table peut prononcer.
+function inScope(payload, scope) {
+  const films = (Array.isArray(payload?.films) ? payload.films : []).filter((film) => isWorkInScope(film, scope));
+  if (films.length === (payload?.films?.length ?? 0)) return payload;
+  const evidence = (Array.isArray(payload?.evidence) ? payload.evidence : []).filter((entry) => isWorkInScope(entry, scope));
+  const kept = films.length > 0;
+  return {
+    ...payload,
+    films,
+    evidence,
+    verdict: kept ? payload.verdict : payload.verdict === "UNKNOWN" ? "UNKNOWN" : "NOT_FOUND",
+    source: kept ? payload.source : "none",
+  };
+}
+
 export function createHybridCatalog({
   database,
   fetchImpl = globalThis.fetch,
@@ -160,6 +189,13 @@ export function createHybridCatalog({
 } = {}) {
   const cache = createCatalogCache(storage);
   const verificationCache = createVerificationCache(storage);
+  for (const key of LEGACY_CACHE_KEYS) {
+    try {
+      storage?.removeItem(key);
+    } catch {
+      // Un stockage refusé ne doit pas empêcher la partie de démarrer : la version v1 sera simplement ignorée.
+    }
+  }
   const cached = cache.load();
   for (const person of cached.people) database.upsertPerson(person, { source: "tmdb" });
   for (const link of verificationCache.load().links) applyVerifiedLink(database, link);
@@ -262,15 +298,18 @@ export function createHybridCatalog({
     }
   }
 
-  async function verifyLink(left, right, { locale = "fr-FR", signal } = {}) {
+  async function verifyLink(left, right, { locale = "fr-FR", signal, extensions = null } = {}) {
     const leftPerson = typeof left === "object" ? left : database.findActor(left);
     const rightPerson = typeof right === "object" ? right : database.findActor(right);
     const leftName = String(leftPerson?.name ?? left ?? "").trim();
     const rightName = String(rightPerson?.name ?? right ?? "").trim();
     const searchLinks = createVerificationSearchLinks(leftName, rightName);
-    const localFilms = database.sharedWorks(leftPerson ?? leftName, rightPerson ?? rightName).map((work) => ({
+    const activeExtensions = normalizeExtensions(extensions);
+    const scope = scopeFromExtensions(activeExtensions);
+    const localFilms = database.sharedWorks(leftPerson ?? leftName, rightPerson ?? rightName, "classic", { extensions: activeExtensions }).map((work) => ({
       title: work.title,
       year: work.year ?? null,
+      kind: workKind(work),
       url: work.externalIds?.tmdbMovie ? `https://www.themoviedb.org/movie/${work.externalIds.tmdbMovie}` : null,
       source: "local",
     }));
@@ -286,17 +325,19 @@ export function createHybridCatalog({
       return { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks, offline: true, steps: [localStep, unreached("tmdb", "error"), unreached("wikidata", "error"), unreached("wikipedia", "error")] };
     }
     try {
-      const parameters = new URLSearchParams({ left: leftName, right: rightName, locale });
+      // Le périmètre part avec la question : le serveur ne doit pas renvoyer — ni mettre en cache pour la table
+      // suivante — une preuve que cette partie a décidé de ne pas jouer.
+      const parameters = new URLSearchParams({ left: leftName, right: rightName, locale, scope: [...scope].sort().join(",") });
       if (leftPerson?.externalIds?.tmdb) parameters.set("leftTmdbId", leftPerson.externalIds.tmdb);
       if (rightPerson?.externalIds?.tmdb) parameters.set("rightTmdbId", rightPerson.externalIds.tmdb);
-      const payload = await fetchJson(`/api/verify-link?${parameters}`, { signal });
-      if (payload.verdict === "CONFIRMED") {
+      const answer = inScope(await fetchJson(`/api/verify-link?${parameters}`, { signal }), scope);
+      if (answer.verdict === "CONFIRMED") {
         const leftReference = leftPerson ?? { name: leftName };
         const rightReference = rightPerson ?? { name: rightName };
-        const entry = verificationCache.save(leftReference, rightReference, payload);
+        const entry = verificationCache.save(leftReference, rightReference, answer);
         if (entry) applyVerifiedLink(database, entry);
       }
-      return { ...payload, searchLinks: payload.searchLinks ?? searchLinks, steps: [localStep, ...(Array.isArray(payload.steps) ? payload.steps : [])] };
+      return { ...answer, searchLinks: answer.searchLinks ?? searchLinks, steps: [localStep, ...(Array.isArray(answer.steps) ? answer.steps : [])] };
     } catch (error) {
       if (error?.name === "AbortError") throw error;
       return { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks, error: "unavailable", steps: [localStep, unreached("tmdb", "error"), unreached("wikidata", "error"), unreached("wikipedia", "error")] };

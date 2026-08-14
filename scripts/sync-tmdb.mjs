@@ -17,6 +17,11 @@ const overridesPath = resolve(root, String(argumentsMap.get("overrides") ?? "src
 const delayMs = Math.max(0, Number(argumentsMap.get("delay") ?? 260));
 const refreshAfterDays = Math.max(1, Number(argumentsMap.get("refresh-days") ?? 60));
 const onlyFailures = argumentsMap.has("only-failures");
+// Le catalogue publié avant les natures d'œuvres ne sait pas dire qu'un crédit est un documentaire ou une
+// émission, et le jeu doit alors le laisser passer faute de mieux. Ce drapeau ne remet en file que les fiches
+// encore muettes : la campagne se relance autant de fois qu'il faut, et s'arrête d'elle-même quand il n'en reste
+// aucune — sans jamais redemander à TMDb ce qu'on a déjà.
+const onlyMissingKinds = argumentsMap.has("only-missing-kinds");
 const acceptExactZeroOverlap = argumentsMap.has("accept-exact-zero-overlap");
 const tmdb = createTmdbClient();
 
@@ -138,11 +143,16 @@ if (!tmdb.configured) {
     console.warn(`[audit] ${localPerson.name}: correspondance TMDb sans crédit commun retirée.`);
   }
   overlay.failures = [...failureByLocalId.values()];
+  const missesKinds = (person) => (person?.credits ?? []).some((credit) => {
+    const work = typeof credit === "string" ? overlayWorksById.get(credit) : credit;
+    return work && !work.kind;
+  });
   const queue = snapshot.people
     .filter((person) => !person.externalIds?.tmdb)
     .filter((person) => !onlyFailures || failureByLocalId.has(person.id))
     .filter((person) => {
       const enriched = enrichedByLocalId.get(person.id);
+      if (onlyMissingKinds) return !enriched || missesKinds(enriched);
       return !enriched || ageInDays(enriched.syncedAt) >= refreshAfterDays;
     })
     .sort((left, right) => {
@@ -201,5 +211,6 @@ if (!tmdb.configured) {
   }
 
   if (!queue.length) await saveOverlay(overlay);
-  console.log(`Synchronisation incrémentale terminée: ${overlay.people.length} personnes enrichies, ${overlay.failures.length} à revoir.`);
+  const unnamed = overlay.works.filter((work) => !work.kind).length;
+  console.log(`Synchronisation incrémentale terminée: ${overlay.people.length} personnes enrichies, ${overlay.failures.length} à revoir, ${unnamed} œuvres encore sans nature.`);
 }
