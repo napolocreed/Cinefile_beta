@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createStorage, recordFinishedGame } from "../src/game/storage.js";
+import { blankProfile, completeProfile, createStorage, recordFinishedGame } from "../src/game/storage.js";
 
 function fakeStorage() {
   const values = new Map();
@@ -43,4 +43,44 @@ test("finished games are idempotent across a refresh", () => {
   assert.deepEqual(second.newAchievements, []);
   assert.equal(storage.loadProfiles().alice.games, 1);
   assert.equal(storage.loadHistory().length, 1);
+});
+
+test("a name can become a profile before it has ever played", () => {
+  const storage = createStorage(fakeStorage());
+  const created = storage.rememberProfile("  Carol  ");
+  assert.equal(created.name, "Carol");
+  assert.equal(created.games, 0);
+  assert.deepEqual(created.achievements, []);
+  assert.deepEqual(Object.keys(storage.loadProfiles()), ["carol"]);
+  // A profile with no history still counts its first game like any other.
+  const played = recordFinishedGame({ ...finishedGame(), players: [
+    { id: "p1", name: "Carol", filmsFound: 3, bluffsSucceeded: 0, bluffsCaught: 0, score: 3, bestStreak: 1 },
+    { id: "p2", name: "Bob", filmsFound: 0, bluffsSucceeded: 0, bluffsCaught: 0, score: 0, bestStreak: 0 },
+  ] }, storage);
+  assert.equal(played.profiles.carol.games, 1);
+  assert.equal(played.profiles.carol.filmsFound, 3);
+});
+
+test("remembering a name twice never overwrites the profile already there", () => {
+  const storage = createStorage(fakeStorage());
+  recordFinishedGame(finishedGame(), storage);
+  const again = storage.rememberProfile("ALICE");
+  assert.equal(again.games, 1);
+  // The spelling on file wins: a casting call must not rename a history.
+  assert.equal(again.name, "Alice");
+  assert.equal(storage.rememberProfile("   "), null);
+});
+
+test("a profile can be dropped from the archives", () => {
+  const storage = createStorage(fakeStorage());
+  storage.rememberProfile("Dimitri");
+  assert.equal(storage.forgetProfile("dimitri"), true);
+  assert.deepEqual(storage.loadProfiles(), {});
+  assert.equal(storage.forgetProfile("dimitri"), false);
+});
+
+test("a profile saved before a counter existed is completed rather than trusted", () => {
+  const legacy = completeProfile({ name: "Ancien", games: 4, wins: 2 });
+  assert.deepEqual(legacy, { ...blankProfile("Ancien"), games: 4, wins: 2 });
+  assert.equal(completeProfile(undefined, "Neuf").games, 0);
 });

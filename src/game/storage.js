@@ -1,6 +1,34 @@
 import { achievementsFor } from "./achievements.js";
 import { normalizeText } from "./database.js";
 
+// One shape for a profile, written once. A profile used to exist only as the by-product of a finished game, so
+// every counter was invented on the spot inside recordFinishedGame; now that the setup screen can create one
+// before it has ever played, the blank has to be a real thing rather than an implicit one.
+export function blankProfile(name) {
+  return {
+    name: String(name ?? "").trim(),
+    xp: 0,
+    games: 0,
+    wins: 0,
+    filmsFound: 0,
+    bluffsSucceeded: 0,
+    bluffsCaught: 0,
+    achievements: [],
+    challengesMade: 0,
+    challengesSuccessful: 0,
+  };
+}
+
+// Old saves predate every counter added since, so a profile read from disk is completed rather than trusted.
+export function completeProfile(profile, name = profile?.name) {
+  const complete = { ...blankProfile(name), ...(profile ?? {}) };
+  complete.name = String(name ?? profile?.name ?? "").trim() || complete.name;
+  complete.achievements = Array.isArray(complete.achievements) ? complete.achievements : [];
+  return complete;
+}
+
+export const profileKey = (name) => normalizeText(name);
+
 export const STORAGE_KEYS = Object.freeze({
   current: "cinelink.current.v1",
   history: "cinelink.history.v1",
@@ -36,6 +64,28 @@ export function createStorage(storage = globalThis.localStorage) {
     appendHistory: (game) => safeWrite(storage, STORAGE_KEYS.history, [game, ...safeRead(storage, STORAGE_KEYS.history, [])].slice(0, 50)),
     loadProfiles: () => safeRead(storage, STORAGE_KEYS.profiles, {}),
     saveProfiles: (profiles) => safeWrite(storage, STORAGE_KEYS.profiles, profiles),
+    // A name typed at the casting call is a profile from that moment on, with nothing to its name yet. Returning
+    // the profile — created or already there — is what lets the setup screen show it back immediately.
+    rememberProfile: (name) => {
+      const clean = String(name ?? "").trim();
+      const key = profileKey(clean);
+      if (!key) return null;
+      const profiles = safeRead(storage, STORAGE_KEYS.profiles, {});
+      // An existing profile keeps its own spelling: "alice" typed today must not rewrite "Alice" and its history.
+      const profile = profiles[key] ? completeProfile(profiles[key]) : blankProfile(clean);
+      profiles[key] = profile;
+      safeWrite(storage, STORAGE_KEYS.profiles, profiles);
+      return profile;
+    },
+    forgetProfile: (name) => {
+      const key = profileKey(name);
+      if (!key) return false;
+      const profiles = safeRead(storage, STORAGE_KEYS.profiles, {});
+      if (!(key in profiles)) return false;
+      delete profiles[key];
+      safeWrite(storage, STORAGE_KEYS.profiles, profiles);
+      return true;
+    },
     loadApplied: () => safeRead(storage, STORAGE_KEYS.applied, []),
     markApplied: (gameId) => safeWrite(storage, STORAGE_KEYS.applied, [...new Set([gameId, ...safeRead(storage, STORAGE_KEYS.applied, [])])].slice(0, 100)),
     replaceApplied: (gameIds) => safeWrite(storage, STORAGE_KEYS.applied, [...new Set(Array.isArray(gameIds) ? gameIds : [])].slice(0, 100)),
@@ -52,29 +102,8 @@ export function recordFinishedGame(game, storageApi) {
   const newAchievements = new Set();
 
   for (const player of game.players) {
-    const key = normalizeText(player.name);
-    const profile = profiles[key] ?? {
-      name: player.name,
-      xp: 0,
-      games: 0,
-      wins: 0,
-      filmsFound: 0,
-      bluffsSucceeded: 0,
-      bluffsCaught: 0,
-      achievements: [],
-      challengesMade: 0,
-      challengesSuccessful: 0,
-    };
-    profile.name = player.name;
-    profile.xp ??= 0;
-    profile.games ??= 0;
-    profile.wins ??= 0;
-    profile.filmsFound ??= 0;
-    profile.bluffsSucceeded ??= 0;
-    profile.bluffsCaught ??= 0;
-    profile.achievements ??= [];
-    profile.challengesMade ??= 0;
-    profile.challengesSuccessful ??= 0;
+    const key = profileKey(player.name);
+    const profile = completeProfile(profiles[key], player.name);
     profile.games += 1;
     profile.filmsFound += player.filmsFound;
     profile.bluffsSucceeded += player.bluffsSucceeded;
