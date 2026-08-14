@@ -1,11 +1,13 @@
 // The poster. One screen, no scroll: the mark, the title, two ways in.
 
-import { app, routeUrl, state } from "../runtime.js";
+import { app, assetUrl, routeUrl, state } from "../runtime.js";
 import { brandMarkup, filmFurniture } from "../shell.js";
 
 export function renderHome() {
   const hasGame = state.game?.status === "in-progress";
-  app.root.innerHTML = `<main class="hero"><div class="hero__beam" aria-hidden="true"></div>${filmFurniture()}<div class="hero__content">
+  // Le même emblème une seconde fois, en filigrane : il occupe le creux entre l'accroche et les boutons, que
+  // l'affiche laissait vide sur les grands mobiles, sans jamais passer devant un mot à lire.
+  app.root.innerHTML = `<main class="hero"><div class="hero__beam" aria-hidden="true"></div><img class="hero__crest" src="${assetUrl("assets/brand/emblem.webp")}" width="760" height="628" alt="" aria-hidden="true" decoding="async">${filmFurniture()}<div class="hero__content">
     <div class="hero__mark">${brandMarkup(true)}</div>
     <div class="screen__spacer screen__spacer--half"></div>
     <h1 class="marquee hero__title">Le dernier <em>à l’écran</em></h1>
