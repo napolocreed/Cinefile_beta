@@ -61,8 +61,9 @@ export function nextAliveIndex(game, fromIndex) {
   return fromIndex;
 }
 
-// Il n'y a volontairement pas de previousAliveIndex : plus rien ne remonte le tour de table. Le seul appelant
-// qu'il ait eu désignait le challenger, et c'est précisément l'erreur que ce sens de lecture a causée.
+// Il n'y a volontairement pas de previousAliveIndex : plus rien ne remonte le tour de table. Ses deux seuls
+// appelants — proposeActor et timeoutPending — y désignaient le challenger, et c'est précisément l'erreur que
+// ce sens de lecture a causée.
 
 export function currentPlayer(game) {
   return game.players[game.currentPlayerIdx];
@@ -211,14 +212,14 @@ export function timeoutTurn(game) {
 
 export function timeoutPending(game) {
   const proposer = currentPlayer(game);
-  // Même lecture que proposeActor : le siège qui aurait eu à trancher est le suivant. Un chrono expiré ne se
-  // conteste pas — resolvePending le règle toujours sans défi — mais le compteur d'occasions de buzzer lit ce
-  // champ, et il doit compter pour celui à qui la décision serait revenue.
-  const challenger = game.chain.length ? game.players[nextAliveIndex(game, game.currentPlayerIdx)] : null;
+  // Aucun challenger : rien n'a été proposé, donc personne n'a eu à trancher. Le champ portait jusqu'ici le
+  // joueur précédent, et le passer au suivant avec proposeActor aurait été pire — il aurait crédité une
+  // occasion de buzzer imaginaire à celui qui prend justement la main. Rien d'autre ne le lit sur un chrono
+  // expiré : applyResolution ne s'en sert que sur un coup contesté, et un timeout se règle toujours sans défi.
   return {
     index: game.turns.length,
     playerId: proposer.id,
-    challengerId: challenger?.id ?? null,
+    challengerId: null,
     proposedActor: "(temps écoulé)",
     sharedFilms: [],
     wasValid: false,

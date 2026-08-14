@@ -44,9 +44,10 @@ test("a valid link can be accepted and records the shared film", () => {
 });
 
 // Le défi revient au joueur suivant : Alice ouvre, Bob propose, et c'est Carol — celle qui doit accrocher le
-// maillon d'après — qui choisit entre crier au bluff et enchaîner. Ces deux tests tournent à trois joueurs,
-// seul nombre où la règle se distingue de « le joueur précédent » : à deux, les deux désignent la même
-// personne, ce qui est exactement ce qui a laissé l'erreur passer inaperçue.
+// maillon d'après — qui choisit entre crier au bluff et enchaîner. Ces tests tournent à trois joueurs, le plus
+// petit nombre où la règle se distingue de « le joueur précédent » : dès que trois joueurs sont encore en vie
+// les deux lectures divergent, mais à deux elles désignent la même personne — ce qui est exactement ce qui a
+// laissé l'erreur passer inaperçue.
 test("a true link challenged as a bluff costs the challenger a life and awards two points", () => {
   let game = makeGame({ livesPerPlayer: 2 });
   game = proposeActor(game, "Leonardo DiCaprio", database).game;
@@ -171,6 +172,8 @@ test("timeout creates an invalid pending turn and penalises the current player w
   let game = proposeActor(makeGame({ livesPerPlayer: 2 }), "Leonardo DiCaprio", database).game;
   const pending = timeoutPending(game);
   assert.equal(pending.method, "timeout");
+  // Rien n'a été proposé : personne n'avait à trancher, et le tour ne doit créditer aucune occasion de buzzer.
+  assert.equal(pending.challengerId, null);
   game = resolvePending(game, pending);
   assert.equal(game.players[1].lives, 1);
   assert.equal(game.chain.length, 1);

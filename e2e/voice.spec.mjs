@@ -255,3 +255,45 @@ test("the tour de table hands the microphone round the whole cast", async ({ pag
   await expect(page.locator(".voice-seat-chip").filter({ hasText: seen[4] })).toContainText("a proposé");
   await expect(page.getByRole("button", { name: /BLUFF/i })).toBeEnabled();
 });
+
+// Le cas qui sépare vraiment les deux lectures : un buzz *raté*. Sur une liaison confirmée, c'est le siège qui
+// avait la décision qui paie — l'ancienne règle aurait facturé la vie au joueur d'avant, qui n'avait plus rien
+// à jouer. À quatre joueurs, ces deux sièges sont distincts et le verdict le montre.
+test("at four players a wrong buzz is charged to the seat that had the decision", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "One browser project covers the buzz verdict.");
+  await startVoiceGame(page, { players: ["Alice", "Bob", "Carol", "Dan"] });
+  await page.getByRole("button", { name: /Activer le micro/i }).click();
+
+  const stage = page.locator("[data-voice-stage]");
+  const opener = await stage.getAttribute("data-voice-turn");
+  await validate(page, "Leonardo DiCaprio", "Leonardo DiCaprio");
+  const proposer = await stage.getAttribute("data-voice-turn");
+  await validate(page, "Kate Winslet", "Kate Winslet");
+
+  // Trois sièges distincts : qui a ouvert, qui vient de proposer, et qui doit maintenant trancher.
+  const decider = await stage.getAttribute("data-voice-turn");
+  expect(decider).not.toBe(opener);
+  expect(decider).not.toBe(proposer);
+
+  await page.getByRole("button", { name: /BLUFF/i }).click();
+  // DiCaprio et Winslet partagent Titanic : le catalogue local tranche seul, sans VAR ni réseau.
+  await page.getByRole("button", { name: /Vérifier le bluff/i }).click();
+  await expect(page.locator(".voice-outcome .verdict")).toContainText("Liaison valide");
+  await expect(page.locator(".voice-outcome")).toContainText("Le buzz était injustifié");
+  const penalty = page.locator(".voice-outcome__penalty");
+  await expect(penalty).toContainText(decider);
+  await expect(penalty).not.toContainText(opener);
+  await expect(penalty).not.toContainText(proposer);
+
+  // La passation se mesure une fois la proposition retombée. Ici le siège ne change pas — il vient de perdre
+  // une vie sur son propre buzz et garde la main — donc l'annonce ne doit parler que de la vie perdue. La
+  // mesurer proposition encore posée faisait annoncer le siège d'après, qui n'a rien à jouer.
+  const announcement = page.locator("p.sr-only[role='status']");
+  await expect(announcement).toContainText("perd une vie");
+  await expect(announcement).not.toContainText("Au tour de");
+
+  // Et il enchaîne quand même : perdre une vie sur un buzz raté ne dispense pas de jouer.
+  await page.getByRole("button", { name: /Continuer/i }).click();
+  await expect(stage).toHaveAttribute("data-voice-turn", decider);
+  expect(await chainOf(page)).toEqual(["Leonardo DiCaprio", "Kate Winslet"]);
+});

@@ -698,6 +698,11 @@ function completeVoiceReview(game, pending, { challenged }) {
   const before = game.chain.length;
   const snapshot = voiceSnapshot();
   state.game = resolvePending(game, pending, { challenged });
+  // Le coup est retombé : la proposition n'attend plus, et il faut le dire avant de mesurer la passation.
+  // voiceActivePlayer lit state.pending pour savoir si le micro appartient au joueur courant ou au suivant ;
+  // le laisser posé ici faisait calculer l'état « après » d'un cran trop loin, et la passation annonçait le
+  // siège d'après celui qui prenait vraiment la main. Le « avant », lui, se mesure bien proposition posée.
+  state.pending = null;
   flashVoiceTransition(snapshot);
   if (review) {
     review.left.selected = review.selected.left;
@@ -722,7 +727,6 @@ function completeVoiceReview(game, pending, { challenged }) {
     struck: state.game.players.find((player) => player.lives < (snapshot.lives[player.id] ?? player.lives)) ?? null,
     finished: state.game.status === "finished",
   };
-  state.pending = null;
   state.voice.review = null;
   state.timeLeft = null;
   app.storage.saveCurrent(state.game);

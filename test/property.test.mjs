@@ -59,7 +59,26 @@ test("random game sequences preserve core invariants across 250 seeds", () => {
       const before = structuredClone(game);
       const result = proposeActor(game, proposal, database);
       assert.deepEqual(game, before, "proposeActor mutated its input");
-      game = result.type === "pending" ? resolvePending(result.game, result.pending, { challenged: random() > 0.32 }) : result.game;
+      if (result.type === "pending") {
+        const { pending } = result;
+        // Le défi appartient au joueur suivant. Personne n'est invité à contester sa propre liaison, et la
+        // décision ne revient jamais à un éliminé — deux propriétés que ni previousAliveIndex ni
+        // nextAliveIndex ne violent, mais qui bornent la lecture.
+        assert.notEqual(pending.challengerId, pending.playerId, "un joueur a été invité à contester sa propre liaison");
+        const challenger = game.players.find((player) => player.id === pending.challengerId);
+        assert.equal(Boolean(challenger) && challenger.lives > 0, true, "le défi a été confié à un joueur éliminé");
+        const challenged = random() > 0.32;
+        game = resolvePending(result.game, pending, { challenged });
+        // Et la règle elle-même : laisser passer, c'est enchaîner. Celui qui pouvait crier au bluff est
+        // exactement celui dont c'est le tour ensuite. C'est la seule assertion du dépôt qui distingue les
+        // deux lectures sur autre chose qu'un casting figé — 250 graines, de deux à six sièges, éliminations
+        // comprises.
+        if (!challenged && game.status === "in-progress") {
+          assert.equal(currentPlayer(game).id, pending.challengerId, "le tour n'est pas revenu à qui pouvait contester");
+        }
+      } else {
+        game = result.game;
+      }
       assertInvariants(game, initialLives);
     }
 
