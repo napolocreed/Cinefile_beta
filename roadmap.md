@@ -51,8 +51,9 @@ Mise à jour le 14 août 2026. La reconstruction, le déploiement continu sur Cl
 
 ## Phase 4 — mode vocal passif — livrée en bêta jouable
 
-- [x] Variante dédiée à exactement deux joueurs.
-- [x] Deux sections de joueur avec vies, état actif et timer individuel.
+- [x] Variante jouable de 2 à 10 joueurs : deux sièges face à face à deux, tour de table au-delà.
+- [x] À deux, deux panneaux de joueur avec vies, état actif et timer individuel ; au-delà, un ruban de sièges (ordre de passage, vies, rôle du moment) et un seul panneau allumé pour le joueur dont c'est le tour.
+- [x] **Le défi de bluff appartient au joueur suivant** : celui qui doit accrocher le maillon d'après arbitre la liaison précédente — il crie au bluff, ou il enchaîne. Le siège allumé tient donc le micro *et* le buzzer.
 - [x] Écoute continue via Web Speech API après consentement explicite.
 - [x] Détection locale des entités, dictionnaires d’alias et complément TMDb si disponible.
 - [x] Plusieurs propositions classées avec niveau de confiance.
@@ -60,7 +61,7 @@ Mise à jour le 14 août 2026. La reconstruction, le déploiement continu sur Cl
 - [x] Après buzzer, sélection indépendante des deux derniers noms avant résolution.
 - [x] Correction de la dernière identité sans corrompre la chaîne ni les statistiques.
 - [x] Arrêt immédiat du micro, indicateur d’écoute et saisie de secours si le micro ou le réseau manque.
-- [x] **Validation explicite** : l’écoute ne fait que proposer, seule une touche sur une carte engage le nom, passe la main et alimente la chaîne. Le tour est annoncé par un bandeau, le panneau actif et le chrono.
+- [x] **Validation explicite** : l’écoute ne fait que proposer, seule une touche sur une carte engage le nom, passe la main et alimente la chaîne. Le tour est annoncé par le siège allumé, le chrono et une annonce pour les lecteurs d'écran.
 - [x] **Reconnaissance phonétique française** : nasales, `ill`, `gn`, liaisons de particules et consonnes finales muettes, comparées par distance de Damerau-Levenshtein sur n-grammes concaténés. « jean du jardin », « de pardieu » ou « omar six » retombent sur la bonne fiche.
 - [x] Lecture de toutes les alternatives du moteur vocal, des deux tokenisations et du nom de famille seul; un prénom ou un mot courant ne déclenche jamais une proposition.
 - [x] Accumulateur de tour : une phrase sans nom n’efface plus les propositions déjà entendues, et un nom répété remonte au classement.
@@ -77,7 +78,7 @@ Mise à jour le 14 août 2026. La reconstruction, le déploiement continu sur Cl
 
 ## Phase 5 — qualité produit — livrée
 
-- [x] 91 tests unitaires, d’intégration, de données et de propriétés, dont 250 parties pseudo-aléatoires et un banc phonétique français.
+- [x] 125 tests unitaires, d’intégration, de données et de propriétés, dont 250 parties pseudo-aléatoires et un banc phonétique français.
 - [x] Parcours navigateur sur desktop et mobile, avec contrôles hors-ligne, validation vocale explicite et cascade VAR.
 - [x] CI GitHub avec rapport Playwright en cas d’échec.
 - [x] Déploiement GitHub Pages depuis Actions, artefact sur liste blanche et garde anti-secret.

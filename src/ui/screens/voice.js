@@ -5,10 +5,11 @@
 // inactive seat is dimmed, which says it without costing a line. What stayed is the hand-over animation: it is
 // the confirmation that a validation actually landed.
 //
-// Beyond two, a duel of facing panels stops describing the table: eight seats of detail do not fit a phone, and
-// the seat that may buzz stops being the seat that speaks next. So the stage splits in two. A roster of chips
-// holds the whole table — turn order, lives, who is out, who may buzz — while a single lit panel carries the
-// player actually speaking, with the pool of names their voice is filling. The proposition awaiting a verdict
+// Beyond two, a duel of facing panels stops describing the table: eight seats of detail do not fit a phone. So
+// the stage splits in two. A roster of chips holds the whole table — turn order, lives, who is out — while a
+// single lit panel carries the player whose move it is, with the pool of names their voice is filling. That one
+// player holds both the microphone and the buzzer: the rules give the decision to whoever must chain onto the
+// proposition, so they either call the bluff or accept the link by speaking. The proposition awaiting a verdict
 // gets its own row between the two, because at three players and up nobody's seat is showing it.
 
 import { normalizeText } from "../../game/database.js";
@@ -84,19 +85,13 @@ function announceVoice(message) {
    Candidates
    -------------------------------------------------------------------------- */
 
-// While a proposition waits, the seat that owns the microphone is the one that will speak next — accepting the
-// link by chaining onto it. At two players that seat is also the challenger, which is why reading the pending
-// move's challengerId used to work; at three and up they are two different people, and pointing the pool at the
-// challenger meant every validation died on "le tour a changé".
+// While a proposition waits, the seat that owns the microphone is the seat that plays next — and that seat is
+// also the one holding the buzzer. The rules give the decision to whoever must chain onto the proposition: they
+// either call the bluff, or accept the link by speaking the next name. So one seat, one lit panel, both moves —
+// at two players and at ten alike, which is why nothing here needs to read pending.challengerId.
 function voiceActivePlayer() {
   if (state.pending) return state.game.players[nextAliveIndex(state.game, state.game.currentPlayerIdx)];
   return currentPlayer(state.game);
-}
-
-// Only the previous link's author may buzz — the engine credits nobody else — so the buzzer says whose it is.
-function voiceChallenger() {
-  if (!state.pending?.challengerId) return null;
-  return state.game.players.find((player) => player.id === state.pending.challengerId) ?? null;
 }
 
 const isDuel = () => state.game.players.length === 2;
@@ -280,23 +275,22 @@ function voicePlayerSection(player, index, activePlayer) {
   return `<section class="voice-player voice-player--${index + 1} ${active ? "voice-player--active" : ""} ${struck ? "voice-player--struck" : ""} ${flash?.toId === player.id ? "voice-player--taking" : ""}" data-voice-panel="${escapeHtml(player.id)}" aria-label="${escapeHtml(player.name)}${active ? ", à vous de jouer" : ", en attente"}"><div class="voice-player__head"><h2><i class="voice-seat" aria-hidden="true">${seatMark(index)}</i>${escapeHtml(player.name)}</h2>${clock}${livesMarkup(player.lives, true, { dying: struck })}</div><div class="voice-detection">${body}</div></section>`;
 }
 
-// The whole table on one strip: turn order, lives, who is out, who holds the microphone and who may buzz. It is
-// the only element that grows with the cast, so it grows sideways then wraps rather than pushing the seat that
-// is actually playing off the bottom of the phone.
+// The whole table on one strip: turn order, lives, who is out, and what the lit seat is being asked for. There
+// is no separate "may buzz" seat to mark — the decision and the microphone belong to the same player — so the
+// lit chip simply says which of the two moves is open to them. It is the only element that grows with the cast,
+// so it grows sideways then wraps rather than pushing the seat that is actually playing off the bottom.
 function voiceRosterMarkup(activePlayer) {
   const flash = state.voice.flash;
-  const challengerId = voiceChallenger()?.id ?? null;
+  const deciding = Boolean(state.pending && state.game.config.allowBluffChallenge);
   const proposerId = state.pending?.playerId ?? null;
   const seats = state.game.players.map((player, index) => {
     const out = player.lives <= 0;
     const active = !out && player.id === activePlayer.id;
-    const buzzing = !active && !out && player.id === challengerId && state.game.config.allowBluffChallenge;
-    const role = out ? "éliminé" : active ? "au micro" : buzzing ? "peut buzzer" : player.id === proposerId ? "a proposé" : "en attente";
+    const role = out ? "éliminé" : active ? (deciding ? "à décider" : "au micro") : player.id === proposerId ? "a proposé" : "en attente";
     const classes = [
       "voice-seat-chip",
       active ? "voice-seat-chip--active" : "",
       out ? "voice-seat-chip--out" : "",
-      buzzing ? "voice-seat-chip--buzzing" : "",
       flash?.strikeId === player.id ? "voice-seat-chip--struck" : "",
       flash?.toId === player.id ? "voice-seat-chip--taking" : "",
     ].filter(Boolean).join(" ");
@@ -322,21 +316,15 @@ function voiceTabledMarkup() {
   </div>`;
 }
 
-// Whose move it is stops being obvious once two names are involved: the seat that may buzz is no longer the seat
-// that speaks next. The live line names both rather than leaving the table to work it out.
+// One seat, two ways out: buzz the link, or accept it by naming the next artist. The line says both because it
+// is the same player choosing — no arbitration to hand over, whatever the size of the table.
 function voicePromptLine() {
-  if (!state.pending) return "Dites un nom, puis touchez-le.";
-  const challenger = voiceChallenger();
-  if (isDuel() || !challenger || !state.game.config.allowBluffChallenge) return "Laissez passer en parlant, ou buzzez.";
-  return `${challenger.name} peut buzzer · à ${voiceActivePlayer().name} d’enchaîner.`;
+  return state.pending ? "Laissez passer en parlant, ou buzzez." : "Dites un nom, puis touchez-le.";
 }
 
 function voiceCenterMarkup() {
   const buzzerReady = Boolean(state.pending && state.game.config.allowBluffChallenge);
-  const challenger = voiceChallenger();
-  const buzzHint = !buzzerReady
-    ? "Après une proposition"
-    : isDuel() || !challenger ? "Interrompre et vérifier" : `À ${challenger.name} de buzzer`;
+  const buzzHint = buzzerReady ? "Interrompre et vérifier" : "Après une proposition";
   const live = state.voice.interim || state.voice.verdict || voicePromptLine();
   return `<div class="voice-center"><div class="voice-wave ${state.voice.listening ? "voice-wave--on" : ""}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><p data-voice-live aria-live="polite">${escapeHtml(live)}</p><button class="voice-buzzer" data-voice-buzzer ${buzzerReady ? "" : "disabled"}><span>BLUFF</span><small>${escapeHtml(buzzHint)}</small></button>${state.voice.supported ? `<button class="button button--ghost voice-mic" data-voice-toggle>${state.voice.consent ? "Pause micro" : "Activer le micro"}</button>` : `<p class="voice-error">Reconnaissance vocale indisponible. La saisie de secours reste jouable.</p>`}${voiceTurnCandidates().length ? `<button class="button button--text voice-clear" data-voice-clear>Effacer</button>` : ""}${state.voice.error ? `<p class="voice-error" role="alert">${escapeHtml(state.voice.error)}</p>` : ""}</div>`;
 }
@@ -682,10 +670,16 @@ function openVoiceReview() {
   // previous bluff and never entered the chain; trusting it here would let the correction overwrite a real link.
   const chainTail = state.game.chain.at(-1);
   const spokenTail = [...state.voice.entries].reverse().find((entry) => normalizeText(entry.actorName ?? "") === normalizeText(chainTail ?? ""));
+  // Without spoken history — a reloaded page — the name comes from the chain and its author from the turn that
+  // put it there. It used to be read off pending.challengerId, which was only ever the same person because the
+  // challenger was wrongly the previous player; under the real rule the challenger is the one about to play, and
+  // that attribution would now credit the wrong seat. A correction survives here: replaceLastActor rewrites the
+  // turn's proposedActor along with the chain, so the two still match.
+  const tailTurn = [...state.game.turns].reverse().find((turn) => turn.accepted && normalizeText(turn.proposedActor ?? "") === normalizeText(chainTail ?? ""));
   const previousEntry = spokenTail ?? {
     id: "chain-previous",
-    playerId: state.pending.challengerId,
-    playerName: state.game.players.find((player) => player.id === state.pending.challengerId)?.name ?? "Joueur précédent",
+    playerId: tailTurn?.playerId ?? null,
+    playerName: state.game.players.find((player) => player.id === tailTurn?.playerId)?.name ?? "Joueur précédent",
     actorName: chainTail,
     transcript: chainTail,
     candidates: [{ id: "chain-previous", name: chainTail, confidence: 1, origin: "chain", externalIds: {} }],
@@ -704,6 +698,11 @@ function completeVoiceReview(game, pending, { challenged }) {
   const before = game.chain.length;
   const snapshot = voiceSnapshot();
   state.game = resolvePending(game, pending, { challenged });
+  // Le coup est retombé : la proposition n'attend plus, et il faut le dire avant de mesurer la passation.
+  // voiceActivePlayer lit state.pending pour savoir si le micro appartient au joueur courant ou au suivant ;
+  // le laisser posé ici faisait calculer l'état « après » d'un cran trop loin, et la passation annonçait le
+  // siège d'après celui qui prenait vraiment la main. Le « avant », lui, se mesure bien proposition posée.
+  state.pending = null;
   flashVoiceTransition(snapshot);
   if (review) {
     review.left.selected = review.selected.left;
@@ -728,7 +727,6 @@ function completeVoiceReview(game, pending, { challenged }) {
     struck: state.game.players.find((player) => player.lives < (snapshot.lives[player.id] ?? player.lives)) ?? null,
     finished: state.game.status === "finished",
   };
-  state.pending = null;
   state.voice.review = null;
   state.timeLeft = null;
   app.storage.saveCurrent(state.game);

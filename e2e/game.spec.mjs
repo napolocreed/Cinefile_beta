@@ -100,6 +100,47 @@ test("passive voice recognises a French name through recognition spelling drift"
   await expect(page.locator(".voice-pick__name").first()).toHaveText("Jean Dujardin");
 });
 
+// La règle du défi : une fois l'acteur A posé par le joueur 1 et B par le joueur 2, c'est le joueur 3 — celui
+// qui doit accrocher C à B — qui arbitre. Le moteur donnait la décision au joueur précédent ; à deux joueurs
+// les deux se confondent, et c'est ce qui a rendu l'erreur invisible partout ailleurs. Ce test se joue donc à
+// trois, le premier nombre où les deux lectures divergent.
+test("the bluff decision goes to the next player, not to the one who already played", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "One browser project covers the challenge hand-over.");
+  const cast = ["Alice", "Bob", "Carol"];
+  await page.goto("/setup");
+  await page.getByPlaceholder("Nom du joueur 1").fill(cast[0]);
+  await page.getByPlaceholder("Nom du joueur 2").fill(cast[1]);
+  await page.getByRole("button", { name: /Ajouter un joueur/i }).click();
+  await page.getByPlaceholder("Nom du joueur 3").fill(cast[2]);
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+
+  // Le joueur d'ouverture est tiré au sort : le test suit le compteur plutôt que de nommer qui que ce soit.
+  // textContent et non innerText : la marquise passe les noms en capitales, et le test compare des noms saisis.
+  const seat = page.locator(".reel-counter__name");
+  const opener = await seat.textContent();
+  await page.getByLabel("Ton artiste").fill("Leonardo DiCaprio");
+  await page.getByRole("option", { name: /Leonardo DiCaprio/i }).first().click();
+  await page.getByRole("button", { name: /Valider/i }).click();
+
+  // L'ouverture se résout sans écran de défi et repeint le même formulaire : la souche d'acteur précédent est
+  // le seul signal que le tour a bien tourné, et lire le compteur avant elle donnerait le nom d'avant.
+  await expect(page.locator(".cue__name")).toHaveText("Leonardo DiCaprio");
+  const proposer = await seat.textContent();
+  expect(proposer).not.toBe(opener);
+  await page.getByLabel("Ton artiste").fill("Kate Winslet");
+  await page.getByRole("option", { name: /Kate Winslet/i }).first().click();
+  await page.getByRole("button", { name: /Valider/i }).click();
+
+  const decider = cast.find((name) => name !== opener && name !== proposer);
+  await expect(page.locator(".play .prose")).toContainText(`${decider}, à toi de décider`);
+  // Et surtout pas celui qui vient de poser le maillon précédent.
+  await expect(page.locator(".play .prose")).not.toContainText(opener);
+
+  // Un seul passage de téléphone par tour : qui tranche est aussi qui enchaîne.
+  await page.getByRole("button", { name: /Laisser passer/i }).click();
+  await expect(seat).toHaveText(decider);
+});
+
 test("an uncertain bluff opens the human VAR without treating absence as proof", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "One browser project covers the VAR decision flow.");
   await page.route("**/api/verify-link?*", async (route) => route.fulfill({

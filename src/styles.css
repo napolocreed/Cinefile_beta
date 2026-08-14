@@ -1681,8 +1681,8 @@ h2.marquee {
   white-space: nowrap;
 }
 
-/* Le micro est ambre, le buzzer est rouge : la vignette reprend le code de la
-   scène plutôt que d'inventer une troisième couleur. */
+/* Une seule vignette s'allume : celle qui a le micro, qui est aussi celle qui
+   tient le buzzer — les règles donnent la décision à qui doit enchaîner. */
 .voice-seat-chip--active {
   opacity: 1;
   border-color: var(--ambre);
@@ -1691,15 +1691,6 @@ h2.marquee {
 
 .voice-seat-chip--active small {
   color: var(--ambre-bright);
-}
-
-.voice-seat-chip--buzzing {
-  opacity: 1;
-  border-left-color: var(--rouge-bright);
-}
-
-.voice-seat-chip--buzzing small {
-  color: var(--rouge-bright);
 }
 
 .voice-seat-chip--out {

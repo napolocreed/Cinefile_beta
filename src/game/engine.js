@@ -61,13 +61,9 @@ export function nextAliveIndex(game, fromIndex) {
   return fromIndex;
 }
 
-export function previousAliveIndex(game, fromIndex) {
-  for (let offset = 1; offset <= game.players.length; offset += 1) {
-    const index = (fromIndex - offset + game.players.length) % game.players.length;
-    if (game.players[index].lives > 0) return index;
-  }
-  return fromIndex;
-}
+// Il n'y a volontairement pas de previousAliveIndex : plus rien ne remonte le tour de table. Ses deux seuls
+// appelants — proposeActor et timeoutPending — y désignaient le challenger, et c'est précisément l'erreur que
+// ce sens de lecture a causée.
 
 export function currentPlayer(game) {
   return game.players[game.currentPlayerIdx];
@@ -148,7 +144,11 @@ export function proposeActor(game, actorName, database) {
   if (used.has(normalizeText(proposedActor))) throw new Error("Cet acteur a déjà été utilisé.");
 
   const previousActor = game.chain.at(-1) ?? null;
-  const challenger = database && previousActor ? game.players[previousAliveIndex(game, game.currentPlayerIdx)] : null;
+  // Le défi appartient au joueur suivant, pas au précédent. Une fois A posé par le joueur 1 et B par le
+  // joueur 2, c'est le joueur 3 — celui qui doit accrocher C à B — qui arbitre : ou il crie au bluff sur la
+  // liaison A–B, ou il l'accepte et enchaîne. À deux joueurs les deux lectures désignent la même personne,
+  // ce qui a laissé passer l'erreur ; au-delà, elle donnait la décision à quelqu'un qui avait déjà joué.
+  const challenger = database && previousActor ? game.players[nextAliveIndex(game, game.currentPlayerIdx)] : null;
   const sharedFilms = previousActor ? database.sharedFilms(previousActor, proposedActor, game.config.themeId) : [];
   const knownPair = Boolean(previousActor && database.hasActor(previousActor, game.config.themeId) && database.hasActor(proposedActor, game.config.themeId));
   const pending = {
@@ -212,11 +212,14 @@ export function timeoutTurn(game) {
 
 export function timeoutPending(game) {
   const proposer = currentPlayer(game);
-  const challenger = game.chain.length ? game.players[previousAliveIndex(game, game.currentPlayerIdx)] : null;
+  // Aucun challenger : rien n'a été proposé, donc personne n'a eu à trancher. Le champ portait jusqu'ici le
+  // joueur précédent, et le passer au suivant avec proposeActor aurait été pire — il aurait crédité une
+  // occasion de buzzer imaginaire à celui qui prend justement la main. Rien d'autre ne le lit sur un chrono
+  // expiré : applyResolution ne s'en sert que sur un coup contesté, et un timeout se règle toujours sans défi.
   return {
     index: game.turns.length,
     playerId: proposer.id,
-    challengerId: challenger?.id ?? null,
+    challengerId: null,
     proposedActor: "(temps écoulé)",
     sharedFilms: [],
     wasValid: false,

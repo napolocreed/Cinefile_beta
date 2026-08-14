@@ -25,7 +25,7 @@ Le rapport ci-dessous est conservé comme document de recherche. L’implémenta
 
 Points établis en explorant le dépôt (à jour sur cette branche) :
 
-- Le cœur de la validation est `sharedWorks()` / `sharedFilms()` dans `src/game/database.js:244-250` et `:313`. Le moteur appelle `database.sharedFilms(previousActor, proposedActor, …)` dans `src/game/engine.js:146`. Si l'un des deux artistes est inconnu de la base, le coup passe en `method: "vote"` (`engine.js:155`) — c'est **exactement le trou que le fallback doit combler** avant de retomber sur le vote humain.
+- Le cœur de la validation est `sharedWorks()` / `sharedFilms()` dans `src/game/database.js:244-250` et `:313`. Le moteur appelle `database.sharedFilms(previousActor, proposedActor, …)` dans `src/game/engine.js:152`. Si l'un des deux artistes est inconnu de la base, le coup passe en `method: "vote"` (`engine.js:161`) — c'est **exactement le trou que le fallback doit combler** avant de retomber sur le vote humain.
 - **L'intégration TMDb est déjà entièrement codée** (contrairement à ce que suggérait l'énoncé « en cours ») : client serveur `src/server/tmdb.js`, endpoints `GET /api/catalog/*` dans `server.mjs:31-76`, catalogue hybride `src/game/catalog.js`, script d'enrichissement `scripts/sync-tmdb.mjs`. Elle est simplement **inactive faute de jeton** (`TMDB_API_TOKEN`, cf. `roadmap.md` l.40). Le « fallback 1 » est donc un problème de configuration, pas de développement.
 - Base locale : 1 524 personnes, 41 914 œuvres, 84 501 crédits, aucun `externalIds` renseigné — clairement insuffisante, comme constaté.
 - Contraintes d'architecture à respecter : serveur Node ≥ 20.6 sans framework ni dépendance runtime, tous les appels externes **côté serveur uniquement** (les clés ne quittent jamais le serveur, pas de CORS), cache HTTP + LRU déjà en place comme modèle (`src/server/tmdb.js:9`), PWA jouable hors ligne (le fallback ne fonctionne qu'en ligne → le vote reste le filet ultime).
@@ -228,7 +228,7 @@ Détails qui comptent :
 - Niveaux 3 et 4 peuvent être lancés **en parallèle** après échec TMDb (Promise.any sur les `CONFIRMED`) pour contenir la latence perçue ; le chrono de 30 s du jeu laisse la marge, mais viser < 3 s au P95.
 - **Budget d'erreur** : tout timeout/429/5xx d'un niveau → passage au suivant, jamais d'échec bloquant ; hors ligne (PWA) l'endpoint est injoignable → le moteur garde son comportement actuel (`vote`), aucun changement de contrat.
 - **Télémetrie minimale** (compteurs en mémoire exposés sur `/api/catalog/status`) : hits par niveau, latences, `NOT_FOUND` → pour décider objectivement si le niveau 4 (IMDb local) vaut son coût.
-- Côté moteur : `proposeActor()` (`engine.js:137`) gagne un chemin asynchrone « vérification en cours » avant de basculer en `vote` — c'est le principal impact UX à concevoir (spinner court + verdict, ou vote pré-rempli par le verdict).
+- Côté moteur : `proposeActor()` (`engine.js:139`) gagne un chemin asynchrone « vérification en cours » avant de basculer en `vote` — c'est le principal impact UX à concevoir (spinner court + verdict, ou vote pré-rempli par le verdict).
 
 ### Ordre de bataille suggéré
 
