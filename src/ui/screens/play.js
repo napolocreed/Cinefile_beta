@@ -21,7 +21,7 @@ import {
   stopSearch,
   stopTimer,
 } from "../runtime.js";
-import { escapeHtml, livesMarkup, pictureMarkup, roleLabel } from "../format.js";
+import { connectionMarkup, escapeHtml, livesMarkup, pictureMarkup, portraitMarkup, roleLabel } from "../format.js";
 import { verifyPendingLink } from "../link-check.js";
 import { shell } from "../shell.js";
 import { verificationCascadeMarkup, verificationPanelMarkup, verificationSourceLabel } from "../verification.js";
@@ -51,9 +51,9 @@ function reelCounter({ fresh = false } = {}) {
 export function suggestionsMarkup() {
   return state.suggestions.map((person, index) => {
     const credits = person.creditCount ?? person.films?.length ?? 0;
-    const details = person.knownFor?.length
-      ? person.knownFor.join(" · ")
-      : `${roleLabel(person)} · ${credits} crédit${credits > 1 ? "s" : ""}`;
+    // Volontairement discret : les films de l'acteur ne doivent pas se voir avant validation, sous peine
+    // de souffler la réponse à qui tape juste un nom.
+    const details = `${roleLabel(person)} · ${credits} crédit${credits > 1 ? "s" : ""}`;
     const source = String(person.origin ?? "").includes("tmdb") ? "TMDb" : "Local";
     return `<button type="button" role="option" id="actor-suggestion-${index}" tabindex="-1" data-suggestion-index="${index}" aria-selected="${state.selectedPerson?.id === person.id}">${pictureMarkup(person.profilePath, person.name, "suggestion-portrait", "suggestion-avatar")}<span><strong>${escapeHtml(person.name)}</strong><small>${escapeHtml(details)}</small></span><em>${source}</em></button>`;
   }).join("");
@@ -142,7 +142,7 @@ export function playMarkup() {
       ${reelCounter({ fresh })}
       <div class="stub stub--kraft cue">
         <span class="slug">${previous ? "Acteur précédent" : "Acteur de départ"}</span>
-        <span class="cue__name">${escapeHtml(previous || "À toi d’ouvrir la bobine")}</span>
+        <div class="cue__actor">${previous ? portraitMarkup({ name: previous }) : ""}<span class="cue__name">${escapeHtml(previous || "À toi d’ouvrir la bobine")}</span></div>
       </div>
       <div>
         <label class="field-label slug" for="actor-input">Ton artiste</label>
@@ -161,7 +161,7 @@ export function playMarkup() {
     return shell(`<section class="screen play play--center">
       <span class="stamp stamp--ambre">${escapeHtml(player.name)} propose</span>
       <div class="screen__spacer screen__spacer--half"></div>
-      <p class="connection">${escapeHtml(previous)} <span aria-hidden="true">— relié à —</span> <em>${escapeHtml(state.pending.proposedActor)}</em></p>
+      ${connectionMarkup(previous, state.pending.proposedActor, "— relié à —")}
       <p class="prose"><b>${escapeHtml(challenger?.name || "Le joueur suivant")}</b>, à toi de décider.</p>
       <div class="screen__spacer"></div>
       <div class="screen__foot">
@@ -187,7 +187,7 @@ export function playMarkup() {
     return shell(`<section class="screen play">
       <span class="stamp stamp--rouge">Video Assistant Réalisateur</span>
       <h1 class="marquee">La VAR vous rend la décision</h1>
-      <p class="connection">${escapeHtml(previous)} <span aria-hidden="true">—</span> <em>${escapeHtml(state.pending.proposedActor)}</em></p>
+      ${connectionMarkup(previous, state.pending.proposedActor)}
       ${verificationPanelMarkup(state.pending.verification)}
       <div class="screen__spacer"></div>
       <div class="screen__foot">
@@ -210,7 +210,7 @@ export function playMarkup() {
   return shell(`<section class="screen play play--center">
     <span class="stamp verdict ${valid ? "stamp--vert verdict--valid" : "stamp--rouge verdict--invalid"}">${valid ? "Valide" : "Invalide"}</span>
     <div class="screen__spacer screen__spacer--half"></div>
-    <p class="connection">${escapeHtml(previous)} <span aria-hidden="true">—</span> <em>${escapeHtml(state.pending?.proposedActor)}</em></p>
+    ${connectionMarkup(previous, state.pending?.proposedActor)}
     ${films}
     ${state.revealChallenged ? `<p class="reveal-note">Bluff annoncé — ${valid ? "ce n’était pas un bluff." : "c’était bien un bluff."}</p>` : ""}
     ${state.pending?.verification ? verificationCascadeMarkup(state.pending.verification) : ""}

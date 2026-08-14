@@ -8,7 +8,7 @@
 // here: this module only dresses it.
 
 import { app, creditsFor, navigate, state } from "../runtime.js";
-import { escapeHtml } from "../format.js";
+import { escapeHtml, portraitMarkup } from "../format.js";
 import { shell } from "../shell.js";
 
 // Slow enough to read a name, fast enough that a long game does not outstay the table's patience.
@@ -131,7 +131,7 @@ function reelCard(credits) {
       return `<li class="roll-chain__link ${entry.bluff && !entry.redeemed ? "roll-chain__link--bluff" : ""}">
         ${entry.from ? `<span class="roll-chain__arrow" aria-hidden="true">│</span>` : ""}
         ${link}
-        <p class="roll-chain__actor">${escapeHtml(entry.actor)}</p>
+        <p class="roll-chain__actor">${portraitMarkup({ name: entry.actor })}${escapeHtml(entry.actor)}</p>
         <p class="roll-chain__by">amené par ${escapeHtml(entry.playerName ?? "la table")}</p>
         ${badge}
       </li>`;
@@ -150,7 +150,7 @@ function guestsCard(credits) {
   return `<section class="roll-block">
     <h2 class="roll-heading">Avec la participation de</h2>
     <ul class="roll-guests">${credits.guests.map((guest) => `<li>
-      <b>${escapeHtml(guest.name)}</b>
+      <b>${portraitMarkup({ name: guest.name })}${escapeHtml(guest.name)}</b>
       <small>proposé par ${escapeHtml(guest.playerName ?? "la table")} · ${escapeHtml(guestReason(guest))}</small>
     </li>`).join("")}</ul>
   </section>`;

@@ -4,7 +4,7 @@ import { achievementById } from "../../game/achievements.js";
 import { createGame } from "../../game/engine.js";
 import { recordFinishedGame } from "../../game/storage.js";
 import { app, navigate, routeUrl, state } from "../runtime.js";
-import { escapeHtml } from "../format.js";
+import { escapeHtml, portraitMarkup } from "../format.js";
 import { shell } from "../shell.js";
 
 export function renderResults() {
@@ -49,7 +49,7 @@ export function renderResults() {
     <details class="fold">
       <summary>Chaîne complète</summary>
       <div class="fold__body">
-        <p class="chain-line">${game.chain.map((actor, index) => `<span>${escapeHtml(actor)}</span>${index < game.chain.length - 1 ? "<b>→</b>" : ""}`).join("")}</p>
+        <p class="chain-line">${game.chain.map((actor, index) => `<span>${portraitMarkup({ name: actor })}${escapeHtml(actor)}</span>${index < game.chain.length - 1 ? "<b>→</b>" : ""}`).join("")}</p>
       </div>
     </details>
 
