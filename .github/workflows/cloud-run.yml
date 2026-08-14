@@ -4,8 +4,9 @@
 # vérification et la recherche TMDb, un main rouge n'a rien à y faire. Le déploiement manuel reste possible
 # (workflow_dispatch) pour rejouer une mise en ligne sans nouveau commit.
 #
-# Rien n'est codé en dur : tant que la variable de dépôt GCP_PROJECT_ID est vide, ce workflow ne s'exécute pas.
-# Voir « Déploiement continu sur Cloud Run » dans le README pour les commandes de mise en place.
+# Le projet est en dur, le reste est découvert ou configuré par variables de dépôt. Tant qu'aucune
+# authentification n'est déclarée, le workflow ne s'exécute pas. Voir « Déploiement continu sur Cloud Run »
+# dans le README pour les commandes de mise en place.
 
 name: Deploy Cloud Run
 
@@ -26,11 +27,14 @@ concurrency:
   group: cloud-run
   cancel-in-progress: false
 
+env:
+  GCP_PROJECT_ID: cinefile-505500
+
 jobs:
   deploy:
     name: Déployer sur Cloud Run
     if: >-
-      vars.GCP_PROJECT_ID != '' &&
+      (vars.GCP_WIF_PROVIDER != '' || vars.GCP_DEPLOY_WITH_KEY == 'true') &&
       (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -44,13 +48,6 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
-      - name: Vérifier qu'un mode d'authentification est configuré
-        if: vars.GCP_WIF_PROVIDER == '' && secrets.GCP_SA_KEY == ''
-        run: |
-          echo "::error::Aucune authentification Google Cloud configurée. Renseignez les variables"\
-               "GCP_WIF_PROVIDER et GCP_DEPLOY_SERVICE_ACCOUNT (recommandé), ou le secret GCP_SA_KEY."
-          exit 1
-
       # Deux façons de s'authentifier, par ordre de préférence. La fédération d'identité ne dépose aucune clé
       # durable dans GitHub ; la clé de compte de service reste acceptée pour un dépannage.
       - name: Authentification Google Cloud (fédération d'identité)
@@ -61,7 +58,7 @@ jobs:
           service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
 
       - name: Authentification Google Cloud (clé de compte de service)
-        if: vars.GCP_WIF_PROVIDER == '' && secrets.GCP_SA_KEY != ''
+        if: vars.GCP_WIF_PROVIDER == '' && vars.GCP_DEPLOY_WITH_KEY == 'true'
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
@@ -69,15 +66,44 @@ jobs:
       - name: Installer gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      # Les options sont assemblées et consommées dans le même shell : un tableau bash ne traverse pas une
-      # sortie d'étape sans se faire redécouper au premier espace. Ce qui n'est pas configuré n'est pas envoyé,
-      # et un déploiement automatique n'efface donc jamais un réglage posé à la main dans la console.
+      # Un nom de service inventé ne se plaint pas : il crée un deuxième service à côté du vrai, et le déploiement
+      # se déclare vert. Alors on ne devine pas — on lit ce qui tourne réellement dans le projet.
+      - name: Reconnaître le service à mettre à jour
+        id: target
+        env:
+          SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+          REGION: ${{ vars.GCP_REGION }}
+        run: |
+          set -euo pipefail
+          if [ -n "${SERVICE}" ] && [ -n "${REGION}" ]; then
+            echo "Service imposé par le dépôt : ${SERVICE} (${REGION})."
+          else
+            mapfile -t found < <(gcloud run services list --project "${GCP_PROJECT_ID}" \
+              --format 'value(metadata.name,metadata.labels."cloud.googleapis.com/location")')
+            if [ "${#found[@]}" -eq 0 ]; then
+              echo "::error::Aucun service Cloud Run dans ${GCP_PROJECT_ID}. Déployez-en un une première fois," \
+                   "ou renseignez les variables CLOUD_RUN_SERVICE et GCP_REGION."
+              exit 1
+            fi
+            if [ "${#found[@]}" -gt 1 ]; then
+              printf 'Services trouvés :\n%s\n' "${found[*]}"
+              echo "::error::Plusieurs services Cloud Run dans ce projet : nommez celui à mettre à jour dans les" \
+                   "variables CLOUD_RUN_SERVICE et GCP_REGION."
+              exit 1
+            fi
+            SERVICE=$(printf '%s' "${found[0]}" | cut -f1)
+            REGION=$(printf '%s' "${found[0]}" | cut -f2)
+            echo "Service reconnu : ${SERVICE} (${REGION})."
+          fi
+          printf 'service=%s\nregion=%s\n' "${SERVICE}" "${REGION}" >> "$GITHUB_OUTPUT"
+
+      # Les options sont assemblées et consommées dans le même shell : un tableau bash ne traverse pas une sortie
+      # d'étape sans se faire redécouper au premier espace.
       - name: Déployer la révision
         id: deploy
         env:
-          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-          REGION: ${{ vars.GCP_REGION || 'europe-west1' }}
-          SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'cinefil' }}
+          REGION: ${{ steps.target.outputs.region }}
+          SERVICE: ${{ steps.target.outputs.service }}
           ALLOWED_ORIGINS: ${{ vars.CLOUD_RUN_ALLOWED_ORIGINS }}
           EXTRA_ENV: ${{ vars.CLOUD_RUN_ENV_VARS }}
           TMDB_SECRET: ${{ vars.CLOUD_RUN_TMDB_SECRET }}
@@ -87,6 +113,8 @@ jobs:
           set -euo pipefail
           flags=()
 
+          # --update-env-vars et non --set-env-vars : « set » remplace TOUT le jeu de variables du service, ce qui
+          # effacerait le TMDB_API_TOKEN posé à la main dans la console au premier déploiement automatique.
           # Le délimiteur ^##^ laisse passer les virgules à l'intérieur d'une valeur : ALLOWED_ORIGINS en contient.
           pairs=""
           if [ -n "${ALLOWED_ORIGINS}" ]; then
@@ -97,17 +125,18 @@ jobs:
             pairs="${pairs}${EXTRA_ENV}"
           fi
           if [ -n "${pairs}" ]; then
-            flags+=("--set-env-vars=^##^${pairs}")
+            flags+=("--update-env-vars=^##^${pairs}")
           fi
 
-          # Le jeton TMDb ne transite jamais par GitHub : la variable ne nomme qu'un secret de Secret Manager.
+          # Optionnel : le jour où le jeton TMDb passe de variable d'environnement à secret managé, il suffit de
+          # nommer le secret ici. Il ne transite jamais par GitHub.
           if [ -n "${TMDB_SECRET}" ]; then
-            flags+=("--set-secrets=TMDB_API_TOKEN=${TMDB_SECRET}:latest")
+            flags+=("--update-secrets=TMDB_API_TOKEN=${TMDB_SECRET}:latest")
           fi
 
-          # Un jeu public, mais seulement si le dépôt l'a demandé : cette option exige le droit d'écrire la
-          # stratégie IAM du service.
-          if [ "${PUBLIC_SERVICE:-true}" = "true" ]; then
+          # Le service reste tel qu'il est par défaut : forcer l'ouverture publique exige le droit d'écrire la
+          # stratégie IAM, et le service en ligne est déjà réglé.
+          if [ "${PUBLIC_SERVICE:-}" = "true" ]; then
             flags+=("--allow-unauthenticated")
           fi
 
@@ -115,7 +144,7 @@ jobs:
           # le Dockerfile du dépôt, et .dockerignore écarte déjà node_modules, les tests et l'historique git.
           gcloud run deploy "${SERVICE}" \
             --source . \
-            --project "${PROJECT_ID}" \
+            --project "${GCP_PROJECT_ID}" \
             --region "${REGION}" \
             --platform managed \
             --port 8080 \
@@ -124,11 +153,11 @@ jobs:
             "${flags[@]}"
 
           url=$(gcloud run services describe "${SERVICE}" \
-            --project "${PROJECT_ID}" --region "${REGION}" --format 'value(status.url)')
+            --project "${GCP_PROJECT_ID}" --region "${REGION}" --format 'value(status.url)')
           printf 'url=%s\n' "${url}" >> "$GITHUB_OUTPUT"
 
-      # Une mise en ligne qui ne répond pas n'est pas une mise en ligne. La sonde interroge la route que
-      # l'édition Pages appelle pour savoir si elle peut emprunter ce catalogue.
+      # Une mise en ligne qui ne répond pas n'est pas une mise en ligne. La sonde interroge la route qui dit si le
+      # catalogue distant et la cascade de vérification sont réellement servis.
       - name: Vérifier que le service répond
         env:
           URL: ${{ steps.deploy.outputs.url }}
@@ -139,6 +168,11 @@ jobs:
             if [ "${code}" = "200" ]; then
               echo "Service en ligne : ${URL}"
               cat /tmp/status.json
+              # « configured: false » signifie que le serveur tourne sans jeton TMDb : la partie fonctionne, mais
+              # la recherche des artistes absents du snapshot est muette. Un avertissement, pas un échec.
+              if grep -q '"configured":false' /tmp/status.json; then
+                echo "::warning::Le service répond sans jeton TMDb configuré (TMDB_API_TOKEN absent du service)."
+              fi
               exit 0
             fi
             echo "Tentative ${attempt} : HTTP ${code}, nouvelle tentative dans $((attempt * 5)) s."
@@ -151,15 +185,14 @@ jobs:
         if: always()
         env:
           URL: ${{ steps.deploy.outputs.url }}
-          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          SERVICE: ${{ steps.target.outputs.service }}
+          REGION: ${{ steps.target.outputs.region }}
         run: |
           {
             echo "## Cloud Run"
             echo
-            echo "- Service : ${URL:-non déployé}"
+            echo "- Projet : \`${GCP_PROJECT_ID}\`"
+            echo "- Service : ${SERVICE:-inconnu} (${REGION:-région inconnue})"
             echo "- Commit : \`${{ github.event.workflow_run.head_sha || github.sha }}\`"
-            if [ -n "${URL}" ] && [ "${API_BASE_URL}" != "${URL}" ]; then
-              echo "- ⚠️ La variable de dépôt \`API_BASE_URL\` vaut \`${API_BASE_URL:-vide}\`."
-              echo "  La régler sur \`${URL}\` fait emprunter ce catalogue par l'édition GitHub Pages."
-            fi
+            echo "- URL : ${URL:-non déployé}"
           } >> "$GITHUB_STEP_SUMMARY"

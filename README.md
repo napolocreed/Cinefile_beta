@@ -173,14 +173,17 @@ L'édition qui emprunte annonce clairement son état — « Catalogue emprunté 
 
 ### Déploiement continu sur Cloud Run
 
-`.github/workflows/cloud-run.yml` remet le service en ligne **à chaque `main` qui passe la quality gate** — pas à chaque push : ce service sert l'API de vérification, un `main` rouge n'a rien à y faire. Le workflow reste inerte tant que la variable de dépôt `GCP_PROJECT_ID` est vide, et se relance à la main depuis l'onglet Actions (*Deploy Cloud Run* → *Run workflow*) pour rejouer une mise en ligne sans nouveau commit. Chaque déploiement se termine par une sonde sur `/api/catalog/status` : une révision qui ne répond pas fait échouer le job.
+`.github/workflows/cloud-run.yml` remet le service en ligne **à chaque `main` qui passe la quality gate** — pas à chaque push : ce service sert l'API de vérification, un `main` rouge n'a rien à y faire. Le projet `cinefile-505500` est en dur ; le workflow reste inerte tant qu'aucune authentification n'est déclarée, et se relance à la main depuis l'onglet Actions (*Deploy Cloud Run* → *Run workflow*). Chaque déploiement se termine par une sonde sur `/api/catalog/status` : une révision qui ne répond pas fait échouer le job.
+
+Deux garde-fous méritent d'être connus, parce qu'ils protègent un service déjà réglé à la main :
+
+- **Le service n'est pas deviné.** Un nom inventé ne provoque pas d'erreur : il crée un second service à côté du vrai et le déploiement se déclare vert. Le workflow lit donc les services du projet ; s'il n'y en a qu'un, c'est celui-là, région comprise. S'il y en a plusieurs, il s'arrête et demande de nommer la cible (`CLOUD_RUN_SERVICE`, `GCP_REGION`).
+- **Les réglages existants survivent.** Le déploiement utilise `--update-env-vars`, jamais `--set-env-vars` : « set » remplacerait tout le jeu de variables du service et effacerait le `TMDB_API_TOKEN` posé dans la console. Ce qui n'est pas configuré dans le dépôt n'est simplement pas envoyé à `gcloud`.
 
 **Mise en place, une fois.** Le mode recommandé est la fédération d'identité : GitHub échange un jeton OIDC de courte durée, aucune clé ne dort dans le dépôt.
 
 ```bash
-PROJECT_ID=votre-projet
-REGION=europe-west1
-SERVICE=cinefil
+PROJECT_ID=cinefile-505500
 REPO=napolocreed/Cinefile_beta
 
 gcloud config set project "$PROJECT_ID"
@@ -215,27 +218,16 @@ echo "GCP_WIF_PROVIDER = projects/${PROJECT_NUMBER}/locations/global/workloadIde
 
 | Variable | Rôle |
 | --- | --- |
-| `GCP_PROJECT_ID` | **Requise.** Vide, le workflow ne s'exécute pas. |
-| `GCP_WIF_PROVIDER` | Le chemin affiché par la dernière commande ci-dessus. |
-| `GCP_DEPLOY_SERVICE_ACCOUNT` | `github-deploy@<projet>.iam.gserviceaccount.com`. |
-| `GCP_REGION` | Par défaut `europe-west1`. |
-| `CLOUD_RUN_SERVICE` | Par défaut `cinefil`. |
-| `CLOUD_RUN_ALLOWED_ORIGINS` | Qui a le droit d'emprunter l'API, séparé par des virgules — typiquement `https://napolocreed.github.io`. |
-| `CLOUD_RUN_TMDB_SECRET` | Nom d'un secret Secret Manager monté en `TMDB_API_TOKEN`. Le jeton ne transite jamais par GitHub. |
-| `CLOUD_RUN_ENV_VARS` | Réglages supplémentaires, `CLE=valeur##AUTRE=valeur`. |
-| `CLOUD_RUN_ALLOW_UNAUTHENTICATED` | `false` pour ne pas rendre le service public (par défaut il l'est). |
+| `GCP_WIF_PROVIDER` | **Requise.** Le chemin affiché par la dernière commande ci-dessus. Vide, le workflow ne s'exécute pas. |
+| `GCP_DEPLOY_SERVICE_ACCOUNT` | `github-deploy@cinefile-505500.iam.gserviceaccount.com`. |
+| `CLOUD_RUN_SERVICE`, `GCP_REGION` | Inutiles tant que le projet n'héberge qu'un seul service : il est reconnu tout seul. |
+| `CLOUD_RUN_ALLOWED_ORIGINS` | Qui a le droit d'emprunter l'API, séparé par des virgules. |
+| `CLOUD_RUN_ENV_VARS` | Réglages supplémentaires, `CLE=valeur##AUTRE=valeur`. Les variables déjà posées sur le service ne sont pas touchées. |
+| `CLOUD_RUN_TMDB_SECRET` | Le jour où le jeton TMDb passera de variable d'environnement à secret managé, nommer ici le secret Secret Manager. |
+| `CLOUD_RUN_ALLOW_UNAUTHENTICATED` | `true` pour (re)forcer l'ouverture publique du service. Par défaut, l'exposition du service n'est pas touchée. |
+| `GCP_DEPLOY_WITH_KEY` | `true` pour utiliser le secret `GCP_SA_KEY` (JSON d'un compte de service) au lieu de la fédération. |
 
-À défaut de fédération, le secret `GCP_SA_KEY` (JSON d'un compte de service) est accepté en repli. Ce qui n'est pas renseigné n'est pas envoyé à `gcloud` : un réglage posé à la main dans la console survit aux déploiements automatiques.
-
-Pour le jeton TMDb, un secret Secret Manager plutôt qu'une variable d'environnement :
-
-```bash
-printf '%s' "$TMDB_API_TOKEN" | gcloud secrets create tmdb-api-token --data-file=-
-gcloud secrets add-iam-policy-binding tmdb-api-token --role roles/secretmanager.secretAccessor \
-  --member "serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
-```
-
-Enfin, une fois l'URL du service connue, la régler dans la variable `API_BASE_URL` fait emprunter ce catalogue par l'édition GitHub Pages (section précédente). Le résumé de chaque déploiement rappelle cette étape tant que les deux valeurs divergent.
+Le jeton TMDb vit aujourd'hui dans le service, en variable d'environnement `TMDB_API_TOKEN` : le déploiement ne le lit pas, ne l'écrit pas et ne l'efface pas. La sonde de fin signale simplement, sans faire échouer le job, si le service répond `configured: false` — c'est-à-dire s'il tourne sans jeton.
 
 ### Agrandir le catalogue embarqué
 
