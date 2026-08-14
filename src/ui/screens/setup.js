@@ -1,10 +1,14 @@
 // Pre-production, folded onto a single phone screen. The numbered panels, their decorative subtitles and the
 // set-choice section are gone: what remains is the cast, how names are entered, and two dials.
+//
+// Under the cast list sits the contact sheet: the profiles already on file, one tap away from a seat. It sits
+// *under* the list on purpose — the name it writes appears above the finger, never hidden by the hand.
 
 import { normalizeText } from "../../game/database.js";
 import { createGame } from "../../game/engine.js";
+import { castingRoster } from "../../game/storage.js";
 import { app, navigate, renderRoute, state } from "../runtime.js";
-import { escapeHtml } from "../format.js";
+import { escapeHtml, initialOf } from "../format.js";
 import { shell } from "../shell.js";
 import { createVoiceState } from "../voice-state.js";
 import { stopVoiceSession } from "./voice.js";
@@ -18,6 +22,67 @@ const DEFAULT_SETUP = {
   allowBluffChallenge: true,
 };
 
+// Six vignettes tiennent en trois lignes sur un écran de 390 px sans pousser les réglages hors de vue. Au-delà,
+// le reste part dans un dépliant, et un champ de filtre apparaît quand la liste cesse de se parcourir à l'œil.
+const VISIBLE_CHIPS = 6;
+const FILTER_FROM = 7;
+
+const seatKeys = (names) => names.map((name) => normalizeText(name));
+const filledSeats = (names) => seatKeys(names).filter(Boolean);
+const maxSeats = (setup) => (setup.mode === "voice" ? 2 : 10);
+const castingIsFull = (setup) => filledSeats(setup.names).length >= maxSeats(setup);
+
+/* -----------------------------------------------------------------------------
+   La planche de contact
+   -------------------------------------------------------------------------- */
+
+function chipLabel(name, games, selected, disabled) {
+  const played = games > 0 ? `${games} partie${games > 1 ? "s" : ""}` : "aucune partie";
+  const action = selected ? "Retirer du casting" : disabled ? "Casting complet" : "Ajouter au casting";
+  return `${name}, ${played}. ${action}.`;
+}
+
+function chipMarkup({ key, profile }, { selected, full, detailed = false }) {
+  const disabled = full && !selected;
+  return `<li><button type="button"
+    class="casting-chip${selected ? " casting-chip--selected" : ""}${profile.games ? "" : " casting-chip--fresh"}"
+    data-profile-key="${escapeHtml(key)}"
+    data-profile-name="${escapeHtml(profile.name)}"
+    data-profile-games="${profile.games}"
+    aria-pressed="${selected}"${disabled ? " disabled" : ""}
+    aria-label="${escapeHtml(chipLabel(profile.name, profile.games, selected, disabled))}"
+    ><span class="casting-chip__initial" aria-hidden="true">${initialOf(profile.name)}</span
+    ><span class="casting-chip__name">${escapeHtml(profile.name)}</span
+    >${detailed ? `<span class="casting-chip__meta" aria-hidden="true">${profile.games || "—"}</span>` : ""}</button></li>`;
+}
+
+function castingMarkup(setup) {
+  const selectedKeys = filledSeats(setup.names);
+  const { shown, hidden } = castingRoster(app.storage.loadProfiles(), selectedKeys, { visible: VISIBLE_CHIPS });
+  if (!shown.length) {
+    return `<p class="fineprint">Les noms saisis ici deviennent des profils : on les retrouvera à la prochaine partie.</p>`;
+  }
+  const full = castingIsFull(setup);
+  const chip = (entry, detailed) => chipMarkup(entry, { selected: selectedKeys.includes(entry.key), full, detailed });
+  return `<div class="casting-call">
+    <p class="slug" id="casting-call-label">Déjà à l’affiche</p>
+    <ul class="casting-chips" aria-labelledby="casting-call-label">${shown.map((entry) => chip(entry, false)).join("")}</ul>
+    ${hidden.length ? `<details class="fold casting-fold">
+      <summary>${hidden.length > 1 ? `Les ${hidden.length} autres profils` : "Un autre profil"}</summary>
+      <div class="fold__body">
+        ${hidden.length >= FILTER_FROM ? `<label class="sr-only" for="casting-filter">Filtrer les profils enregistrés</label>
+        <input id="casting-filter" class="field" type="search" placeholder="Filtrer par nom…" autocomplete="off" data-casting-filter>` : ""}
+        <ul class="casting-list" aria-label="Tous les profils enregistrés">${hidden.map((entry) => chip(entry, true)).join("")}</ul>
+        <p class="fineprint" data-casting-empty hidden>Aucun profil ne porte ce nom.</p>
+      </div>
+    </details>` : ""}
+  </div>`;
+}
+
+/* -----------------------------------------------------------------------------
+   L'écran
+   -------------------------------------------------------------------------- */
+
 export function setupMarkup() {
   const setup = state.setup ?? { ...DEFAULT_SETUP, names: [...DEFAULT_SETUP.names] };
   setup.mode ??= "classic";
@@ -26,13 +91,16 @@ export function setupMarkup() {
 
   const removable = setup.mode !== "voice" && setup.names.length > 2;
   const names = setup.names.map((name, index) => `<div class="player-row"><span class="player-row__number">${String(index + 1).padStart(2, "0")}</span><input class="field" data-player-index="${index}" value="${escapeHtml(name)}" placeholder="Nom du joueur ${index + 1}" maxlength="24" autocomplete="off">${removable ? `<button class="icon-button" data-remove-player="${index}" aria-label="Retirer ${escapeHtml(name || `le joueur ${index + 1}`)}">×</button>` : ""}</div>`).join("");
+  // Le compteur comptait des lignes ; il compte désormais des noms, qui est ce que la table lit.
+  const filled = filledSeats(setup.names).length;
 
   return shell(`<section class="screen setup">
     <h1 class="marquee">Nouvelle partie</h1>
 
     <div class="block">
-      <div class="block__head"><span class="slug slug--ambre">Le casting</span><span class="slug">${String(setup.names.length).padStart(2, "0")} / ${setup.mode === "voice" ? "02" : "10"}</span></div>
+      <div class="block__head"><span class="slug slug--ambre">Le casting</span><span class="slug" data-casting-count aria-label="${filled} joueur${filled > 1 ? "s" : ""} sur ${maxSeats(setup)}">${String(filled).padStart(2, "0")} / ${String(maxSeats(setup)).padStart(2, "0")}</span></div>
       <div class="players-list">${names}</div>
+      ${castingMarkup(setup)}
       ${setup.mode === "classic" && setup.names.length < 10 ? `<button class="add-player" data-add-player>＋ Ajouter un joueur</button>` : ""}
     </div>
 
@@ -66,18 +134,128 @@ export function setupMarkup() {
 
     <div class="screen__spacer"></div>
     <div class="screen__foot">
+      <p class="casting-hint" data-casting-hint aria-live="polite"></p>
       <button class="button button--gold button--wide" data-start-game>Lancer la partie <span aria-hidden="true">→</span></button>
     </div>
   </section>`, { back: "/" });
+}
+
+/* -----------------------------------------------------------------------------
+   L'état du casting, dit plutôt que subi
+   -------------------------------------------------------------------------- */
+
+// Le bouton était déjà désactivé sur un doublon, mais sans jamais dire pourquoi. Un seul juge décide donc de
+// tout : le bouton, la raison, les champs fautifs et l'état des vignettes.
+function castingVerdict() {
+  const setup = state.setup;
+  const keys = filledSeats(setup.names);
+  const doubles = new Set(keys.filter((key, index) => keys.indexOf(key) !== index));
+  if (doubles.size) return { blocked: true, doubles, message: "Deux joueurs portent le même nom : changez-en un." };
+  if (setup.mode === "voice" && keys.length !== 2) return { blocked: true, doubles, message: "Le vocal se joue à deux, pas un de plus." };
+  if (keys.length < 2) return { blocked: true, doubles, message: "Il faut deux noms pour lancer la partie." };
+  if (castingIsFull(setup)) return { blocked: false, doubles, message: setup.mode === "voice" ? "Les deux sièges sont pris." : "Casting complet : dix noms." };
+  return { blocked: false, doubles, message: "" };
+}
+
+function syncChips() {
+  const keys = new Set(filledSeats(state.setup.names));
+  const full = castingIsFull(state.setup);
+  for (const chip of document.querySelectorAll("[data-profile-key]")) {
+    const selected = keys.has(chip.dataset.profileKey);
+    const disabled = full && !selected;
+    chip.classList.toggle("casting-chip--selected", selected);
+    chip.setAttribute("aria-pressed", String(selected));
+    chip.disabled = disabled;
+    chip.setAttribute("aria-label", chipLabel(chip.dataset.profileName, Number(chip.dataset.profileGames), selected, disabled));
+  }
+}
+
+function refreshCasting() {
+  const verdict = castingVerdict();
+  const button = document.querySelector("[data-start-game]");
+  if (button) button.disabled = verdict.blocked;
+
+  const hint = document.querySelector("[data-casting-hint]");
+  if (hint) {
+    hint.textContent = verdict.message;
+    hint.classList.toggle("casting-hint--doublon", verdict.doubles.size > 0);
+  }
+
+  state.setup.names.forEach((name, index) => {
+    const field = document.querySelector(`[data-player-index="${index}"]`);
+    if (!field) return;
+    const guilty = verdict.doubles.has(normalizeText(name));
+    field.classList.toggle("field--doublon", guilty);
+    field.toggleAttribute("aria-invalid", guilty);
+  });
+
+  const counter = document.querySelector("[data-casting-count]");
+  if (counter) {
+    const filled = filledSeats(state.setup.names).length;
+    counter.textContent = `${String(filled).padStart(2, "0")} / ${String(maxSeats(state.setup)).padStart(2, "0")}`;
+    counter.setAttribute("aria-label", `${filled} joueur${filled > 1 ? "s" : ""} sur ${maxSeats(state.setup)}`);
+  }
+
+  syncChips();
+}
+
+/* -----------------------------------------------------------------------------
+   Les gestes
+   -------------------------------------------------------------------------- */
+
+// Un tap remplit la première ligne vide de haut en bas ; retaper une vignette déjà retenue libère son siège.
+// En classique, une planche pleine allonge le casting plutôt que de demander d'abord « ＋ Ajouter un joueur ».
+function toggleSeat(key, name) {
+  const setup = state.setup;
+  const keys = seatKeys(setup.names);
+  const taken = keys.indexOf(key);
+  if (taken >= 0) {
+    if (setup.mode === "classic" && setup.names.length > 2) setup.names.splice(taken, 1);
+    else setup.names[taken] = "";
+  } else {
+    const free = keys.indexOf("");
+    if (free >= 0) setup.names[free] = name;
+    else if (setup.mode === "classic" && setup.names.length < 10) setup.names.push(name);
+    else return;
+  }
+  // Le repeint est complet, comme pour l'ajout et le retrait d'une ligne ; le focus est rendu ensuite.
+  state.setup.focusKey = key;
+  renderRoute();
+}
+
+function bindCastingFilter() {
+  const filter = document.querySelector("[data-casting-filter]");
+  if (!filter) return;
+  const rows = [...document.querySelectorAll(".casting-list > li")];
+  const empty = document.querySelector("[data-casting-empty]");
+  filter.addEventListener("input", () => {
+    // Aucune requête, aucun repeint : on masque des lignes déjà rendues. « zoe » retrouve « Zoé ».
+    const needle = normalizeText(filter.value);
+    let visible = 0;
+    for (const row of rows) {
+      const key = row.querySelector("[data-profile-key]")?.dataset.profileKey ?? "";
+      const match = !needle || key.includes(needle);
+      row.hidden = !match;
+      if (match) visible += 1;
+    }
+    if (empty) empty.hidden = visible > 0;
+  });
 }
 
 export function bindSetup() {
   state.setup.names.forEach((_, index) => {
     document.querySelector(`[data-player-index="${index}"]`)?.addEventListener("input", (event) => {
       state.setup.names[index] = event.target.value;
-      updateSetupButton();
+      // Jamais de repeint sur une frappe : le curseur y resterait. Les vignettes se mettent à jour sur place.
+      refreshCasting();
     });
   });
+
+  document.querySelectorAll("[data-profile-key]").forEach((chip) => chip.addEventListener("click", () => {
+    toggleSeat(chip.dataset.profileKey, chip.dataset.profileName);
+  }));
+
+  bindCastingFilter();
 
   document.querySelector("[data-add-player]")?.addEventListener("click", () => {
     if (state.setup.names.length < 10) {
@@ -119,8 +297,11 @@ export function bindSetup() {
   });
 
   document.querySelector("[data-start-game]")?.addEventListener("click", () => {
-    const names = state.setup.names.map((name) => name.trim()).filter(Boolean);
-    if (names.length < 2 || (state.setup.mode === "voice" && names.length !== 2)) return;
+    const typed = state.setup.names.map((name) => name.trim()).filter(Boolean);
+    if (castingVerdict().blocked) return;
+    // Un nom monté sur la feuille de casting est un profil à partir de cet instant, même si la partie est
+    // abandonnée — et il rend son orthographe de référence : « alice » tapé ce soir rejoue sous « Alice ».
+    const names = typed.map((name) => app.storage.rememberProfile(name)?.name ?? name);
     state.game = createGame({ names, config: state.setup });
     stopVoiceSession();
     state.voice = createVoiceState();
@@ -128,12 +309,14 @@ export function bindSetup() {
     navigate("/play");
   });
 
-  updateSetupButton();
-}
+  // Après un repeint complet, le focus repart au corps du document : un utilisateur clavier recommencerait en
+  // haut de page à chaque sélection. On le rend à la vignette qu'il vient d'actionner.
+  if (state.setup.focusKey) {
+    const key = state.setup.focusKey;
+    state.setup.focusKey = null;
+    [...document.querySelectorAll("[data-profile-key]")]
+      .find((chip) => chip.dataset.profileKey === key)?.focus({ preventScroll: true });
+  }
 
-function updateSetupButton() {
-  const button = document.querySelector("[data-start-game]");
-  const cleanNames = state.setup.names.map((name) => normalizeText(name)).filter(Boolean);
-  const enough = state.setup.mode === "voice" ? cleanNames.length === 2 : cleanNames.length >= 2;
-  if (button) button.disabled = !enough || new Set(cleanNames).size !== cleanNames.length;
+  refreshCasting();
 }

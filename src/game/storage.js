@@ -16,6 +16,9 @@ export function blankProfile(name) {
     achievements: [],
     challengesMade: 0,
     challengesSuccessful: 0,
+    // Le dernier soir où ce nom est monté sur une feuille de casting. C'est ce qui classe la planche de contact.
+    // Une fiche restaurée d'une sauvegarde antérieure n'en a pas : elle vaut null et passe en fin de rang.
+    lastSeenAt: null,
   };
 }
 
@@ -24,6 +27,8 @@ export function completeProfile(profile, name = profile?.name) {
   const complete = { ...blankProfile(name), ...(profile ?? {}) };
   complete.name = String(name ?? profile?.name ?? "").trim() || complete.name;
   complete.achievements = Array.isArray(complete.achievements) ? complete.achievements : [];
+  // Un tampon corrompu par une sauvegarde bricolée ne doit pas emporter le tri de la planche de contact.
+  complete.lastSeenAt = Number.isFinite(complete.lastSeenAt) ? complete.lastSeenAt : null;
   return complete;
 }
 
@@ -66,13 +71,14 @@ export function createStorage(storage = globalThis.localStorage) {
     saveProfiles: (profiles) => safeWrite(storage, STORAGE_KEYS.profiles, profiles),
     // A name typed at the casting call is a profile from that moment on, with nothing to its name yet. Returning
     // the profile — created or already there — is what lets the setup screen show it back immediately.
-    rememberProfile: (name) => {
+    rememberProfile: (name, { now = Date.now } = {}) => {
       const clean = String(name ?? "").trim();
       const key = profileKey(clean);
       if (!key) return null;
       const profiles = safeRead(storage, STORAGE_KEYS.profiles, {});
       // An existing profile keeps its own spelling: "alice" typed today must not rewrite "Alice" and its history.
       const profile = profiles[key] ? completeProfile(profiles[key]) : blankProfile(clean);
+      profile.lastSeenAt = now();
       profiles[key] = profile;
       safeWrite(storage, STORAGE_KEYS.profiles, profiles);
       return profile;
@@ -94,6 +100,27 @@ export function createStorage(storage = globalThis.localStorage) {
   };
 }
 
+function compareByRecency(left, right) {
+  const seen = (right.profile.lastSeenAt ?? 0) - (left.profile.lastSeenAt ?? 0);
+  if (seen) return seen;
+  if (left.profile.games !== right.profile.games) return right.profile.games - left.profile.games;
+  return left.key < right.key ? -1 : left.key > right.key ? 1 : 0;
+}
+
+// La planche de contact : les profils les plus récents d'abord, coupés à `visible`. Une vignette déjà choisie ne
+// remonte jamais en tête — la fenêtre s'allonge jusqu'à elle. Sans ça, chaque tap ferait valser les voisines sous
+// le doigt, et le tap suivant tomberait sur le mauvais nom.
+export function castingRoster(profiles, selectedKeys = [], { visible = 6 } = {}) {
+  const selected = new Set((selectedKeys ?? []).filter(Boolean));
+  const entries = Object.entries(profiles ?? {})
+    .filter(([key, profile]) => key && profile && typeof profile === "object" && !Array.isArray(profile))
+    .map(([key, profile]) => ({ key, profile: completeProfile(profile) }))
+    .sort(compareByRecency);
+  const deepest = entries.reduce((cut, entry, index) => (selected.has(entry.key) ? index + 1 : cut), 0);
+  const cut = Math.max(visible, deepest);
+  return { shown: entries.slice(0, cut), hidden: entries.slice(cut) };
+}
+
 export function recordFinishedGame(game, storageApi) {
   if (!game || game.status !== "finished") return { profiles: storageApi.loadProfiles(), newAchievements: [] };
   if (storageApi.loadApplied?.().includes(game.id)) return { profiles: storageApi.loadProfiles(), newAchievements: [] };
@@ -103,8 +130,13 @@ export function recordFinishedGame(game, storageApi) {
 
   for (const player of game.players) {
     const key = profileKey(player.name);
-    const profile = completeProfile(profiles[key], player.name);
+    // L'orthographe sur fiche l'emporte : une partie ne renomme pas un profil ni son historique. Sans ce garde,
+    // une partie restaurée où le nom a été saisi en minuscules réécrivait « Alice » en « alice ».
+    const profile = completeProfile(profiles[key], profiles[key]?.name ?? player.name);
     profile.games += 1;
+    // Aucune lecture d'horloge : on ne se sert que des tampons déjà posés sur la partie, et le tampon ne recule
+    // jamais — rejouer une vieille sauvegarde ne doit pas rajeunir un profil.
+    profile.lastSeenAt = Math.max(profile.lastSeenAt ?? 0, game.finishedAt ?? game.startedAt ?? 0) || profile.lastSeenAt;
     profile.filmsFound += player.filmsFound;
     profile.bluffsSucceeded += player.bluffsSucceeded;
     profile.bluffsCaught += player.bluffsCaught;

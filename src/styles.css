@@ -914,6 +914,157 @@ h2.marquee {
   opacity: 0.3;
 }
 
+/* La planche de contact : les profils déjà en boîte, à un tap de la feuille de
+   casting. Une vignette est une souche de billet — filet à gauche, initiale
+   gravée — et non une pastille arrondie, qui n'appartient pas à cette direction
+   artistique. Elle se place SOUS la liste : le nom qu'elle inscrit apparaît
+   au-dessus du doigt, jamais dessous. */
+.casting-call {
+  display: grid;
+  gap: var(--gap-xs);
+  padding-top: var(--gap-xs);
+  border-top: 1px dashed var(--line);
+}
+
+.casting-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-xs);
+  /* Deux pixels de marge intérieure : sans eux, le liseré de :focus-visible est
+     rogné par la vignette voisine. */
+  padding: 2px;
+  margin: -2px;
+}
+
+.casting-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  min-height: var(--tap);
+  padding: 0.25rem 0.6rem 0.25rem 0.3rem;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--ink-raised);
+  color: var(--kraft);
+  text-align: left;
+  transition: border-color 0.16s, background 0.16s, color 0.16s;
+}
+
+.casting-chip__initial {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--line-ambre);
+  border-radius: 2px;
+  background: var(--ink-deep);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ambre);
+}
+
+/* Le nom est tronqué plutôt que de pousser la vignette hors de l'écran : à
+   390 px, deux vignettes doivent tenir sur une ligne. */
+.casting-chip__name {
+  overflow: hidden;
+  max-width: 6.5rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.casting-chip__meta {
+  flex: none;
+  margin-left: auto;
+  font-family: var(--font-script);
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+  color: var(--kraft-dim);
+}
+
+.casting-chip:hover:not(:disabled) {
+  border-color: var(--ambre);
+}
+
+.casting-chip--selected {
+  border-color: var(--line-ambre);
+  border-left-color: var(--ambre);
+  background: rgba(233, 163, 60, 0.14);
+}
+
+.casting-chip--selected .casting-chip__initial {
+  border-color: var(--ambre);
+  background: var(--ambre);
+  color: var(--ink);
+}
+
+/* Un profil jamais tourné n'a pas de compteur à montrer : il porte l'amorce
+   verte d'une pellicule neuve plutôt qu'un zéro. */
+.casting-chip--fresh .casting-chip__meta {
+  color: var(--vert-soft);
+}
+
+.casting-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.32;
+}
+
+/* Le reste de la distribution vit dans un dépliant : la feuille de casting ne se
+   fait pas pousser hors de l'écran par quarante noms. */
+.casting-fold > summary {
+  min-height: var(--tap);
+  font-size: 0.85rem;
+}
+
+.casting-fold .fold__body {
+  gap: var(--gap-xs);
+  padding-top: var(--gap-xs);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.casting-list {
+  display: grid;
+  gap: 2px;
+}
+
+.casting-list .casting-chip {
+  width: 100%;
+}
+
+.casting-list .casting-chip__name {
+  flex: 1;
+  max-width: none;
+}
+
+/* La raison se tient contre le bouton qu'elle explique. Sa hauteur est réservée :
+   une ligne qui apparaît ne doit pas faire sauter le bouton sous le pouce au
+   moment où on va appuyer. */
+.casting-hint {
+  min-height: 1rem;
+  font-family: var(--font-script);
+  font-size: 0.62rem;
+  line-height: 1.3;
+  color: var(--kraft-dim);
+}
+
+.casting-hint--doublon {
+  color: var(--rouge-bright);
+}
+
+.field--doublon,
+.field--doublon:focus {
+  border-color: var(--rouge-bright);
+  box-shadow: inset 0 0 0 1px var(--rouge-bright);
+}
+
 /* Choix de mode : deux cartes côte à côte, hauteur minimale, pas de baratin. */
 .mode-grid {
   display: grid;
@@ -2584,6 +2735,12 @@ h2.marquee {
   gap: 0.25rem;
 }
 
+.profile-card__forget {
+  justify-self: start;
+  min-height: 2.2rem;
+  padding: 0;
+}
+
 .profile-achievements span {
   padding: 0.2rem 0.4rem;
   border: 1px solid var(--line-ambre);
@@ -2765,6 +2922,10 @@ h2.marquee {
    -------------------------------------------------------------------------- */
 
 @media (min-width: 40rem) {
+  .casting-chip__name {
+    max-width: 10rem;
+  }
+
   :root {
     --gutter: 1.5rem;
     --rail: 14px;

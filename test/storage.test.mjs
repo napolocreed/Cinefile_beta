@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { blankProfile, completeProfile, createStorage, recordFinishedGame } from "../src/game/storage.js";
+import { blankProfile, castingRoster, completeProfile, createStorage, recordFinishedGame } from "../src/game/storage.js";
 
 function fakeStorage() {
   const values = new Map();
@@ -83,4 +83,79 @@ test("a profile saved before a counter existed is completed rather than trusted"
   const legacy = completeProfile({ name: "Ancien", games: 4, wins: 2 });
   assert.deepEqual(legacy, { ...blankProfile("Ancien"), games: 4, wins: 2 });
   assert.equal(completeProfile(undefined, "Neuf").games, 0);
+});
+
+const stamped = (name, { games = 0, lastSeenAt = null } = {}) => ({ ...blankProfile(name), games, lastSeenAt });
+
+test("a name added to the casting sheet is stamped with the evening it was seen", () => {
+  const storage = createStorage(fakeStorage());
+  assert.equal(storage.rememberProfile("Carol", { now: () => 1000 }).lastSeenAt, 1000);
+  const again = storage.rememberProfile("CAROL", { now: () => 9000 });
+  assert.equal(again.lastSeenAt, 9000);
+  assert.equal(again.games, 0);
+  assert.equal(again.name, "Carol");
+});
+
+test("a finished game stamps profiles from the game itself, and the stamp never goes back", () => {
+  const storage = createStorage(fakeStorage());
+  recordFinishedGame({ ...finishedGame(), id: "game-late", finishedAt: 5000 }, storage);
+  assert.equal(storage.loadProfiles().alice.lastSeenAt, 5000);
+  // Restaurer puis rejouer une partie plus ancienne ne doit pas rajeunir la fiche.
+  recordFinishedGame({ ...finishedGame(), id: "game-old", finishedAt: 100 }, storage);
+  assert.equal(storage.loadProfiles().alice.lastSeenAt, 5000);
+  assert.equal(storage.loadProfiles().alice.games, 2);
+});
+
+test("a game never renames the profile it belongs to", () => {
+  const storage = createStorage(fakeStorage());
+  storage.rememberProfile("Alice", { now: () => 1 });
+  const game = finishedGame();
+  game.players[0].name = "alice";
+  recordFinishedGame(game, storage);
+  assert.equal(storage.loadProfiles().alice.name, "Alice");
+  assert.equal(storage.loadProfiles().alice.games, 1);
+});
+
+test("a stamp that a hand-edited backup corrupted is neutralised rather than trusted", () => {
+  assert.equal(completeProfile({ name: "Ancien", games: 4 }).lastSeenAt, null);
+  assert.equal(completeProfile({ name: "Bricolé", lastSeenAt: "hier" }).lastSeenAt, null);
+});
+
+test("the contact sheet ranks by recency, then by games played, then by name", () => {
+  const roster = castingRoster({
+    zoe: stamped("Zoé", { lastSeenAt: 30 }),
+    bob: stamped("Bob", { lastSeenAt: 10, games: 2 }),
+    alice: stamped("Alice", { games: 7 }),
+    carol: stamped("Carol", { games: 7 }),
+    dan: stamped("Dan", { games: 1 }),
+  }, [], { visible: 6 });
+  assert.deepEqual(roster.shown.map((entry) => entry.key), ["zoe", "bob", "alice", "carol", "dan"]);
+  assert.deepEqual(roster.hidden, []);
+});
+
+test("the contact sheet cuts at the visible count and hands the rest to the fold", () => {
+  const profiles = Object.fromEntries(Array.from({ length: 40 }, (_, index) => [`j${String(index).padStart(2, "0")}`, stamped(`Joueur ${index}`, { lastSeenAt: 1000 - index })]));
+  const roster = castingRoster(profiles, [], { visible: 6 });
+  assert.equal(roster.shown.length, 6);
+  assert.equal(roster.hidden.length, 34);
+  const shownKeys = new Set(roster.shown.map((entry) => entry.key));
+  assert.equal(roster.hidden.some((entry) => shownKeys.has(entry.key)), false);
+  assert.deepEqual(roster.shown.map((entry) => entry.key), ["j00", "j01", "j02", "j03", "j04", "j05"]);
+});
+
+// L'invariant qui compte pour le pouce : choisir un nom ne doit jamais déplacer les vignettes voisines.
+test("a chosen profile deep in the list widens the window instead of jumping to the front", () => {
+  const profiles = Object.fromEntries(Array.from({ length: 40 }, (_, index) => [`j${String(index).padStart(2, "0")}`, stamped(`Joueur ${index}`, { lastSeenAt: 1000 - index })]));
+  const plain = castingRoster(profiles, [], { visible: 6 });
+  const withPick = castingRoster(profiles, ["j19"], { visible: 6 });
+  assert.equal(withPick.shown.length, 20);
+  assert.equal(withPick.shown.at(-1).key, "j19");
+  assert.equal(withPick.shown[0].key, plain.shown[0].key);
+  assert.deepEqual(withPick.shown.slice(0, 6).map((entry) => entry.key), plain.shown.map((entry) => entry.key));
+});
+
+test("corrupted profile entries never reach the contact sheet", () => {
+  const roster = castingRoster({ "": stamped("Vide"), alice: null, bob: "texte", carol: stamped("Carol"), dan: ["tableau"] }, [], { visible: 6 });
+  assert.deepEqual(roster.shown.map((entry) => entry.key), ["carol"]);
+  assert.deepEqual(castingRoster(null).shown, []);
 });

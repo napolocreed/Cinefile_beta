@@ -9,7 +9,7 @@ import { escapeHtml } from "../format.js";
 import { shell } from "../shell.js";
 
 export function renderProfiles() {
-  const profiles = Object.values(app.storage.loadProfiles()).sort((left, right) => right.wins - left.wins || right.xp - left.xp);
+  const profiles = Object.values(app.storage.loadProfiles()).sort((left, right) => right.wins - left.wins || right.xp - left.xp || (right.lastSeenAt ?? 0) - (left.lastSeenAt ?? 0));
   const diagnosticEntries = app.diagnostics.load();
 
   app.root.innerHTML = shell(`<section class="profiles-page">
@@ -17,15 +17,16 @@ export function renderProfiles() {
     ${state.transferNotice ? `<p class="transfer-notice ${state.transferNotice.type === "error" ? "transfer-notice--error" : ""}" role="status">${escapeHtml(state.transferNotice.message)}</p>` : ""}
 
     ${profiles.length ? `<div class="profile-list">${profiles.map((profile) => `<article class="profile-card">
-      <div class="profile-card__head"><div><h2>${escapeHtml(profile.name)}</h2><p>${escapeHtml(levelForXp(profile.xp))} · ${profile.xp} XP</p></div><span>${profile.games} partie${profile.games > 1 ? "s" : ""}</span></div>
+      <div class="profile-card__head"><div><h2>${escapeHtml(profile.name)}</h2><p>${escapeHtml(levelForXp(profile.xp))} · ${profile.xp} XP</p></div>${profile.games ? `<span>${profile.games} partie${profile.games > 1 ? "s" : ""}</span>` : `<span class="stamp stamp--vert">Jamais tourné</span>`}</div>
       <div class="profile-stats"><div><b>${profile.wins}</b><small>Victoires</small></div><div><b>${profile.filmsFound}</b><small>Films</small></div><div><b>${profile.bluffsSucceeded}</b><small>Bluffs</small></div><div><b>${profile.bluffsCaught}</b><small>Démasqués</small></div></div>
       ${profile.achievements?.length ? `<div class="profile-achievements">${profile.achievements.map((id) => {
         const achievement = ACHIEVEMENTS.find((item) => item.id === id);
         return achievement ? `<span title="${escapeHtml(achievement.description)}">${achievement.icon} ${escapeHtml(achievement.label)}</span>` : "";
       }).join("")}</div>` : ""}
+      <button class="button button--text profile-card__forget" data-forget-profile="${escapeHtml(profile.name)}">Oublier ce profil</button>
     </article>`).join("")}</div>` : `<div class="empty-state empty-state--panel">
       <span class="stamp stamp--ambre">Pas encore de générique</span>
-      <p class="prose">Terminez une partie pour créer le premier profil.</p>
+      <p class="prose">Ajoutez un nom au casting, ou terminez une partie, pour créer le premier profil.</p>
     </div>`}
 
     <details class="fold">
@@ -101,6 +102,29 @@ async function importBackupFile(file) {
 }
 
 function bindProfileTools() {
+  // Une suppression ne doit jamais partir au premier tap, et le dépôt n'a pas de modale : le bouton demande
+  // confirmation en devenant lui-même la confirmation, et se rétracte si le doigt part ailleurs.
+  document.querySelectorAll("[data-forget-profile]").forEach((button) => {
+    const settle = () => {
+      button.textContent = "Oublier ce profil";
+      button.classList.remove("button--armed");
+      delete button.dataset.armed;
+    };
+    button.addEventListener("blur", settle);
+    button.addEventListener("click", () => {
+      if (!button.dataset.armed) {
+        button.dataset.armed = "true";
+        button.textContent = "Confirmer l’oubli ?";
+        button.classList.add("button--armed");
+        return;
+      }
+      const name = button.dataset.forgetProfile;
+      app.storage.forgetProfile(name);
+      state.transferNotice = { type: "success", message: `${name} n’est plus dans les archives.` };
+      renderProfiles();
+    });
+  });
+
   document.querySelector("[data-export-backup]")?.addEventListener("click", () => {
     downloadBackup();
     renderProfiles();
