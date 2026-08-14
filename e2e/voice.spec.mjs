@@ -4,8 +4,6 @@ import { test, expect } from "@playwright/test";
 // Both are replaced here — a scripted recogniser and Playwright's clock — so the rules that protect the chain
 // can be exercised deterministically instead of being hoped for.
 
-const PAGES_BASE = process.env.PAGES_E2E ? "/Cinefile_beta" : "";
-const appPath = (route = "/") => `${PAGES_BASE}${route}`;
 const CURRENT_GAME_KEY = "cinelink.current.v1";
 
 const RECOGNISER = () => {
@@ -67,7 +65,7 @@ async function startVoiceGame(page, { withClock = false, lives = null } = {}) {
   if (withClock) await page.clock.install();
   await page.addInitScript(RECOGNISER);
   await stubCatalog(page);
-  await page.goto(appPath("/setup"));
+  await page.goto("/setup");
   await page.getByRole("button", { name: /Vocal passif/i }).click();
   await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
@@ -216,5 +214,9 @@ test("a bluff that ends the game still says what was verified", async ({ page })
   await expect(page.locator(".voice-outcome__penalty")).toContainText("éliminé");
   await expect(page.locator(".var-step")).toHaveCount(4);
   await page.getByRole("button", { name: /Voir le générique/i }).click();
+  // The credits come first, and they are the only place the table sees the whole reel back.
+  await expect(page.locator(".end-credits")).toBeVisible();
+  await expect(page.locator(".credits-roll")).toHaveClass(/credits-roll--playing/);
+  await page.getByRole("button", { name: /Voir les scores/i }).click();
   await expect(page.getByText(/Dans le rôle du vainqueur/i)).toBeVisible();
 });

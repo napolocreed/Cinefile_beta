@@ -1,5 +1,8 @@
 name: Enrich TMDb catalogue
 
+# Le catalogue publié se rafraîchit par lots, et le commit qui en résulte repart dans le circuit ordinaire :
+# quality gate sur main, puis déploiement Cloud Run. Ce workflow n'a donc rien à publier lui-même.
+
 on:
   workflow_dispatch:
     inputs:
@@ -13,8 +16,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: tmdb-enrichment
@@ -27,9 +28,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Configure Pages
-        id: pages
-        uses: actions/configure-pages@v5
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
@@ -48,14 +46,6 @@ jobs:
         run: npm run sync:tmdb -- --limit="$BATCH_SIZE" --refresh-days=60 --output=src/data/tmdb-overlay.json
       - name: Run non-regression tests
         run: npm run test:unit
-      - name: Build refreshed Pages artifact
-        env:
-          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
-        run: npm run build:pages
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: dist
       - name: Persist refreshed overlay
         run: |
           git config user.name "github-actions[bot]"
@@ -67,14 +57,3 @@ jobs:
             git commit -m "Refresh TMDb catalogue overlay"
             git push
           fi
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: enrich
-    steps:
-      - name: Deploy refreshed artifact
-        id: deployment
-        uses: actions/deploy-pages@v4

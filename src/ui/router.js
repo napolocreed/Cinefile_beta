@@ -11,6 +11,7 @@ import {
   stopTimer,
   logicalPath,
 } from "./runtime.js";
+import { renderCredits, stopCredits } from "./screens/credits.js";
 import { renderHome } from "./screens/home.js";
 import { bindSetup, setupMarkup } from "./screens/setup.js";
 import { bindPlay, playMarkup } from "./screens/play.js";
@@ -41,6 +42,9 @@ export function navigate(target) {
 
 export function renderRoute() {
   stopTimer();
+  // The credits listen on the document, so they are dismissed by every repaint — including a back button, which
+  // never goes through navigate().
+  stopCredits();
   const currentPath = path();
 
   if (currentPath === "/setup") {
@@ -55,11 +59,17 @@ export function renderRoute() {
     state.game ??= app.storage.loadCurrent();
     // A finished game normally jumps to the credits, but a buzz that ended it still owes the table its verdict.
     if (!state.game || (state.game.status === "finished" && !state.voice?.outcome)) {
-      navigate(state.game?.status === "finished" ? "/results" : "/");
+      navigate(state.game?.status === "finished" ? "/credits" : "/");
       return;
     }
     app.root.innerHTML = playMarkup();
     bindPlay();
+    return;
+  }
+
+  // The credits roll between the last life and the scoreboard, and they own the whole screen while they do.
+  if (currentPath === "/credits") {
+    renderCredits();
     return;
   }
 

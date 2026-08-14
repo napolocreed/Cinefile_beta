@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, normalize, sep } from "node:path";
 import { createTmdbClient } from "./src/server/tmdb.js";
 import { createPublishedCatalog } from "./src/server/published-catalog.js";
@@ -151,13 +151,28 @@ async function handleApi(request, response, url) {
   return true;
 }
 
+// La page publiée dit de quelle révision elle vient. Cloud Run renseigne K_REVISION à chaque déploiement ;
+// à défaut, BUILD_STAMP, et sinon rien — une exécution locale n'a pas de version à annoncer.
+const buildStamp = (process.env.BUILD_STAMP || process.env.K_REVISION || "").slice(0, 80).replace(/[^\w .:·-]/g, "");
+
+function serveIndex(request, response) {
+  const html = readFileSync(join(publicRoot, "index.html"), "utf8")
+    .replace('<meta name="build-stamp" content="" />', `<meta name="build-stamp" content="${buildStamp}" />`);
+  response.setHeader("Content-Type", "text/html; charset=utf-8");
+  response.setHeader("Cache-Control", "no-cache");
+  response.setHeader("X-Content-Type-Options", "nosniff");
+  if (request.method === "HEAD") return response.end();
+  response.end(html);
+}
+
 function serveStatic(request, response, url) {
   const relative = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, "");
   const base = relative.startsWith("src/") ? workspaceRoot : publicRoot;
   let target = join(base, relative);
   const insideBase = target === base || target.startsWith(`${base}${sep}`);
-  if (!insideBase || !existsSync(target) || statSync(target).isDirectory()) target = join(publicRoot, "index.html");
+  if (!insideBase || !existsSync(target) || statSync(target).isDirectory()) return serveIndex(request, response);
   const extension = extname(target);
+  if (extension === ".html") return serveIndex(request, response);
   const unversionedRuntime = relative === "sw.js" || relative === "manifest.webmanifest" || (relative.startsWith("src/") && !relative.startsWith("src/data/"));
   const cacheControl = extension === ".html" || unversionedRuntime
     ? "no-cache"

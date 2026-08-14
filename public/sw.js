@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v11-bobine-et-souche";
+const CACHE_NAME = "cinefil-v14-tableau-d-honneur";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [
@@ -10,12 +10,13 @@ const CORE = [
   "src/main.js",
   "src/game/achievements.js",
   "src/game/catalog.js",
+  "src/game/credits.js",
   "src/game/database.js",
   "src/game/diagnostics.js",
   "src/game/engine.js",
   "src/game/identity.js",
+  "src/game/statistics.js",
   "src/game/storage.js",
-  "src/game/static-overlay.js",
   "src/game/transfer.js",
   "src/ui/format.js",
   "src/ui/link-check.js",
@@ -24,6 +25,7 @@ const CORE = [
   "src/ui/shell.js",
   "src/ui/verification.js",
   "src/ui/voice-state.js",
+  "src/ui/screens/credits.js",
   "src/ui/screens/home.js",
   "src/ui/screens/play.js",
   "src/ui/screens/profiles.js",
@@ -47,7 +49,6 @@ const CORE = [
   "__l5e/assets-v1/8a9f592b-23da-4698-8a14-e0016a7b6c74/cinefil-logo.png"
 ].map((path) => new URL(path, BASE_URL).href);
 const OPTIONAL = [
-  "src/data/tmdb-overlay-index.json",
   "src/data/tmdb-portraits.json",
 ].map((path) => new URL(path, BASE_URL).href);
 

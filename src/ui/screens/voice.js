@@ -20,6 +20,7 @@ import {
   app,
   catalogStatusLabel,
   navigate,
+  queueCreditsRefresh,
   refreshCatalogLabel,
   renderRoute,
   setCatalogStatus,
@@ -145,7 +146,7 @@ function voiceCandidatesFor(alternatives) {
 }
 
 function worthAskingRemote({ local, query }, final) {
-  if (!final || !app.remoteCatalog || !query) return false;
+  if (!final || !query) return false;
   const best = local[0]?.confidence ?? 0;
   if (best >= (query.split(" ").length >= 2 ? REMOTE_VOICE_MAX_LOCAL : REMOTE_VOICE_LONE_WORD_MAX_LOCAL)) return false;
   return !state.voice.turn.remoteResults.has(normalizeText(query)) && state.voice.turn.remoteLookups < REMOTE_VOICE_BUDGET;
@@ -530,7 +531,8 @@ async function validateVoiceCandidate(reference) {
     flashVoiceTransition(before);
     syncVoiceTurn();
     app.storage.saveCurrent(state.game);
-    if (state.game.status === "finished") navigate("/results");
+    queueCreditsRefresh(state.game);
+    if (state.game.status === "finished") navigate("/credits");
     else renderRoute();
   } catch (error) {
     state.voice.error = error.message;
@@ -639,6 +641,8 @@ function completeVoiceReview(game, pending, { challenged }) {
   state.voice.review = null;
   state.timeLeft = null;
   app.storage.saveCurrent(state.game);
+  // The reel is rebuilt between turns so the closing roll is ready before the last life is even spent.
+  queueCreditsRefresh(state.game);
   renderRoute();
 }
 
@@ -705,7 +709,8 @@ function ensureVoiceTimer() {
     flashVoiceTransition(before);
     state.timeLeft = null;
     app.storage.saveCurrent(state.game);
-    if (state.game.status === "finished") navigate("/results");
+    queueCreditsRefresh(state.game);
+    if (state.game.status === "finished") navigate("/credits");
     else renderRoute();
   }, 1000);
 }
@@ -718,7 +723,7 @@ export function bindVoice() {
   document.querySelector("[data-voice-outcome-continue]")?.addEventListener("click", () => {
     const finished = state.voice.outcome?.finished;
     state.voice.outcome = null;
-    if (finished) navigate("/results");
+    if (finished) navigate("/credits");
     else {
       startVoiceSession();
       renderRoute();

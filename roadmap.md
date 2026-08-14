@@ -1,6 +1,6 @@
 # Ciné-Fil — feuille de route
 
-Mise à jour le 13 août 2026. La reconstruction, le déploiement statique, la couverture TMDb et le fallback universel de vérification sont traités. Les cases restantes demandent surtout une validation éditoriale, juridique ou des essais sur appareils réels.
+Mise à jour le 14 août 2026. La reconstruction, le déploiement continu sur Cloud Run, la couverture TMDb et le fallback universel de vérification sont traités. Les cases restantes demandent surtout une validation éditoriale, juridique ou des essais sur appareils réels.
 
 ## Socle autonome — livré
 
@@ -78,7 +78,7 @@ Mise à jour le 13 août 2026. La reconstruction, le déploiement statique, la c
 ## Phase 5 — qualité produit — livrée
 
 - [x] 91 tests unitaires, d’intégration, de données et de propriétés, dont 250 parties pseudo-aléatoires et un banc phonétique français.
-- [x] 17 parcours navigateur locaux et 20 parcours Pages réussis sur desktop/mobile, avec contrôles hors-ligne, sous-chemin, chargement différé, validation vocale explicite et cascade VAR.
+- [x] Parcours navigateur sur desktop et mobile, avec contrôles hors-ligne, validation vocale explicite et cascade VAR.
 - [x] CI GitHub avec rapport Playwright en cas d’échec.
 - [x] Déploiement GitHub Pages depuis Actions, artefact sur liste blanche et garde anti-secret.
 - [x] PWA installable et shell complet disponible hors connexion.
@@ -114,6 +114,36 @@ Mise à jour le 13 août 2026. La reconstruction, le déploiement statique, la c
 - [x] Repli intégral sur le catalogue embarqué dès que l'origine empruntée est injoignable ou l'appareil hors connexion, vérifié en navigateur.
 - [x] Recherche distante du mode vocal recalibrée : déclenchée sur les énoncés terminés dont la lecture locale reste incertaine, jamais deux fois pour la même phrase, et la proposition locale reste affichée pendant l'aller-retour.
 - [x] Libellés qui disent le catalogue réellement en jeu : embarqué, emprunté, serveur complet, ou hors connexion.
+
+## Phase 8 — générique de fin — livrée
+
+- [x] Écran `/credits` intercalé entre la dernière vie perdue et le tableau des scores, dans les deux modes de jeu.
+- [x] Distribution : un titre de rôle par joueur, déduit de sa partie, et sa ligne de crédits.
+- [x] Chaîne relue dans l'ordre d'apparition avec le film qui tient chaque paire, et la mention explicite quand il n'y en a aucun.
+- [x] **Les bluffs jamais démasqués sont révélés là, et seulement là** : le jeu ne les nomme à aucun autre moment.
+- [x] Rubrique « avec la participation de » pour les artistes nommés mais refusés, registre des cascades, séquencier complet et générique technique.
+- [x] Liens que le moteur n'avait pas su prouver redemandés au catalogue au moment du montage : une paire apprise depuis est créditée.
+- [x] Rouleau assemblé en arrière-plan après chaque tour validé (temps mort du navigateur), jamais pendant que la table attend.
+- [x] Passage immédiat sur un appui n'importe où, Échap, Entrée ou Espace ; document défilable en mouvement réduit ; lien « revoir le générique » depuis les scores.
+- [x] Tests unitaires du montage à partir de parties réellement jouées, et parcours navigateur du générique jusqu'aux scores.
+
+## Phase 9 — une seule cible — livrée
+
+- [x] L'édition GitHub Pages est retirée : workflow, build, shards statiques, overlay chargé au démarrage, tests dédiés et projet e2e sous-chemin.
+- [x] Le mode « catalogue emprunté » (`API_BASE_URL`) disparaît avec elle : le jeu est servi par son propre serveur, les appels sont de même origine.
+- [x] **Le hors-ligne est intact et reste vérifié** : snapshot embarqué, service worker, cache de filmographies, liens confirmés rejouables, verdict `UNKNOWN` plutôt qu'un faux négatif quand rien n'a pu être interrogé.
+- [x] Déploiement continu sur Cloud Run à chaque `main` qui passe la quality gate, service reconnu plutôt que deviné, variables du service préservées, sonde de fin sur `/api/catalog/status`.
+- [x] La page servie porte le tampon de la révision (`K_REVISION`), affiché sous « Version publiée ».
+
+## Phase 10 — profils, succès et planche de contact — livrée
+
+- [x] Les profils enregistrés sont sélectionnables d'un tap au casting, classés par récence, avec dépliant et filtre au-delà de six, et une vignette choisie ne bouge jamais sous le doigt.
+- [x] Un profil peut naître sans historique, survit à l'abandon de la partie, part dans l'export et peut s'oublier en deux taps.
+- [x] Le bouton de lancement dit pourquoi il refuse ; les doublons saisis à la main sont montrés du doigt.
+- [x] Cinquante succès en quatre familles et quatre paliers, cinq secrets, quinze à progression mesurable, chacun jugeant un joueur et non la table.
+- [x] Neuf compteurs de profil ajoutés, alimentés en un seul dépouillement du générique ; garde contre l'horloge reculée et contre la partie trop courte.
+- [x] Rubrique statistiques : trois jauges à socle, registre complet, faits de bobine, bande de forme sur dix parties, adversaires marquants.
+- [x] Le verdict « rien trouvé » de la VAR porte la réplique de Gin Rummy dans The Boondocks et un sceau original dessiné dans la DA, avec ses replis en texte agrandi, écran étroit et couleurs forcées.
 
 ## Prochain cycle éditorial
 

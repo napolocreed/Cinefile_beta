@@ -49,7 +49,7 @@ TMDB_API_TOKEN=votre_jeton_v4
 
 Puis lancer localement avec `npm run dev:env`. Sur Railway, déclarer directement la variable dans l’environnement et conserver `npm start`.
 
-Le secret reste côté serveur ou dans les secrets GitHub Actions. L’interface ne reçoit jamais la clé : GitHub Pages charge un overlay statique contrôlé, tandis que la cible Node peut interroger TMDb en direct.
+Le secret reste côté serveur ou dans les secrets GitHub Actions. L’interface ne reçoit jamais la clé : le navigateur passe par `/api/*`, jamais par TMDb.
 
 Reproduire le snapshot canonique :
 
@@ -65,9 +65,9 @@ npm run sync:tmdb:env -- --limit=100
 
 La sortie locale `src/data/tmdb-overlay.local.json` est ignorée par Git afin qu’une synchronisation soit contrôlée avant intégration. Le fichier publié `src/data/tmdb-overlay.json` utilise un schéma compact et référentiel; les homonymes ne sont acceptés qu’avec un recouvrement filmographique décisif.
 
-Pour les rafraîchissements automatiques, créer dans GitHub `Settings → Secrets and variables → Actions` un secret de dépôt nommé `TMDB_API_TOKEN`. Le workflow `Enrich TMDb catalogue` rafraîchit ensuite le catalogue par lots de 100, rejoue les tests et redéploie Pages. Le jeton ayant été partagé hors du gestionnaire de secrets, le renouveler avant cette configuration est recommandé.
+Pour les rafraîchissements automatiques, créer dans GitHub `Settings → Secrets and variables → Actions` un secret de dépôt nommé `TMDB_API_TOKEN`. Le workflow `Enrich TMDb catalogue` rafraîchit ensuite le catalogue par lots de 100, rejoue les tests et pousse le résultat sur `main` — d’où il repart dans le circuit ordinaire : quality gate, puis déploiement Cloud Run. Le jeton ayant été partagé hors du gestionnaire de secrets, le renouveler avant cette configuration est recommandé.
 
-Sur Pages, le navigateur charge un index TMDb initial d’environ 756 Ko puis uniquement la filmographie de l’artiste sélectionné. Chaque shard consulté rejoint le cache hors ligne; le fichier source complet reste réservé à la génération et à la cible Node.
+Le navigateur ne charge jamais l’overlay complet : il reçoit le snapshot embarqué, puis la filmographie enrichie du seul artiste sélectionné, servie par `/api/catalog/people/*`. Ce qui a été consulté reste jouable hors connexion.
 
 ### Vérification universelle et VAR
 
@@ -82,22 +82,45 @@ La cascade rend compte d’elle-même : chaque réponse liste ses étapes dans l
 
 Seul `CONFIRMED` tranche automatiquement. Tous les autres états ouvrent une salle **VAR** avec les indices disponibles, des liens de recherche et une décision humaine. Une absence de résultat n’est donc jamais assimilée à la preuve qu’un film n’existe pas.
 
-Les confirmations positives enrichissent `cinefil.verification-cache.v1` sur l’appareil et deviennent immédiatement rejouables hors connexion. Les résultats négatifs ne sont jamais appris. Sur GitHub Pages, aucune API d’exécution n’est appelée : la VAR humaine et ses recherches externes restent disponibles. Définir `VERIFY_LINK_NETWORK=0` désactive également la cascade sur la cible Node sans casser le jeu.
+Les confirmations positives enrichissent `cinefil.verification-cache.v1` sur l’appareil et deviennent immédiatement rejouables hors connexion. Les résultats négatifs ne sont jamais appris. Hors connexion, aucune source n’est interrogée et le verdict reste `UNKNOWN` : la VAR humaine et ses recherches externes restent disponibles. Définir `VERIFY_LINK_NETWORK=0` désactive également la cascade côté serveur sans casser le jeu.
 
 Le cadrage, les alternatives étudiées et les écarts assumés sont consignés dans [le rapport de fallback universel](docs/rapport-fallback-universel.md).
+
+## Profils, statistiques et succès
+
+L'écran Profils est le seul de l'application qui a le droit de charger : on vient y lire, pas y jouer. Une carte montre quatre compteurs et trois jauges ; tout le reste vit dans un repli.
+
+- **Les trois jauges** disent ce qu'aucun total ne dit : taux de bluffs réussis, fiabilité au buzzer, tenue de table. Chacune porte sa fraction sous le pourcentage, et **aucune n'affiche de chiffre sous son socle** — cinq bluffs, cinq buzz, trois parties. Un tiret est une réponse ; un « 100 % » obtenu sur un essai n'en est pas une.
+- **La fiche complète** déplie quatre sections : le palmarès (place moyenne, séries, points, niveau), le style de jeu (tours joués, réussite au tour, occasions de buzzer contre buzz déclenchés), la bobine (acteur fétiche, film le plus revu, la tête qui ne passe pas, plus longue chaîne, durée moyenne, séance de prédilection) et la table (bande de forme sur dix parties, partenaire fidèle, bête noire, victime préférée).
+- **Deux libellés étaient faux et sont corrigés** : `bluffsCaught` compte les fois où l'on s'est *fait* démasquer — c'est « Bluffs sanctionnés » ; démasquer quelqu'un, c'est `challengesSuccessful`, désormais « Bluffs démasqués ». L'ancien succès qui récompensait cinquante bluffs subis a disparu avec le reste.
+- **Ce qui vient de l'historique est daté** : les cinquante dernières parties, jamais « depuis toujours », et c'est écrit sous la section.
+- **Cinquante succès** en quatre familles (carrière, exploits de partie, bluff et enquête, cinéphilie) et quatre paliers, dont cinq secrets et quinze à progression mesurable. Chacun se prononce sur **un joueur** — les six précédents jugeaient la partie, si bien que toute la table recevait le même carton. Une partie de moins de six actes ou six acteurs n'en décroche aucun.
+- Les nouveaux compteurs démarrent à la partie suivante pour une fiche antérieure ; ces lignes affichent un tiret et le disent, plutôt que des zéros qui se liraient comme des résultats.
+
+## Générique de fin
+
+Entre la dernière vie perdue et le tableau des scores, la partie déroule son propre générique — capitales condensées sur fond de salle, colonne étroite, machine à écrire pour ce qui relie les noms :
+
+- **Distribution** : chaque joueur reçoit un titre tiré de sa manière de jouer (le dernier à l’écran, cascades sans doublure, au montage, à la documentation…) et sa ligne de crédits — raccords, films, bluffs, série, séquence de sortie.
+- **Dans l’ordre d’apparition** : la chaîne complète, avec **le film qui tient chaque paire** écrit entre deux acteurs. Quand rien ne les relie, le générique l’écrit en rouge : c’est le bluff que personne n’a relevé, révélé ici et nulle part ailleurs. Un lien que le moteur n’avait pas su prouver est redemandé au catalogue au moment du générique, et crédité si les archives ont appris la paire depuis.
+- **Avec la participation de** : les artistes nommés mais jamais retenus, avec le motif du refus.
+- **Cascades et doublures** : le registre des bluffs — ceux qui sont passés, ceux qui ont été démasqués et par qui, et les buzz tombés à côté.
+- **Séquencier** : le journal de la partie, séquence par séquence, avec les vies dépensées et les sorties de plateau.
+- **Générique technique** : le décompte de la partie, puis le carton **FIN**.
+
+Le générique est **assemblé en arrière-plan pendant la partie**, sur le temps mort après chaque tour validé : la table ne l’attend jamais. Il défile seul à vitesse de lecture et se passe d’un appui n’importe où sur l’écran (ou Échap, Entrée, Espace) ; il s’efface aussi de lui-même à la fin du rouleau. En mouvement réduit, il devient un document que l’on fait défiler soi-même. L’écran des scores garde un lien pour le revoir.
 
 ## Tests
 
 ```bash
 npm test             # 95 tests unitaires, intégration, données, propriétés et manifeste de modules
 npm run test:e2e     # desktop + mobile avec un Chromium reproductible
-npm run test:e2e:pages # mêmes parcours sous /Cinefile_beta/
 npm run test:all     # totalité de la quality gate
 ```
 
-Comme l’interface est découpée en modules chargés directement par le navigateur, chaque fichier doit être nommé dans `public/sw.js` et dans `scripts/build-pages.mjs`. `test/module-manifest.test.mjs` parcourt le graphe d’imports depuis `src/main.js` et échoue si l’une des deux listes a divergé — une dérive ne se manifesterait sinon qu’hors connexion, ou en production seulement.
+Comme l’interface est découpée en modules chargés directement par le navigateur, chaque fichier doit être nommé dans la liste de cache de `public/sw.js`. `test/module-manifest.test.mjs` parcourt le graphe d’imports depuis `src/main.js` et échoue si la liste a divergé — une dérive ne se manifesterait sinon qu’hors connexion, sur un appareil ayant déjà installé le jeu.
 
-La suite vérifie notamment le moteur de partie, 250 séquences pseudo-aléatoires, la phonétique française du mode vocal, la déduplication, les alias, l’unicité TMDb, les preuves filmographiques, les shards différés, le cache hors ligne, le vocal, l’export/import, le serveur, la PWA et les parcours critiques sur deux tailles d’écran. GitHub Actions rejoue cette quality gate à chaque push et pull request.
+La suite vérifie notamment le moteur de partie, 250 séquences pseudo-aléatoires, la phonétique française du mode vocal, la déduplication, les alias, l’unicité TMDb, les preuves filmographiques, les shards différés, le cache hors ligne, le vocal, le générique de fin, l’export/import, le serveur, la PWA et les parcours critiques sur deux tailles d’écran. GitHub Actions rejoue cette quality gate à chaque push et pull request, et c'est sa réussite sur `main` qui déclenche le déploiement.
 
 ## Données et confidentialité
 
@@ -116,15 +139,16 @@ L’écran Profils permet d’exporter puis de restaurer ces données dans un JS
 ## Architecture
 
 - `src/main.js` : amorçage — lecture du déploiement, chargement du snapshot, construction des services.
-- `src/ui/` : l’interface. `runtime.js` (état partagé et indirections de rendu), `router.js` (table de routes), `shell.js`, `format.js`, `verification.js`, `link-check.js`, et `ui/screens/` (un module par écran : accueil, setup, partie classique, mode vocal, générique, profils).
+- `src/ui/` : l’interface. `runtime.js` (état partagé et indirections de rendu), `router.js` (table de routes), `shell.js`, `format.js`, `verification.js`, `link-check.js`, et `ui/screens/` (un module par écran : accueil, setup, partie classique, mode vocal, générique déroulant, scores, profils).
 - `src/styles.css` : le système de design complet — jetons, mobilier de pellicule, composants, écrans, mouvement.
 - `src/game/engine.js` : règles déterministes et transitions immuables.
+- `src/game/credits.js` : relecture du journal de partie en générique — distribution, chaîne et ses preuves filmographiques, registre des bluffs, séquencier.
 - `src/game/database.js` : index canonique, alias, liens et recherche.
 - `src/game/catalog.js` : recherche hybride et cache navigateur.
 - `src/server/` : adaptateurs TMDb, catalogue publié et vérification Wikidata/Wikipédia côté serveur.
 - `src/voice/` : capture vocale, phonétique française, résolution d’entités et accumulateur de tour, séparés de l’interface.
 - `src/data/` : snapshot, synonymes, registre d’identités revues, overlay TMDb compact, index de portraits, journal de fusion et métriques.
-- `scripts/` : reconstruction des données, build Pages et synchronisation incrémentale.
+- `scripts/` : reconstruction des données, import de distributions et synchronisation incrémentale.
 - `test/` et `e2e/` : non-régression logique et navigateur.
 
 Les fichiers minifiés récupérés restent sous `public/assets/` pour audit mais ne sont plus le runtime de l’application. Le dump du propriétaire est conservé sous `recovery/lovable-dump/`.
@@ -133,31 +157,81 @@ La progression détaillée et les quelques tâches nécessitant un jeton ou une 
 
 ## Déploiements
 
-- **GitHub Pages** : `.github/workflows/pages.yml` construit une liste blanche statique compatible avec le sous-chemin du dépôt, génère les filmographies à la demande, teste le jeu et publie `dist/`. Aucun secret ni code serveur n’entre dans l’artefact.
-- **Serveur Node** : `npm start` respecte `PORT`, sert le fallback SPA et expose `/api/catalog/*` ainsi que `/api/verify-link`, sans transmettre le jeton TMDb au navigateur. Cette cible est prête pour Railway, Render, Fly.io ou un hébergement équivalent dès qu’une fonction demande un backend permanent.
+Le jeu a une seule cible : **son propre serveur Node**, déployé sur Cloud Run. `npm start` respecte `PORT`, sert le fallback SPA et expose `/api/catalog/*` ainsi que `/api/verify-link`, sans jamais transmettre le jeton TMDb au navigateur.
 
-GitHub Pages est donc un premier hébergement, pas une limite produit : le frontend et le moteur ne dépendent pas de cette plateforme.
+L'édition GitHub Pages a été retirée : elle ne pouvait ni interroger TMDb, ni faire tourner la cascade de vérification, et obligeait le code à porter deux catalogues. **Le hors-ligne, lui, n'a pas bougé** — il n'a jamais dépendu de Pages : le snapshot embarqué, le cache de filmographies, les liens confirmés et le service worker restent en place, et une partie se joue toujours entière sans réseau.
 
 ### Déployer la pile complète
 
 Le serveur n'a **aucune dépendance d'exécution** et ne demande aucune étape de construction : il sert le dépôt tel quel. Déployer se résume à lancer `node server.mjs` avec un `PORT`.
 
-- **Sans clé TMDb**, la cible Node apporte déjà ce que Pages ne peut pas faire : la cascade de vérification interroge réellement Wikidata puis Wikipédia, avec ses preuves, ses durées et l'étape qui a trouvé le film. Les filmographies sont servies par l'overlay publié.
+- **Sans clé TMDb**, la cascade de vérification interroge réellement Wikidata puis Wikipédia, avec ses preuves, ses durées et l'étape qui a trouvé le film. Les filmographies sont servies par l'overlay publié.
 - **Avec `TMDB_API_TOKEN`**, s'ajoute la recherche des artistes absents du snapshot de 1 523 identités — le cas « je prononce un nom que le catalogue ignore » — et l'étape TMDb de la cascade, la plus rapide et la mieux structurée.
 
-Deux fichiers rendent l'opération immédiate : `render.yaml` (bouton *Deploy to Render*, plan gratuit, aucune ligne de commande) et un `Dockerfile` de sept lignes utilisable tel quel sur Cloud Run, Railway, Koyeb ou Fly. Le jeton reste côté serveur dans tous les cas; le navigateur ne le voit jamais. Le serveur charge le catalogue publié à la première requête API : comptez environ 200 Mo de mémoire résidente, donc 512 Mo d'instance au minimum.
+Un `Dockerfile` de sept lignes est utilisable tel quel sur Cloud Run, Railway, Koyeb ou Fly, et `render.yaml` donne un déploiement Render en un bouton. Le jeton reste côté serveur dans tous les cas ; le navigateur ne le voit jamais. Le serveur charge le catalogue publié à la première requête API : comptez environ 200 Mo de mémoire résidente, donc 512 Mo d'instance au minimum.
 
-### Faire emprunter l'API par la version Pages
+La page servie porte le tampon de la révision qui l'a produite : `K_REVISION` sur Cloud Run, `BUILD_STAMP` ailleurs. C'est ce que l'écran Profils affiche sous « Version publiée », de sorte qu'« est-ce que mon déploiement est en ligne ? » se répond en regardant la page.
 
-Une fois une instance Node déployée, l'édition statique peut lui emprunter son catalogue et sa cascade de vérification, sans jamais approcher le jeton.
+### Déploiement continu sur Cloud Run
 
-- Côté serveur, `ALLOWED_ORIGINS` déclare qui a le droit d'emprunter, par exemple `https://napolocreed.github.io`. Les en-têtes CORS ne couvrent que `/api/*`, et une origine non déclarée est refusée : cette API donne accès à un jeton TMDb limité et à une cascade Wikidata/Wikipédia qui tourne sous sa propre identité, ce n'est pas un relais public.
-- Côté dépôt, la variable `API_BASE_URL` (Settings → Variables, pas un secret : l'origine est publique) est estampillée dans le build Pages. Variable absente, l'artefact est exactement celui d'aujourd'hui.
+`.github/workflows/cloud-run.yml` remet le service en ligne **à chaque `main` qui passe la quality gate** — pas à chaque push : ce service sert l'API de vérification, un `main` rouge n'a rien à y faire. Le projet `cinefile-505500` est en dur ; le workflow reste inerte tant qu'aucune authentification n'est déclarée, et se relance à la main depuis l'onglet Actions (*Deploy Cloud Run* → *Run workflow*). Chaque déploiement se termine par une sonde sur `/api/catalog/status` : une révision qui ne répond pas fait échouer le job.
 
-L'édition qui emprunte annonce clairement son état — « Catalogue emprunté · TMDb en direct » — et retombe intégralement sur le catalogue embarqué dès que l'origine ne répond plus ou que l'appareil est hors connexion.
+Deux garde-fous méritent d'être connus, parce qu'ils protègent un service déjà réglé à la main :
+
+- **Le service n'est pas deviné.** Un nom inventé ne provoque pas d'erreur : il crée un second service à côté du vrai et le déploiement se déclare vert. Le workflow lit donc les services du projet ; s'il n'y en a qu'un, c'est celui-là, région comprise. S'il y en a plusieurs, il s'arrête et demande de nommer la cible (`CLOUD_RUN_SERVICE`, `GCP_REGION`).
+- **Les réglages existants survivent.** Le déploiement utilise `--update-env-vars`, jamais `--set-env-vars` : « set » remplacerait tout le jeu de variables du service et effacerait le `TMDB_API_TOKEN` posé dans la console. Ce qui n'est pas configuré dans le dépôt n'est simplement pas envoyé à `gcloud`.
+
+**Mise en place, une fois.** Le mode recommandé est la fédération d'identité : GitHub échange un jeton OIDC de courte durée, aucune clé ne dort dans le dépôt.
+
+```bash
+PROJECT_ID=cinefile-505500
+REPO=napolocreed/Cinefile_beta
+
+gcloud config set project "$PROJECT_ID"
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com iamcredentials.googleapis.com
+
+# Le compte de service qui déploie, et le strict nécessaire pour construire puis publier une révision.
+gcloud iam service-accounts create github-deploy --display-name "Déploiement GitHub Actions"
+SA="github-deploy@${PROJECT_ID}.iam.gserviceaccount.com"
+for ROLE in roles/run.admin roles/cloudbuild.builds.editor roles/artifactregistry.admin \
+            roles/storage.admin roles/iam.serviceAccountUser; do
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:$SA" --role "$ROLE"
+done
+
+# La fédération, restreinte à ce dépôt : aucun autre dépôt ne peut emprunter cette identité.
+gcloud iam workload-identity-pools create github --location global --display-name GitHub
+gcloud iam workload-identity-pools providers create-oidc github \
+  --location global --workload-identity-pool github --display-name "GitHub Actions" \
+  --issuer-uri "https://token.actions.githubusercontent.com" \
+  --attribute-mapping "google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-condition "assertion.repository == '${REPO}'"
+
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format 'value(projectNumber)')
+gcloud iam service-accounts add-iam-policy-binding "$SA" \
+  --role roles/iam.workloadIdentityUser \
+  --member "principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/attribute.repository/${REPO}"
+
+echo "GCP_WIF_PROVIDER = projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/providers/github"
+```
+
+**Réglages du dépôt** (Settings → Secrets and variables → Actions → *Variables*) :
+
+| Variable | Rôle |
+| --- | --- |
+| `GCP_WIF_PROVIDER` | **Requise.** Le chemin affiché par la dernière commande ci-dessus. Vide, le workflow ne s'exécute pas. |
+| `GCP_DEPLOY_SERVICE_ACCOUNT` | `github-deploy@cinefile-505500.iam.gserviceaccount.com`. |
+| `CLOUD_RUN_SERVICE`, `GCP_REGION` | Inutiles tant que le projet n'héberge qu'un seul service : il est reconnu tout seul. |
+| `CLOUD_RUN_ALLOWED_ORIGINS` | Normalement inutile : le jeu est servi par ce même service. À ne remplir que si une autre origine doit appeler `/api/*`. |
+| `CLOUD_RUN_ENV_VARS` | Réglages supplémentaires, `CLE=valeur##AUTRE=valeur`. Les variables déjà posées sur le service ne sont pas touchées. |
+| `CLOUD_RUN_TMDB_SECRET` | Le jour où le jeton TMDb passera de variable d'environnement à secret managé, nommer ici le secret Secret Manager. |
+| `CLOUD_RUN_ALLOW_UNAUTHENTICATED` | `true` pour (re)forcer l'ouverture publique du service. Par défaut, l'exposition du service n'est pas touchée. |
+| `GCP_DEPLOY_WITH_KEY` | `true` pour utiliser le secret `GCP_SA_KEY` (JSON d'un compte de service) au lieu de la fédération. |
+
+Le jeton TMDb vit aujourd'hui dans le service, en variable d'environnement `TMDB_API_TOKEN` : le déploiement ne le lit pas, ne l'écrit pas et ne l'efface pas. La sonde de fin signale simplement, sans faire échouer le job, si le service répond `configured: false` — c'est-à-dire s'il tourne sans jeton.
 
 ### Agrandir le catalogue embarqué
 
-`npm run import:cast` (workflow *Import TMDb cast*, déclenchement manuel avec un budget) ajoute au snapshot les artistes qu'il ignore, en partant des distributions des films français populaires. C'est le seul moyen pour la cible Pages hors connexion de connaître un artiste : elle ne peut interroger personne. Mesure de départ : sur 102 noms contemporains, 89 sont déjà présents; les 13 manquants sont la génération 2010-2025 et les humoristes passés au cinéma. L'import n'ajoute jamais un doublon — il filtre par identifiant TMDb puis par nom normalisé — et n'écrit rien quand il n'a rien trouvé de neuf.
+`npm run import:cast` (workflow *Import TMDb cast*, déclenchement manuel avec un budget) ajoute au snapshot les artistes qu'il ignore, en partant des distributions des films français populaires. C'est le seul moyen pour un appareil hors connexion de connaître un artiste : il ne peut interroger personne. Mesure de départ : sur 102 noms contemporains, 89 sont déjà présents; les 13 manquants sont la génération 2010-2025 et les humoristes passés au cinéma. L'import n'ajoute jamais un doublon — il filtre par identifiant TMDb puis par nom normalisé — et n'écrit rien quand il n'a rien trouvé de neuf.
 
 Les données et portraits enrichis proviennent de TMDb. This product uses the TMDB API but is not endorsed or certified by TMDB.
