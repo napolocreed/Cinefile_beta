@@ -124,6 +124,36 @@ function scheduleCatalogSearch(query) {
    Screens
    -------------------------------------------------------------------------- */
 
+/* -----------------------------------------------------------------------------
+   Ce que le verdict va coûter
+   -------------------------------------------------------------------------- */
+
+// Le classique ne disait rien des éliminations : le joueur sorti cessait simplement de recevoir le téléphone,
+// sans un mot, et la table le croyait perdu quelque part dans l'ordre de passage. La résolution est pure — elle
+// cloné la partie plutôt que de la modifier — donc l'écran de verdict peut la jouer d'avance et annoncer ce
+// qu'un « Continuer » va coûter, à la place de le découvrir après coup.
+function pendingConsequence() {
+  if (!state.pending || state.phase !== "reveal") return null;
+  let after;
+  try {
+    after = resolvePending(state.game, state.pending, { challenged: state.revealChallenged });
+  } catch {
+    return null;
+  }
+  const livesBefore = new Map(state.game.players.map((player) => [player.id, player.lives]));
+  const struck = after.players.find((player) => player.lives < (livesBefore.get(player.id) ?? player.lives));
+  if (!struck) return null;
+  return { name: struck.name, lives: struck.lives, out: struck.lives === 0, last: after.status === "finished" };
+}
+
+function consequenceMarkup(consequence) {
+  if (!consequence) return "";
+  if (!consequence.out) {
+    return `<p class="reveal-strike"><b>${escapeHtml(consequence.name)}</b> perd une vie · ${consequence.lives} restante${consequence.lives > 1 ? "s" : ""}</p>`;
+  }
+  return `<p class="reveal-strike reveal-strike--out" role="status"><span class="death-card" aria-hidden="true">FIN</span><b>${escapeHtml(consequence.name)}</b> est éliminé${consequence.last ? " · la partie s’arrête là" : " · sorti de la partie"}</p>`;
+}
+
 export function playMarkup() {
   const game = state.game;
   if (game.config.mode === "voice") return voiceMarkup();
@@ -200,6 +230,7 @@ export function playMarkup() {
     </section>`, { back: "/" });
   }
 
+  const consequence = pendingConsequence();
   const valid = Boolean(state.pending?.wasValid);
   const films = valid && state.pending.sharedFilms.length
     ? `<div class="stub film-proof"><span class="slug slug--ambre">Film${state.pending.sharedFilms.length > 1 ? "s" : ""} commun${state.pending.sharedFilms.length > 1 ? "s" : ""}</span><ul>${state.pending.sharedFilms.map((film) => `<li>${escapeHtml(film)}</li>`).join("")}</ul></div>`
@@ -217,6 +248,7 @@ export function playMarkup() {
     ${state.pending?.verification ? verificationCascadeMarkup(state.pending.verification) : ""}
     ${provenance}
     ${state.pending?.method === "timeout" ? `<p class="reveal-note">Le chrono a mangé la réplique.</p>` : ""}
+    ${consequenceMarkup(consequence)}
     <div class="screen__spacer"></div>
     <div class="screen__foot">
       <button class="button button--gold button--wide" data-continue>Continuer <span aria-hidden="true">→</span></button>
