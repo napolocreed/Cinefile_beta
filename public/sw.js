@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v10-fresh-install";
+const CACHE_NAME = "cinefil-v11-bobine-et-souche";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [
@@ -17,6 +17,19 @@ const CORE = [
   "src/game/storage.js",
   "src/game/static-overlay.js",
   "src/game/transfer.js",
+  "src/ui/format.js",
+  "src/ui/link-check.js",
+  "src/ui/router.js",
+  "src/ui/runtime.js",
+  "src/ui/shell.js",
+  "src/ui/verification.js",
+  "src/ui/voice-state.js",
+  "src/ui/screens/home.js",
+  "src/ui/screens/play.js",
+  "src/ui/screens/profiles.js",
+  "src/ui/screens/results.js",
+  "src/ui/screens/setup.js",
+  "src/ui/screens/voice.js",
   "src/voice/entity-resolver.js",
   "src/voice/phonetics.js",
   "src/voice/speech-session.js",
@@ -25,9 +38,12 @@ const CORE = [
   "src/data/cinema-synonyms.json",
   "assets/inter-latin-400-normal-C38fXH4l.woff2",
   "assets/inter-latin-600-normal-LgqL8muc.woff2",
-  "assets/playfair-display-latin-700-normal-CuDiGg7c.woff2",
+  "assets/oswald-latin-700-normal.woff2",
+  "assets/oswald-latin-ext-700-normal.woff2",
+  "assets/courier-prime-latin-400-normal.woff2",
+  "assets/courier-prime-latin-ext-400-normal.woff2",
+  "assets/courier-prime-latin-700-normal.woff2",
   "assets/tmdb-logo.svg",
-  "__l5e/assets-v1/5ff43c75-eae3-43ba-80e0-f5b47be859df/cinema-seats.png",
   "__l5e/assets-v1/8a9f592b-23da-4698-8a14-e0016a7b6c74/cinefil-logo.png"
 ].map((path) => new URL(path, BASE_URL).href);
 const OPTIONAL = [
