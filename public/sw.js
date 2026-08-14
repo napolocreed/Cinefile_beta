@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v13-serveur-seul";
+const CACHE_NAME = "cinefil-v14-tableau-d-honneur";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [
@@ -15,6 +15,7 @@ const CORE = [
   "src/game/diagnostics.js",
   "src/game/engine.js",
   "src/game/identity.js",
+  "src/game/statistics.js",
   "src/game/storage.js",
   "src/game/transfer.js",
   "src/ui/format.js",

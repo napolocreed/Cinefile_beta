@@ -135,6 +135,16 @@ Mise à jour le 14 août 2026. La reconstruction, le déploiement continu sur Cl
 - [x] Déploiement continu sur Cloud Run à chaque `main` qui passe la quality gate, service reconnu plutôt que deviné, variables du service préservées, sonde de fin sur `/api/catalog/status`.
 - [x] La page servie porte le tampon de la révision (`K_REVISION`), affiché sous « Version publiée ».
 
+## Phase 10 — profils, succès et planche de contact — livrée
+
+- [x] Les profils enregistrés sont sélectionnables d'un tap au casting, classés par récence, avec dépliant et filtre au-delà de six, et une vignette choisie ne bouge jamais sous le doigt.
+- [x] Un profil peut naître sans historique, survit à l'abandon de la partie, part dans l'export et peut s'oublier en deux taps.
+- [x] Le bouton de lancement dit pourquoi il refuse ; les doublons saisis à la main sont montrés du doigt.
+- [x] Cinquante succès en quatre familles et quatre paliers, cinq secrets, quinze à progression mesurable, chacun jugeant un joueur et non la table.
+- [x] Neuf compteurs de profil ajoutés, alimentés en un seul dépouillement du générique ; garde contre l'horloge reculée et contre la partie trop courte.
+- [x] Rubrique statistiques : trois jauges à socle, registre complet, faits de bobine, bande de forme sur dix parties, adversaires marquants.
+- [x] Le verdict « rien trouvé » de la VAR porte la citation de Huey Freeman et un sceau original dessiné dans la DA, avec ses replis en texte agrandi, écran étroit et couleurs forcées.
+
 ## Prochain cycle éditorial
 
 1. Ajouter le secret GitHub `TMDB_API_TOKEN`, puis laisser les vagues hebdomadaires rafraîchir la couverture complète.

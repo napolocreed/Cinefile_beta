@@ -1,6 +1,6 @@
 // End credits. The winner's card, the standings, and the reel that got played.
 
-import { ACHIEVEMENTS } from "../../game/achievements.js";
+import { achievementById } from "../../game/achievements.js";
 import { createGame } from "../../game/engine.js";
 import { recordFinishedGame } from "../../game/storage.js";
 import { app, navigate, routeUrl, state } from "../runtime.js";
@@ -23,9 +23,11 @@ export function renderResults() {
   state.newAchievements = result.newAchievements;
   const ordered = [...game.players].sort((left, right) => (right.id === game.winnerId) - (left.id === game.winnerId) || right.score - left.score);
   const winner = game.players.find((player) => player.id === game.winnerId);
+  // Toute la table a droit à son carton, pas seulement le vainqueur : un succès décroché en perdant est souvent
+  // le plus mérité de la soirée.
   const newAchievements = state.newAchievements
-    .map((id) => ACHIEVEMENTS.find((achievement) => achievement.id === id))
-    .filter(Boolean);
+    .map((entry) => ({ playerName: entry.playerName, achievement: achievementById(entry.id) }))
+    .filter((entry) => entry.achievement);
 
   app.root.innerHTML = shell(`<section class="results-page">
     <div class="stub stub--kraft credits-card">
@@ -40,8 +42,8 @@ export function renderResults() {
     </div>
 
     ${newAchievements.length ? `<div class="block">
-      <div class="block__head"><span class="slug slug--ambre">Nouveau succès</span></div>
-      <div class="achievement-list">${newAchievements.map((achievement) => `<div class="achievement"><span aria-hidden="true">${achievement.icon}</span><div><b>${escapeHtml(achievement.label)}</b><small>${escapeHtml(achievement.description)}</small></div></div>`).join("")}</div>
+      <div class="block__head"><span class="slug slug--ambre">${newAchievements.length > 1 ? "Nouveaux succès" : "Nouveau succès"}</span></div>
+      <div class="achievement-list">${newAchievements.map(({ playerName, achievement }) => `<div class="achievement achievement--${achievement.tier}"><span aria-hidden="true">${achievement.icon}</span><div><b>${escapeHtml(achievement.label)}</b><small>${escapeHtml(playerName)} · ${escapeHtml(achievement.description)}</small></div></div>`).join("")}</div>
     </div>` : ""}
 
     <details class="fold">

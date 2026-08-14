@@ -86,6 +86,17 @@ Les confirmations positives enrichissent `cinefil.verification-cache.v1` sur l�
 
 Le cadrage, les alternatives étudiées et les écarts assumés sont consignés dans [le rapport de fallback universel](docs/rapport-fallback-universel.md).
 
+## Profils, statistiques et succès
+
+L'écran Profils est le seul de l'application qui a le droit de charger : on vient y lire, pas y jouer. Une carte montre quatre compteurs et trois jauges ; tout le reste vit dans un repli.
+
+- **Les trois jauges** disent ce qu'aucun total ne dit : taux de bluffs réussis, fiabilité au buzzer, tenue de table. Chacune porte sa fraction sous le pourcentage, et **aucune n'affiche de chiffre sous son socle** — cinq bluffs, cinq buzz, trois parties. Un tiret est une réponse ; un « 100 % » obtenu sur un essai n'en est pas une.
+- **La fiche complète** déplie quatre sections : le palmarès (place moyenne, séries, points, niveau), le style de jeu (tours joués, réussite au tour, occasions de buzzer contre buzz déclenchés), la bobine (acteur fétiche, film le plus revu, la tête qui ne passe pas, plus longue chaîne, durée moyenne, séance de prédilection) et la table (bande de forme sur dix parties, partenaire fidèle, bête noire, victime préférée).
+- **Deux libellés étaient faux et sont corrigés** : `bluffsCaught` compte les fois où l'on s'est *fait* démasquer — c'est « Bluffs sanctionnés » ; démasquer quelqu'un, c'est `challengesSuccessful`, désormais « Bluffs démasqués ». L'ancien succès qui récompensait cinquante bluffs subis a disparu avec le reste.
+- **Ce qui vient de l'historique est daté** : les cinquante dernières parties, jamais « depuis toujours », et c'est écrit sous la section.
+- **Cinquante succès** en quatre familles (carrière, exploits de partie, bluff et enquête, cinéphilie) et quatre paliers, dont cinq secrets et quinze à progression mesurable. Chacun se prononce sur **un joueur** — les six précédents jugeaient la partie, si bien que toute la table recevait le même carton. Une partie de moins de six actes ou six acteurs n'en décroche aucun.
+- Les nouveaux compteurs démarrent à la partie suivante pour une fiche antérieure ; ces lignes affichent un tiret et le disent, plutôt que des zéros qui se liraient comme des résultats.
+
 ## Générique de fin
 
 Entre la dernière vie perdue et le tableau des scores, la partie déroule son propre générique — capitales condensées sur fond de salle, colonne étroite, machine à écrire pour ce qui relie les noms :

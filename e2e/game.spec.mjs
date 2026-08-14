@@ -133,8 +133,10 @@ test("an uncertain bluff opens the human VAR without treating absence as proof",
   await page.getByRole("button", { name: /Valider/i }).click();
   await page.getByRole("button", { name: /Bluff !/i }).click();
   await expect(page.getByRole("heading", { name: /La VAR vous rend la décision/i })).toBeVisible();
-  // Le verdict dit d'où il vient, y compris quand aucune source externe n'a rien donné.
-  await expect(page.getByText(/ne prouve jamais|jugement humain reste prioritaire|ne joint aucun service externe/i)).toBeVisible();
+  // Le verdict dit d'où il vient, et la règle qui compte est portée par la citation.
+  await expect(page.locator(".var-quote__line")).toContainText("absence of evidence");
+  await expect(page.locator(".var-quote__by")).toContainText("Boondocks");
+  await expect(page.getByText(/la table tranche/i)).toBeVisible();
   // The cascade is reported in full: the local base first, then each external source that was actually asked.
   const steps = page.locator(".var-step");
   await expect(steps).toHaveCount(4);

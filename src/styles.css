@@ -1947,6 +1947,115 @@ h2.marquee {
   color: var(--kraft-soft);
 }
 
+/* Le carton de citation du verdict « rien trouvé ». Un intertitre de muet : une
+   vignette sérigraphiée à gauche, la phrase en capitales condensées, la source en
+   machine à écrire. La règle du jeu reste dessous, dans le `p` du panneau. */
+.var-quote {
+  display: grid;
+  grid-template-columns: var(--quote-cols, auto minmax(0, 1fr));
+  align-items: center;
+  gap: 0.45rem 0.8rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid var(--line-ambre);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(120% 150% at 14% 0%, rgba(233, 163, 60, 0.09), transparent 60%),
+    var(--ink-deep);
+  text-align: var(--quote-align, left);
+}
+
+/* Le sceau reste entre 56 et 72 px quelle que soit l'échelle de texte : en dessous
+   le profil ne se lit plus, au-dessus il vole la colonne de lecture. */
+.var-quote__seal {
+  display: var(--quote-seal, block);
+  grid-row: span 2;
+  width: clamp(3.5rem, 16vw, 4.5rem);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.var-quote__line {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(0.95rem, 4.1vw, 1.15rem);
+  font-weight: 700;
+  line-height: 1.14;
+  color: var(--kraft);
+  text-wrap: balance;
+}
+
+/* Guillemets dessinés, pas tapés : suspendus dans la gouttière pour que la première
+   ligne s'aligne sur les suivantes. */
+.var-quote__line::before {
+  content: "“";
+  margin-inline-start: -0.35em;
+  color: var(--ambre);
+}
+
+.var-quote__line::after {
+  content: "”";
+  color: var(--ambre);
+}
+
+.var-quote__by {
+  align-self: start;
+  font-family: var(--font-script);
+  font-size: 0.56rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--kraft-dim);
+}
+
+/* Écran très étroit, ou textes agrandis : le sceau s'efface et le carton devient un
+   carton de muet plein cadre. Aucun besoin d'image pour rester dans la DA. */
+:root[data-large-text] .var-quote {
+  --quote-cols: minmax(0, 1fr);
+  --quote-align: center;
+  --quote-seal: none;
+}
+
+:root[data-large-text] .var-quote__line {
+  padding-block: 0.5rem;
+  border-block: 1px solid var(--line-ambre);
+}
+
+@media (max-width: 22rem) {
+  .var-quote {
+    --quote-cols: minmax(0, 1fr);
+    --quote-align: center;
+    --quote-seal: none;
+  }
+
+  .var-quote__line {
+    padding-block: 0.5rem;
+    border-block: 1px solid var(--line-ambre);
+  }
+}
+
+/* Couleurs forcées : l'ambre et l'encre qui portent toute l'image sont écrasées par
+   la palette système, l'illustration ne veut plus rien dire. On la retire au profit
+   du tampon maison. */
+@media (forced-colors: active) {
+  .var-quote {
+    --quote-cols: minmax(0, 1fr);
+    --quote-seal: none;
+    border-color: CanvasText;
+    background: Canvas;
+  }
+
+  .var-quote::before {
+    content: "Citation";
+    justify-self: start;
+    padding: 0.2rem 0.5rem;
+    border: 2px solid CanvasText;
+    font-family: var(--font-script);
+    font-size: 0.58rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    transform: rotate(-2.5deg);
+  }
+}
+
 /* La cascade est un rapport de laboratoire : elle se lit en colonnes, même
    posée au milieu d'un écran de verdict centré. */
 .var-cascade {
@@ -2735,10 +2844,325 @@ h2.marquee {
   gap: 0.25rem;
 }
 
+/* Un repli à l'intérieur d'une fiche n'est pas un panneau : c'est une ligne de
+   déchirure et un intertitre. Il emprunte le mécanisme de `.fold` sans son
+   mobilier, qui dessinerait une boîte dans une boîte. */
+.fold--flush {
+  border: 0;
+  border-top: 1px dashed var(--line-strong);
+  border-radius: 0;
+  background: transparent;
+}
+
+.fold--flush > summary {
+  min-height: 2.4rem;
+  padding: 0;
+  font-family: var(--font-script);
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ambre);
+}
+
+.fold--flush .fold__body {
+  gap: var(--gap);
+  padding: 0.1rem 0 0.3rem;
+}
+
+.fold__count {
+  font-family: var(--font-script);
+  font-size: 0.6rem;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: var(--kraft-dim);
+}
+
+.fiche__section {
+  display: grid;
+  gap: var(--gap-xs);
+}
+
+/* Trois indicateurs de tête. Une jauge n'est pas un graphique : c'est un
+   pourcentage lisible de loin, avec sa fraction juste dessous pour qu'un
+   « 100 % » obtenu sur un seul essai ne puisse pas mentir. */
+.gauges {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.2rem, 1fr));
+  gap: var(--gap-sm);
+}
+
+.gauge {
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.42rem 0.45rem;
+  border-radius: 2px;
+  background: var(--ink-deep);
+}
+
+.gauge__label {
+  font-family: var(--font-script);
+  font-size: 0.5rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--kraft-dim);
+}
+
+.gauge__value {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  line-height: 1;
+  color: var(--ambre-bright);
+}
+
+.gauge__track,
+.trophy__track {
+  height: 3px;
+  overflow: hidden;
+  background: rgba(231, 217, 190, 0.12);
+}
+
+/* La lampe du projecteur : sombre au départ, chaude à pleine puissance. */
+.gauge__fill,
+.trophy__fill {
+  display: block;
+  width: var(--fill, 0%);
+  height: 100%;
+  background: linear-gradient(90deg, var(--ambre-deep), var(--ambre-bright));
+}
+
+.gauge__base {
+  font-family: var(--font-script);
+  font-size: 0.5rem;
+  color: var(--kraft-dim);
+}
+
+/* Pas encore assez de matière : le chiffre perd son ambre et la jauge reste éteinte. */
+.gauge--void .gauge__value {
+  color: var(--kraft-dim);
+}
+
+.gauge--void .gauge__fill {
+  background: var(--line-strong);
+}
+
+/* Le registre : un libellé, un chiffre, et le pointillé d'une feuille de service
+   entre les deux. Deux colonnes, jamais trois — à 390 px, une troisième casse
+   les libellés en escalier. */
+.ledger {
+  display: grid;
+}
+
+.ledger__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px dotted var(--line);
+}
+
+.ledger__row:last-child {
+  border-bottom: 0;
+}
+
+.ledger__row dt {
+  font-size: 0.74rem;
+  line-height: 1.25;
+  color: var(--kraft-soft);
+}
+
+.ledger__row dd {
+  margin: 0;
+  font-family: var(--font-script);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--ambre);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ledger__row dd small {
+  font-weight: 400;
+  color: var(--kraft-dim);
+}
+
+/* Une valeur sans socle prend le tiret et perd son ambre : elle ne se lit pas
+   comme un résultat. */
+.ledger__row dd[data-void] {
+  font-weight: 400;
+  color: var(--kraft-dim);
+}
+
+/* Un nom propre a besoin de toute la largeur : il prend sa ligne, en capitales,
+   son décompte à droite. */
+.facts {
+  display: grid;
+  gap: 2px;
+}
+
+.fact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-left: 2px solid var(--line-ambre);
+  background: var(--ink-deep);
+}
+
+.fact__label {
+  grid-column: 1 / -1;
+  font-family: var(--font-script);
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--kraft-dim);
+}
+
+.fact__name {
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--kraft);
+}
+
+.fact__count {
+  font-family: var(--font-script);
+  font-size: 0.58rem;
+  color: var(--ambre);
+  white-space: nowrap;
+}
+
+/* Dix parties, dix photogrammes. C'est une bande de pellicule, pas un graphique :
+   on la lit d'un coup d'œil, la couleur d'abord — ambre gagnée, rouge perdue —
+   la hauteur ensuite, qui dit la longueur de la chaîne. */
+.strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 1.7rem;
+  padding: 3px;
+  border-radius: 2px;
+  background: var(--ink-deep);
+}
+
+.strip__frame {
+  flex: 1 1 0;
+  min-width: 0;
+  height: var(--h, 100%);
+  min-height: 3px;
+  border-radius: 1px;
+  background: var(--rouge);
+  opacity: 0.65;
+}
+
+.strip__frame--win {
+  background: var(--ambre);
+  opacity: 1;
+}
+
+/* Moins de dix parties : les cases manquantes restent des amorces vierges plutôt
+   que des défaites. */
+.strip__frame--blank {
+  height: 100%;
+  border: 1px dashed var(--line);
+  background: transparent;
+  opacity: 1;
+}
+
+/* Le tableau d'honneur. Un succès décroché s'allume ; les autres restent des
+   cartons éteints, et un secret garde son cadenas jusqu'au jour où il tombe. */
+.trophies {
+  display: grid;
+  gap: 2px;
+}
+
+.trophy {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  border-left: 2px solid var(--line);
+  background: var(--ink-deep);
+  opacity: 0.55;
+}
+
+.trophy--earned {
+  opacity: 1;
+}
+
+.trophy--bronze.trophy--earned { border-left-color: var(--kraft-soft); }
+.trophy--argent.trophy--earned { border-left-color: var(--kraft); }
+.trophy--or.trophy--earned { border-left-color: var(--ambre); }
+.trophy--culte.trophy--earned { border-left-color: var(--rouge-bright); }
+
+.trophy__icon {
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.trophy__body {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.trophy__body b {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--kraft);
+}
+
+.trophy__body small {
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--kraft-dim);
+}
+
+.trophy__count {
+  font-family: var(--font-script);
+  font-size: 0.55rem;
+  color: var(--ambre);
+}
+
+.trophy__tier {
+  font-family: var(--font-script);
+  font-size: 0.5rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--kraft-dim);
+}
+
+.trophy--culte .trophy__tier {
+  color: var(--rouge-bright);
+}
+
+.achievement--or {
+  border-left-color: var(--ambre);
+}
+
+.achievement--culte {
+  border-left-color: var(--rouge-bright);
+}
+
 .profile-card__forget {
   justify-self: start;
   min-height: 2.2rem;
   padding: 0;
+}
+
+.profile-achievements__more {
+  color: var(--ambre);
 }
 
 .profile-achievements span {
