@@ -4,8 +4,6 @@ import { test, expect } from "@playwright/test";
 // Both are replaced here — a scripted recogniser and Playwright's clock — so the rules that protect the chain
 // can be exercised deterministically instead of being hoped for.
 
-const PAGES_BASE = process.env.PAGES_E2E ? "/Cinefile_beta" : "";
-const appPath = (route = "/") => `${PAGES_BASE}${route}`;
 const CURRENT_GAME_KEY = "cinelink.current.v1";
 
 const RECOGNISER = () => {
@@ -67,7 +65,7 @@ async function startVoiceGame(page, { withClock = false, lives = null } = {}) {
   if (withClock) await page.clock.install();
   await page.addInitScript(RECOGNISER);
   await stubCatalog(page);
-  await page.goto(appPath("/setup"));
+  await page.goto("/setup");
   await page.getByRole("button", { name: /Vocal passif/i }).click();
   await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");

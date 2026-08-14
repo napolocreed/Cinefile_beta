@@ -1,12 +1,10 @@
 import { test, expect } from "@playwright/test";
 
-const PAGES_BASE = process.env.PAGES_E2E ? "/Cinefile_beta" : "";
-const appPath = (route = "/") => `${PAGES_BASE}${route}`;
 
 test("classic game setup and opening turn work without browser errors", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto(appPath("/"));
+  await page.goto("/");
   await expect(page.getByRole("heading", { name: /Le dernier à l’écran/i })).toBeVisible();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Aller au jeu" })).toBeVisible();
@@ -29,15 +27,15 @@ test("classic game setup and opening turn work without browser errors", async ({
 
 test("installed app shell reopens the setup route offline", async ({ page, context }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "One offline browser project is sufficient.");
-  await page.goto(appPath("/"));
+  await page.goto("/");
   await page.evaluate(() => navigator.serviceWorker.ready);
   await context.setOffline(true);
-  await page.goto(appPath("/setup"));
+  await page.goto("/setup");
   await expect(page.getByRole("heading", { name: "Nouvelle partie" })).toBeVisible();
 });
 
 test("portable backup downloads as a validated JSON document", async ({ page }) => {
-  await page.goto(appPath("/profiles"));
+  await page.goto("/profiles");
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Exporter" }).click();
   const download = await downloadPromise;
@@ -51,7 +49,7 @@ test("portable backup downloads as a validated JSON document", async ({ page }) 
 });
 
 test("passive voice only advances the chain on an explicit validation", async ({ page }) => {
-  await page.goto(appPath("/setup"));
+  await page.goto("/setup");
   await page.getByRole("button", { name: /Vocal passif/i }).click();
   await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
@@ -91,7 +89,7 @@ test("passive voice only advances the chain on an explicit validation", async ({
 
 test("passive voice recognises a French name through recognition spelling drift", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "One browser project covers the matching behaviour.");
-  await page.goto(appPath("/setup"));
+  await page.goto("/setup");
   await page.getByRole("button", { name: /Vocal passif/i }).click();
   await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
@@ -100,42 +98,6 @@ test("passive voice recognises a French name through recognition spelling drift"
   await page.getByLabel(/Nom entendu pour/i).fill("alors moi je dis jean du jardin");
   await page.getByRole("button", { name: "Détecter" }).click();
   await expect(page.locator(".voice-pick__name").first()).toHaveText("Jean Dujardin");
-});
-
-test("GitHub Pages keeps routes inside the repository subpath and makes no runtime API call", async ({ page }) => {
-  test.skip(!process.env.PAGES_E2E, "Only relevant to the static Pages edition.");
-  const apiRequests = [];
-  page.on("request", (request) => {
-    if (new URL(request.url()).pathname.includes("/api/")) apiRequests.push(request.url());
-  });
-  await page.goto(appPath("/"));
-  await page.getByRole("link", { name: /Nouvelle partie/i }).click();
-  await expect(page).toHaveURL(/\/Cinefile_beta\/setup$/);
-  await expect(page.getByRole("heading", { name: "Nouvelle partie" })).toBeVisible();
-  expect(apiRequests).toEqual([]);
-});
-
-test("GitHub Pages lazily fetches only the selected enriched filmography", async ({ page }, testInfo) => {
-  test.skip(!process.env.PAGES_E2E || testInfo.project.name !== "desktop", "One static browser project is sufficient.");
-  const shardRequests = [];
-  const monolithRequests = [];
-  page.on("request", (request) => {
-    const pathname = new URL(request.url()).pathname;
-    if (pathname.includes("/tmdb-shards/")) shardRequests.push(pathname);
-    if (pathname.endsWith("/tmdb-overlay.json")) monolithRequests.push(pathname);
-  });
-  await page.goto(appPath("/"));
-  expect(shardRequests).toEqual([]);
-  await page.getByRole("link", { name: /Nouvelle partie/i }).click();
-  await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
-  await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
-  await page.getByRole("button", { name: /Lancer la partie/i }).click();
-  await page.getByLabel("Ton artiste").fill("Gérard Depardieu");
-  await page.getByRole("option", { name: /Gérard Depardieu/i }).first().click();
-  await page.getByRole("button", { name: /Valider/i }).click();
-  await expect.poll(() => shardRequests.length).toBe(1);
-  expect(shardRequests[0]).toMatch(/\/tmdb-shards\/person_0rl93xi\.json$/);
-  expect(monolithRequests).toEqual([]);
 });
 
 test("an uncertain bluff opens the human VAR without treating absence as proof", async ({ page }, testInfo) => {
@@ -160,7 +122,7 @@ test("an uncertain bluff opens the human VAR without treating absence as proof",
       },
     }),
   }));
-  await page.goto(appPath("/setup"));
+  await page.goto("/setup");
   await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
   await page.getByRole("button", { name: /Lancer la partie/i }).click();
@@ -171,7 +133,7 @@ test("an uncertain bluff opens the human VAR without treating absence as proof",
   await page.getByRole("button", { name: /Valider/i }).click();
   await page.getByRole("button", { name: /Bluff !/i }).click();
   await expect(page.getByRole("heading", { name: /La VAR vous rend la décision/i })).toBeVisible();
-  // The Pages edition reaches this screen without contacting anything, and says so instead of blaming the network.
+  // Le verdict dit d'où il vient, y compris quand aucune source externe n'a rien donné.
   await expect(page.getByText(/ne prouve jamais|jugement humain reste prioritaire|ne joint aucun service externe/i)).toBeVisible();
   // The cascade is reported in full: the local base first, then each external source that was actually asked.
   const steps = page.locator(".var-step");
@@ -194,7 +156,7 @@ test("the closing credits replay the game, name the bluff nobody called, and ste
     contentType: "application/json",
     body: JSON.stringify({ verdict: "NOT_FOUND", source: "none", films: [], evidence: [], durationMs: 900, steps: [], searchLinks: {} }),
   }));
-  await page.goto(appPath("/setup"));
+  await page.goto("/setup");
   await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
   await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
   await page.locator("#lives-range").fill("1");

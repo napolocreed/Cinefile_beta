@@ -5,21 +5,6 @@ export const VERIFICATION_CACHE_KEY = "cinefil.verification-cache.v1";
 const MAX_CACHED_PEOPLE = 80;
 const MAX_VERIFIED_LINKS = 200;
 
-// A deployment can borrow another one's API: the static edition has no server of its own but can be pointed at a
-// deployed Node instance. Only an origin, optionally with a path prefix, is accepted — a query or a fragment would
-// silently corrupt every route built from it, and a bad value must degrade to "same origin" rather than break.
-export function normalizeApiBase(value) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return "";
-  try {
-    const url = new URL(raw);
-    if ((url.protocol !== "https:" && url.protocol !== "http:") || url.search || url.hash) return "";
-    return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
-  } catch {
-    return "";
-  }
-}
-
 export function createVerificationSearchLinks(left, right) {
   const query = encodeURIComponent(`"${left}" "${right}" film`);
   return {
@@ -172,23 +157,15 @@ export function createHybridCatalog({
   database,
   fetchImpl = globalThis.fetch,
   storage = globalThis.localStorage,
-  remoteEnabled = true,
-  staticHydrate = null,
-  apiBase = "",
 } = {}) {
   const cache = createCatalogCache(storage);
   const verificationCache = createVerificationCache(storage);
   const cached = cache.load();
   for (const person of cached.people) database.upsertPerson(person, { source: "tmdb" });
   for (const link of verificationCache.load().links) applyVerifiedLink(database, link);
-  const apiOrigin = normalizeApiBase(apiBase);
-  const apiUrl = (route) => `${apiOrigin}${route}`;
-  // Which catalogue is actually in play — the shipped snapshot alone, a borrowed origin, or this deployment's own
-  // server — is stated to the player, so it belongs to the state instead of being guessed at from the build.
-  const mode = !remoteEnabled ? "local" : apiOrigin ? "borrowed" : "server";
-  let remoteState = remoteEnabled
-    ? { checked: false, configured: null, online: globalThis.navigator?.onLine !== false, source: "local", static: false, mode, origin: apiOrigin || null }
-    : { checked: true, configured: false, online: globalThis.navigator?.onLine !== false, source: "snapshot", static: true, mode, origin: null };
+  // The game is served by its own API, so the only question left is whether that API answers, and whether it
+  // holds a TMDb key. Both are told to the player, so they belong to the state rather than to a guess.
+  let remoteState = { checked: false, configured: null, online: globalThis.navigator?.onLine !== false, source: "local" };
   const setRemoteState = (patch) => { remoteState = { ...remoteState, ...patch }; };
 
   async function fetchJson(url, { signal } = {}) {
@@ -200,9 +177,8 @@ export function createHybridCatalog({
   }
 
   async function status() {
-    if (!remoteEnabled) return { ...remoteState };
     try {
-      const payload = await fetchJson(apiUrl("/api/catalog/status"));
+      const payload = await fetchJson("/api/catalog/status");
       setRemoteState({ checked: true, configured: Boolean(payload.configured), online: true, source: payload.source ?? "local" });
     } catch {
       setRemoteState({ checked: true, online: false });
@@ -215,13 +191,13 @@ export function createHybridCatalog({
     const local = database.searchPeople(query, { ...options, limit });
     // A browser that reports itself offline is not a catalogue that answers: saying so keeps the status line from
     // promising a live search that will never leave the device.
-    if (remoteEnabled && globalThis.navigator?.onLine === false) setRemoteState({ checked: true, online: false });
-    if (!remoteEnabled || normalizeText(query).length < 2 || options.remote === false || globalThis.navigator?.onLine === false) {
+    if (globalThis.navigator?.onLine === false) setRemoteState({ checked: true, online: false });
+    if (normalizeText(query).length < 2 || options.remote === false || globalThis.navigator?.onLine === false) {
       return { results: local, remote: { ...remoteState, skipped: true } };
     }
     try {
       const parameters = new URLSearchParams({ query, limit: String(limit), locale: options.locale ?? "fr-FR" });
-      const payload = await fetchJson(apiUrl(`/api/catalog/search?${parameters}`), { signal: options.signal });
+      const payload = await fetchJson(`/api/catalog/search?${parameters}`, { signal: options.signal });
       setRemoteState({ checked: true, configured: Boolean(payload.configured), online: true, source: payload.source ?? "tmdb" });
       const merged = [...local];
       for (const person of payload.results ?? []) {
@@ -248,21 +224,9 @@ export function createHybridCatalog({
   async function hydrate(candidate, { signal } = {}) {
     if (!candidate) return null;
     const existing = database.findActor(candidate.id) ?? database.findActor(candidate.name);
-    if (staticHydrate) {
-      // The shipped overlay already holds every identity of the snapshot. Asking it first keeps a borrowed origin
-      // for what it alone can do — artists the snapshot never had — and keeps hydration working offline.
-      let shipped = null;
+    if (existing?.id?.startsWith("person_") && existing.source !== "tmdb") {
       try {
-        shipped = await staticHydrate(candidate, { signal });
-      } catch (error) {
-        if (error?.name === "AbortError") throw error;
-      }
-      if (shipped) return shipped;
-      if (!remoteEnabled) return existing ?? database.upsertPerson(candidate, { source: candidate.source ?? "tmdb" });
-    }
-    if (remoteEnabled && existing?.id?.startsWith("person_") && existing.source !== "tmdb") {
-      try {
-        const payload = await fetchJson(apiUrl(`/api/catalog/people/local/${encodeURIComponent(existing.id)}`), { signal });
+        const payload = await fetchJson(`/api/catalog/people/local/${encodeURIComponent(existing.id)}`, { signal });
         const remotePerson = payload.person;
         const person = database.upsertPerson({
           ...remotePerson,
@@ -281,12 +245,11 @@ export function createHybridCatalog({
     if (existing && existing.creditCount && !String(candidate.origin ?? "").includes("tmdb")) return existing;
     const tmdbId = candidate.externalIds?.tmdb;
     if (!tmdbId) return existing ?? database.upsertPerson(candidate, { source: candidate.source ?? "manual" });
-    if (!remoteEnabled) return existing ?? database.upsertPerson(candidate, { source: candidate.source ?? "tmdb" });
     if (existing && String(existing.externalIds?.tmdb ?? "") === String(tmdbId) && existing.source === "tmdb") return existing;
     const cachedPerson = cache.load().people.find((person) => String(person.externalIds?.tmdb) === String(tmdbId));
     if (cachedPerson) return database.upsertPerson(cachedPerson, { source: "tmdb" });
     try {
-      const payload = await fetchJson(apiUrl(`/api/catalog/people/tmdb/${encodeURIComponent(tmdbId)}`), { signal });
+      const payload = await fetchJson(`/api/catalog/people/tmdb/${encodeURIComponent(tmdbId)}`, { signal });
       const person = database.upsertPerson(payload.person, { source: "tmdb" });
       cache.savePerson(payload.person);
       return person;
@@ -317,15 +280,16 @@ export function createHybridCatalog({
     if (localFilms.length) {
       return { verdict: "CONFIRMED", source: "local", films: localFilms, evidence: localFilms, searchLinks, cached: true, durationMs: 0, steps: [localStep, unreached("tmdb", "not-reached"), unreached("wikidata", "not-reached"), unreached("wikipedia", "not-reached")] };
     }
-    if (!remoteEnabled || globalThis.navigator?.onLine === false) {
-      const outcome = remoteEnabled ? "error" : "skipped";
-      return { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks, offline: true, steps: [localStep, unreached("tmdb", outcome), unreached("wikidata", outcome), unreached("wikipedia", outcome)] };
+    // Offline, the cascade is not "empty" — it was never asked. Saying so is what keeps an absence of network
+    // from reading like an absence of film.
+    if (globalThis.navigator?.onLine === false) {
+      return { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks, offline: true, steps: [localStep, unreached("tmdb", "error"), unreached("wikidata", "error"), unreached("wikipedia", "error")] };
     }
     try {
       const parameters = new URLSearchParams({ left: leftName, right: rightName, locale });
       if (leftPerson?.externalIds?.tmdb) parameters.set("leftTmdbId", leftPerson.externalIds.tmdb);
       if (rightPerson?.externalIds?.tmdb) parameters.set("rightTmdbId", rightPerson.externalIds.tmdb);
-      const payload = await fetchJson(apiUrl(`/api/verify-link?${parameters}`), { signal });
+      const payload = await fetchJson(`/api/verify-link?${parameters}`, { signal });
       if (payload.verdict === "CONFIRMED") {
         const leftReference = leftPerson ?? { name: leftName };
         const rightReference = rightPerson ?? { name: rightName };

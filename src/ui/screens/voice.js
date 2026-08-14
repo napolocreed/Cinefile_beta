@@ -146,7 +146,7 @@ function voiceCandidatesFor(alternatives) {
 }
 
 function worthAskingRemote({ local, query }, final) {
-  if (!final || !app.remoteCatalog || !query) return false;
+  if (!final || !query) return false;
   const best = local[0]?.confidence ?? 0;
   if (best >= (query.split(" ").length >= 2 ? REMOTE_VOICE_MAX_LOCAL : REMOTE_VOICE_LONE_WORD_MAX_LOCAL)) return false;
   return !state.voice.turn.remoteResults.has(normalizeText(query)) && state.voice.turn.remoteLookups < REMOTE_VOICE_BUDGET;

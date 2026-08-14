@@ -66,10 +66,8 @@ function suggestionHint() {
   // What matters when nothing matches is that the name remains playable — that has to come before any note about
   // where the catalogue lives.
   if (!state.suggestions.length) return "Artiste hors base — validez quand même, le groupe pourra l’accepter par vote.";
-  if (state.catalogStatus.mode === "local" || state.catalogStatus.static) return "Catalogue embarqué enrichi.";
   if (state.catalogStatus.online === false) return "Hors connexion · résultats du snapshot et du cache local.";
-  if (state.catalogStatus.configured === false) return state.catalogStatus.mode === "borrowed" ? `Serveur emprunté sans clé TMDb · ${app.apiHost} ne sert que le catalogue publié.` : "Catalogue local actif · ajoutez TMDB_API_TOKEN au serveur pour la recherche étendue.";
-  if (state.catalogStatus.mode === "borrowed" && state.catalogStatus.configured) return `Catalogue live emprunté à ${app.apiHost} · choisissez la bonne identité.`;
+  if (state.catalogStatus.configured === false) return "Catalogue local actif · ajoutez TMDB_API_TOKEN au serveur pour la recherche étendue.";
   return `${state.suggestions.length} proposition${state.suggestions.length > 1 ? "s" : ""} · choisissez la bonne identité.`;
 }
 

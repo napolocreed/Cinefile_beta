@@ -32,8 +32,7 @@ async function prepareChromium() {
 }
 
 const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH || await prepareChromium();
-const pagesE2e = Boolean(process.env.PAGES_E2E);
-const serverPort = pagesE2e ? 4174 : 4173;
+const serverPort = 4173;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -55,8 +54,8 @@ export default defineConfig({
     { name: "mobile", use: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
   ],
   webServer: {
-    command: pagesE2e ? "npm run build:pages:test && node scripts/serve-pages.mjs" : "node server.mjs",
-    url: pagesE2e ? "http://127.0.0.1:4174/Cinefile_beta/" : "http://127.0.0.1:4173/api/catalog/status",
+    command: "node server.mjs",
+    url: "http://127.0.0.1:4173/api/catalog/status",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

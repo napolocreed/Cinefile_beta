@@ -13,8 +13,6 @@ export const app = {
   storage: null,
   diagnostics: null,
   basePath: "/",
-  remoteCatalog: false,
-  apiHost: "",
   buildStamp: "développement local",
 };
 
@@ -59,7 +57,7 @@ export const state = {
   searchTimer: null,
   searchAbort: null,
   submitting: false,
-  catalogStatus: { mode: "local", configured: false, online: true, static: false },
+  catalogStatus: { checked: false, configured: null, online: true },
   verificationStatus: "idle",
   voice: createVoiceState(),
   transferNotice: null,
@@ -129,15 +127,13 @@ export function creditsFor(game = state.game) {
   return state.credits;
 }
 
-// Three deployments, three truths: the snapshot alone, a borrowed API origin, or this deployment's own server.
-// The line has to follow the state and not the build, or a borrowed catalogue would keep claiming to be offline.
+// The line follows the state of the API, never the build: hors ligne, the snapshot alone still plays, and saying
+// which catalogue is actually answering is what keeps that from looking like a failure.
 export function catalogStatusLabel() {
   const status = state.catalogStatus;
-  if (status.mode === "local" || status.static) return "Catalogue embarqué";
-  const place = status.mode === "borrowed" ? "Catalogue emprunté" : "Serveur Ciné-Fil";
   if (status.online === false) return "Hors connexion · base locale";
-  if (status.configured === false) return `${place} · base locale`;
-  return status.configured ? `${place} · TMDb en direct` : `${place} · vérification…`;
+  if (status.configured === false) return "Serveur Ciné-Fil · base locale";
+  return status.configured ? "Serveur Ciné-Fil · TMDb en direct" : "Serveur Ciné-Fil · vérification…";
 }
 
 export function refreshCatalogLabel() {

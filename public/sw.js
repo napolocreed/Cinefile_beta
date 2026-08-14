@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v12-generique";
+const CACHE_NAME = "cinefil-v13-serveur-seul";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [
@@ -16,7 +16,6 @@ const CORE = [
   "src/game/engine.js",
   "src/game/identity.js",
   "src/game/storage.js",
-  "src/game/static-overlay.js",
   "src/game/transfer.js",
   "src/ui/format.js",
   "src/ui/link-check.js",
@@ -49,7 +48,6 @@ const CORE = [
   "__l5e/assets-v1/8a9f592b-23da-4698-8a14-e0016a7b6c74/cinefil-logo.png"
 ].map((path) => new URL(path, BASE_URL).href);
 const OPTIONAL = [
-  "src/data/tmdb-overlay-index.json",
   "src/data/tmdb-portraits.json",
 ].map((path) => new URL(path, BASE_URL).href);
 
