@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v14-tableau-d-honneur";
+const CACHE_NAME = "cinefil-v15-embleme";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [
@@ -46,6 +46,7 @@ const CORE = [
   "assets/courier-prime-latin-ext-400-normal.woff2",
   "assets/courier-prime-latin-700-normal.woff2",
   "assets/tmdb-logo.svg",
+  "assets/brand/emblem.webp",
   "__l5e/assets-v1/8a9f592b-23da-4698-8a14-e0016a7b6c74/cinefil-logo.png"
 ].map((path) => new URL(path, BASE_URL).href);
 const OPTIONAL = [

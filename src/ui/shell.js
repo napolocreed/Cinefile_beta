@@ -2,10 +2,16 @@
 // The decorative eyebrow that used to occupy the right third of the bar is gone — it named the screen a second
 // time, in a place no player looked.
 
-import { app, routeUrl } from "./runtime.js";
+import { app, assetUrl, routeUrl } from "./runtime.js";
 
+// Deux marques pour deux tailles. Sur l'affiche, l'emblème gravé du logo a la place de se lire et il la mérite ;
+// dans la barre des écrans intérieurs il ne resterait qu'une tache dorée de 30 px, alors le sceau « CF » y garde
+// sa place — un monogramme est fait pour tenir petit, une gravure non.
 export function brandMarkup(large = false) {
-  return `<a class="brand ${large ? "brand--large" : ""}" href="${routeUrl("/")}" data-nav aria-label="Ciné-Fil, accueil"><span class="brand__seal" aria-hidden="true">CF</span><span class="brand__words"><b>Ciné</b><em>Fil</em></span></a>`;
+  const mark = large
+    ? `<img class="brand__emblem" src="${assetUrl("assets/brand/emblem.webp")}" width="760" height="628" alt="" aria-hidden="true" fetchpriority="high" decoding="async">`
+    : `<span class="brand__seal" aria-hidden="true">CF</span>`;
+  return `<a class="brand ${large ? "brand--large" : ""}" href="${routeUrl("/")}" data-nav aria-label="Ciné-Fil, accueil">${mark}<span class="brand__words"><b>Ciné</b><em>Fil</em></span></a>`;
 }
 
 export function filmFurniture() {

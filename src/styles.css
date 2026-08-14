@@ -702,10 +702,22 @@ h2.marquee {
   color: var(--ambre);
 }
 
-.brand--large .brand__seal {
-  width: 2.9rem;
-  height: 2.9rem;
-  font-size: 1.2rem;
+/* En grand, la marque s'empile : la gravure au-dessus, le mot dessous, comme un cartouche d'affiche. */
+.brand--large {
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Le fichier d'origine est opaque sur son bordeaux. « screen » sur un fond de salle presque noir efface ce
+   bordeaux au lieu d'y coller une vignette, et le masque radial fait le reste sur les angles. */
+.brand__emblem {
+  display: block;
+  width: min(50vw, 186px);
+  height: auto;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.55));
+  -webkit-mask-image: radial-gradient(closest-side, #000 62%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 62%, transparent 100%);
 }
 
 .brand--large .brand__words {
@@ -788,6 +800,23 @@ h2.marquee {
   background: linear-gradient(180deg, rgba(247, 196, 106, 0.16), transparent 78%);
   clip-path: polygon(46% 0, 54% 0, 88% 100%, 12% 100%);
   filter: blur(6px);
+}
+
+/* Le filigrane : l'emblème repris en grand, assez pâle pour se lire comme un gaufrage sur le velours. Il vit
+   sous le contenu et sous le grain, donc rien de ce qu'on doit lire ne passe derrière lui. */
+.hero__crest {
+  position: absolute;
+  top: 70%;
+  left: 50%;
+  width: min(165vw, 660px);
+  height: auto;
+  transform: translate(-50%, -50%);
+  opacity: 0.13;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  /* Agrandi et fondu très tôt : on ne revoit pas l'emblème une seconde fois, on en devine le cœur. */
+  -webkit-mask-image: radial-gradient(closest-side, #000 26%, transparent 74%);
+  mask-image: radial-gradient(closest-side, #000 26%, transparent 74%);
 }
 
 .hero__content {
