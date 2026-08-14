@@ -223,9 +223,8 @@ test("a bluff that ends the game still says what was verified", async ({ page })
   await expect(page.getByText(/Dans le rôle du vainqueur/i)).toBeVisible();
 });
 
-// À trois joueurs et plus, le siège qui peut buzzer n'est plus celui qui parle ensuite. Pointer le pool sur le
-// challenger — ce que faisait la scène tant qu'elle n'existait qu'en duel — faisait échouer toute validation sur
-// « le tour a changé ». Ce test suit la chaîne sur un tour de table complet, puis un tour de plus.
+// Le micro et le buzzer appartiennent au même siège : celui qui doit enchaîner. Ce test suit la chaîne sur un
+// tour de table complet, puis un tour de plus, pour vérifier que la main circule bien de siège en siège.
 test("the tour de table hands the microphone round the whole cast", async ({ page }) => {
   await startVoiceGame(page, { players: ["Alice", "Bob", "Carol", "Dan"] });
   await page.getByRole("button", { name: /Activer le micro/i }).click();
@@ -247,5 +246,12 @@ test("the tour de table hands the microphone round the whole cast", async ({ pag
   // Le dernier nom reste en attente de verdict : la chaîne s'arrête un cran avant.
   expect(await chainOf(page)).toEqual(["Leonardo DiCaprio", "Kate Winslet", "Tom Hanks", "Meg Ryan"]);
   await expect(page.locator(".voice-tabled")).toContainText("Tom Cruise");
+  // Un seul siège allumé, et il tient le micro comme le buzzer : c'est le même joueur qui tranche. Celui qui
+  // vient de poser le nom est marqué comme tel, et n'a plus rien à décider.
+  const lit = page.locator(".voice-seat-chip--active");
+  await expect(lit).toHaveCount(1);
+  await expect(lit).toContainText("à décider");
+  await expect(lit).not.toContainText(seen[4]);
+  await expect(page.locator(".voice-seat-chip").filter({ hasText: seen[4] })).toContainText("a proposé");
   await expect(page.getByRole("button", { name: /BLUFF/i })).toBeEnabled();
 });

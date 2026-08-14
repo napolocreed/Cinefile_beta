@@ -43,14 +43,21 @@ test("a valid link can be accepted and records the shared film", () => {
   assert.equal(game.turns[1].accepted, true);
 });
 
+// Le défi revient au joueur suivant : Alice ouvre, Bob propose, et c'est Carol — celle qui doit accrocher le
+// maillon d'après — qui choisit entre crier au bluff et enchaîner. Ces deux tests tournent à trois joueurs,
+// seul nombre où la règle se distingue de « le joueur précédent » : à deux, les deux désignent la même
+// personne, ce qui est exactement ce qui a laissé l'erreur passer inaperçue.
 test("a true link challenged as a bluff costs the challenger a life and awards two points", () => {
   let game = makeGame({ livesPerPlayer: 2 });
   game = proposeActor(game, "Leonardo DiCaprio", database).game;
   const result = proposeActor(game, "Kate Winslet", database);
+  assert.equal(result.pending.challengerId, game.players[2].id);
   game = resolvePending(result.game, result.pending, { challenged: true });
   assert.deepEqual(game.chain, ["Leonardo DiCaprio", "Kate Winslet"]);
   assert.equal(game.players[1].score, 2);
-  assert.equal(game.players[0].lives, 1);
+  assert.equal(game.players[2].lives, 1);
+  // Le joueur qui avait déjà joué ne paie rien : il n'avait pas la décision.
+  assert.equal(game.players[0].lives, 2);
   assert.equal(game.turns[1].challenged, true);
 });
 
@@ -59,12 +66,36 @@ test("an invalid link called as a bluff removes the proposer life and leaves the
   game = proposeActor(game, "Leonardo DiCaprio", database).game;
   const result = proposeActor(game, "Louis de Funès", database);
   assert.equal(result.pending.wasValid, false);
+  assert.equal(result.pending.challengerId, game.players[2].id);
   game = resolvePending(result.game, result.pending, { challenged: true });
   assert.deepEqual(game.chain, ["Leonardo DiCaprio"]);
   assert.equal(game.players[1].lives, 1);
   assert.equal(game.players[1].bluffsCaught, 1);
-  assert.equal(game.players[0].challengesSuccessful, 1);
-  assert.equal(game.players[0].score, 1);
+  assert.equal(game.players[2].challengesSuccessful, 1);
+  assert.equal(game.players[2].score, 1);
+  assert.equal(game.players[0].challengesSuccessful, 0);
+});
+
+// Un buzz raté ne dispense pas de jouer : le challenger est aussi celui qui doit enchaîner, il perd une vie
+// puis prend la main. C'est le cas que l'ancienne lecture rendait impossible à observer.
+test("a challenger who buzzed wrongly loses a life and still has to play", () => {
+  let game = makeGame({ livesPerPlayer: 2 });
+  game = proposeActor(game, "Leonardo DiCaprio", database).game;
+  const result = proposeActor(game, "Kate Winslet", database);
+  game = resolvePending(result.game, result.pending, { challenged: true });
+  assert.equal(game.players[2].lives, 1);
+  assert.equal(game.currentPlayerIdx, 2);
+});
+
+// Et s'il y laisse sa dernière vie, le tour l'enjambe au lieu de rendre la main à un éliminé.
+test("a challenger eliminated by their own buzz is skipped when the turn advances", () => {
+  let game = makeGame({ livesPerPlayer: 1 }, ["Alice", "Bob", "Carol", "Dan"]);
+  game = proposeActor(game, "Leonardo DiCaprio", database).game;
+  const result = proposeActor(game, "Kate Winslet", database);
+  game = resolvePending(result.game, result.pending, { challenged: true });
+  assert.equal(game.players[2].lives, 0);
+  assert.equal(game.currentPlayerIdx, 3);
+  assert.equal(game.status, "in-progress");
 });
 
 test("without bluff challenges an unproven link is held for automatic verification, not waved through", () => {

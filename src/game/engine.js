@@ -61,13 +61,8 @@ export function nextAliveIndex(game, fromIndex) {
   return fromIndex;
 }
 
-export function previousAliveIndex(game, fromIndex) {
-  for (let offset = 1; offset <= game.players.length; offset += 1) {
-    const index = (fromIndex - offset + game.players.length) % game.players.length;
-    if (game.players[index].lives > 0) return index;
-  }
-  return fromIndex;
-}
+// Il n'y a volontairement pas de previousAliveIndex : plus rien ne remonte le tour de table. Le seul appelant
+// qu'il ait eu désignait le challenger, et c'est précisément l'erreur que ce sens de lecture a causée.
 
 export function currentPlayer(game) {
   return game.players[game.currentPlayerIdx];
@@ -148,7 +143,11 @@ export function proposeActor(game, actorName, database) {
   if (used.has(normalizeText(proposedActor))) throw new Error("Cet acteur a déjà été utilisé.");
 
   const previousActor = game.chain.at(-1) ?? null;
-  const challenger = database && previousActor ? game.players[previousAliveIndex(game, game.currentPlayerIdx)] : null;
+  // Le défi appartient au joueur suivant, pas au précédent. Une fois A posé par le joueur 1 et B par le
+  // joueur 2, c'est le joueur 3 — celui qui doit accrocher C à B — qui arbitre : ou il crie au bluff sur la
+  // liaison A–B, ou il l'accepte et enchaîne. À deux joueurs les deux lectures désignent la même personne,
+  // ce qui a laissé passer l'erreur ; au-delà, elle donnait la décision à quelqu'un qui avait déjà joué.
+  const challenger = database && previousActor ? game.players[nextAliveIndex(game, game.currentPlayerIdx)] : null;
   const sharedFilms = previousActor ? database.sharedFilms(previousActor, proposedActor, game.config.themeId) : [];
   const knownPair = Boolean(previousActor && database.hasActor(previousActor, game.config.themeId) && database.hasActor(proposedActor, game.config.themeId));
   const pending = {
@@ -212,7 +211,10 @@ export function timeoutTurn(game) {
 
 export function timeoutPending(game) {
   const proposer = currentPlayer(game);
-  const challenger = game.chain.length ? game.players[previousAliveIndex(game, game.currentPlayerIdx)] : null;
+  // Même lecture que proposeActor : le siège qui aurait eu à trancher est le suivant. Un chrono expiré ne se
+  // conteste pas — resolvePending le règle toujours sans défi — mais le compteur d'occasions de buzzer lit ce
+  // champ, et il doit compter pour celui à qui la décision serait revenue.
+  const challenger = game.chain.length ? game.players[nextAliveIndex(game, game.currentPlayerIdx)] : null;
   return {
     index: game.turns.length,
     playerId: proposer.id,
