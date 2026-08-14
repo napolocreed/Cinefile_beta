@@ -194,7 +194,12 @@ export function recordFinishedGame(game, storageApi) {
       continue;
     }
     bump(turnsBy, turn.playerId);
-    if (turn.challengerId) bump(chancesBy, turn.challengerId);
+    // Une occasion de buzzer suppose qu'on ait pu buzzer. Défis coupés, le moteur désigne toujours un
+    // challenger — la VAR tranche à sa place — et le compteur enflait donc d'occasions que personne n'a jamais
+    // eues, ce qui écrasait la fiabilité au buzzer de qui joue sans bluff. La forme négative est voulue : une
+    // sauvegarde antérieure au drapeau n'a pas de config.allowBluffChallenge, et la traiter comme « coupé »
+    // effacerait des occasions bien réelles. Tout ce que createGame produit porte un booléen explicite.
+    if (turn.challengerId && game.config?.allowBluffChallenge !== false) bump(chancesBy, turn.challengerId);
   }
 
   for (const player of game.players) {

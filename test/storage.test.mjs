@@ -159,3 +159,34 @@ test("corrupted profile entries never reach the contact sheet", () => {
   assert.deepEqual(roster.shown.map((entry) => entry.key), ["carol"]);
   assert.deepEqual(castingRoster(null).shown, []);
 });
+
+// Le compteur d'occasions de buzzer n'avait aucune couverture : aucun tour de ce fichier ne portait de
+// challengerId. Or le moteur en désigne un même quand les défis de bluff sont coupés — c'est alors la VAR qui
+// tranche, et personne n'a jamais eu le doigt sur le buzzer. Le dénominateur enflait donc pour qui joue sans
+// bluff, écrasant sa fiabilité au buzzer.
+const gameWithChallenges = (id, config) => ({
+  ...finishedGame(),
+  id,
+  ...(config === undefined ? {} : { config }),
+  turns: [
+    { playerId: "p1", opening: true, wasValid: true },
+    { playerId: "p1", challengerId: "p2", wasValid: true },
+    { playerId: "p2", challengerId: "p1", wasValid: true },
+  ],
+});
+
+const chancesOf = (game) => {
+  const { profiles } = recordFinishedGame(game, createStorage(fakeStorage()));
+  return [profiles.alice.challengeChances, profiles.bob.challengeChances];
+};
+
+test("a buzz opportunity is only counted where someone could actually buzz", () => {
+  // Défis actifs : chaque joueur a eu une fois la main sur le buzzer.
+  assert.deepEqual(chancesOf(gameWithChallenges("bluff-on", { allowBluffChallenge: true })), [1, 1]);
+  // Défis coupés : le moteur a bien inscrit un challengerId, mais personne n'a pu s'en servir.
+  assert.deepEqual(chancesOf(gameWithChallenges("bluff-off", { allowBluffChallenge: false })), [0, 0]);
+  // Sauvegarde antérieure au drapeau : l'absence n'est pas un refus, ses occasions restent comptées.
+  assert.deepEqual(chancesOf(gameWithChallenges("legacy", undefined)), [1, 1]);
+  // Et l'ouverture n'en est jamais une : elle ne se conteste pas.
+  assert.deepEqual(chancesOf({ ...gameWithChallenges("opening-only", {}), turns: [{ playerId: "p1", opening: true, challengerId: "p2" }] }), [0, 0]);
+});
