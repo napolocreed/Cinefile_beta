@@ -1258,6 +1258,19 @@ h2.marquee {
   gap: 0.3rem;
 }
 
+.cue__actor {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.cue__actor .portrait,
+.cue__actor .portrait--empty {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 3px;
+}
+
 .cue__name {
   font-family: var(--font-display);
   font-size: clamp(1.6rem, 8vw, 2.6rem);
@@ -1432,7 +1445,7 @@ h2.marquee {
   text-align: center;
 }
 
-.connection span {
+.connection__link {
   font-family: var(--font-script);
   font-size: 0.75rem;
   letter-spacing: 0.2em;
@@ -1442,6 +1455,20 @@ h2.marquee {
 .connection em {
   font-style: normal;
   color: var(--ambre-bright);
+}
+
+.connection__actor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.connection__actor .portrait,
+.connection__actor .portrait--empty {
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 3px;
 }
 
 .film-proof {
@@ -2370,12 +2397,22 @@ h2.marquee {
 }
 
 .roll-chain__actor {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   font-family: var(--font-display);
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--kraft);
+}
+
+.roll-chain__actor .portrait,
+.roll-chain__actor .portrait--empty {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 3px;
 }
 
 .roll-chain__link--bluff .roll-chain__actor {
@@ -2444,13 +2481,22 @@ h2.marquee {
 }
 
 .roll-guests b {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--kraft-soft);
+}
+
+.roll-guests .portrait,
+.roll-guests .portrait--empty {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 3px;
 }
 
 /* Cascades ---------------------------------------------------------------- */
@@ -2737,7 +2783,18 @@ h2.marquee {
 }
 
 .chain-line span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   color: var(--kraft-soft);
+}
+
+.chain-line .portrait,
+.chain-line .portrait--empty {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 2px;
+  font-size: 0.55rem;
 }
 
 .chain-line b {

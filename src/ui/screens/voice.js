@@ -28,7 +28,7 @@ import {
   stopTimer,
   path,
 } from "../runtime.js";
-import { escapeHtml, livesMarkup, portraitMarkup } from "../format.js";
+import { connectionMarkup, escapeHtml, livesMarkup, portraitMarkup } from "../format.js";
 import { verifyPendingLink } from "../link-check.js";
 import { shell } from "../shell.js";
 import { verificationCascadeMarkup, verificationPanelMarkup } from "../verification.js";
@@ -305,7 +305,7 @@ function voiceOutcomeMarkup() {
   return shell(`<section class="screen voice-outcome">
     <span class="stamp verdict ${outcome.valid ? "stamp--vert verdict--valid" : "stamp--rouge verdict--invalid"}">${outcome.valid ? "Liaison valide" : "Aucune liaison"}</span>
     <div class="screen__spacer screen__spacer--half"></div>
-    <p class="connection">${escapeHtml(outcome.previous ?? "")} <span aria-hidden="true">—</span> <em>${escapeHtml(outcome.proposed)}</em></p>
+    ${connectionMarkup(outcome.previous ?? "", outcome.proposed)}
     <p class="reveal-note">${escapeHtml(reason)}${outcome.manual ? " · décision rendue par la table" : ""}</p>
     ${films}
     ${penalty}

@@ -24,6 +24,16 @@ export function portraitMarkup(candidate, modifier = "") {
   return pictureMarkup(path, candidate?.name, `portrait ${modifier}`, `portrait ${modifier} portrait--empty`);
 }
 
+// The name pairing shown wherever two actors are put face to face — the challenge, VAR and verdict screens
+// (text mode) and the voice-mode outcome screen alike — so the portrait lookup only needs writing once.
+export function connectionMarkup(previousName, proposedName, linkLabel = "—") {
+  return `<p class="connection">
+    <span class="connection__actor">${portraitMarkup({ name: previousName })}${escapeHtml(previousName)}</span>
+    <span class="connection__link" aria-hidden="true">${linkLabel}</span>
+    <em class="connection__actor">${portraitMarkup({ name: proposedName })}${escapeHtml(proposedName)}</em>
+  </p>`;
+}
+
 // Portraits come from a remote image host. Offline, or behind a filtering network, the frame falls back to an
 // engraved initial rather than a broken image.
 export function installPortraitFallback() {
