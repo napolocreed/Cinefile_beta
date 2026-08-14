@@ -244,13 +244,27 @@ function voicePickListMarkup() {
 const SEAT_MARKS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
 const seatMark = (index) => SEAT_MARKS[index] ?? String(index + 1);
 
+// La dernière vie n'est pas une vie de moins : c'est la sortie de la partie. Elle se distinguait jusqu'ici par
+// un seul mot en petit, et un siège éteint ressemblait beaucoup à un siège simplement inactif — d'où des morts
+// prises pour des disparitions. Le flash porte de quoi trancher : `remaining === 0` est une élimination.
+const flashKilled = (playerId) => state.voice.flash?.strikeId === playerId && state.voice.flash?.remaining === 0;
+
 // A life lost is announced where the loser is drawn. At two players that is always one of the two panels; at
 // three and up the loser is often a roster chip with no room for a sentence, so the stage hoists it out.
 function voiceStrikeMarkup(playerId) {
   const flash = state.voice.flash;
   if (!flash || flash.strikeId !== playerId) return "";
   const name = state.game.players.find((player) => player.id === playerId)?.name ?? "";
-  return `<p class="voice-strike"><b>${escapeHtml(name)}</b> ${escapeHtml(flash.reason.toLocaleLowerCase("fr"))}<small>${flash.remaining > 0 ? `${flash.remaining} vie${flash.remaining > 1 ? "s" : ""} restante${flash.remaining > 1 ? "s" : ""}` : "éliminé"}</small></p>`;
+  const out = flash.remaining === 0;
+  const tail = out
+    ? "éliminé · sorti de la partie"
+    : `${flash.remaining} vie${flash.remaining > 1 ? "s" : ""} restante${flash.remaining > 1 ? "s" : ""}`;
+  const body = `<b>${escapeHtml(name)}</b> ${escapeHtml(flash.reason.toLocaleLowerCase("fr"))}<small>${tail}</small>`;
+  // Tout est inline dans une strike ordinaire, donc la grille n'y voit qu'un bloc et le texte coule seul. Sortir
+  // le carton d'un côté et le texte de l'autre demande deux vraies boîtes.
+  return out
+    ? `<p class="voice-strike voice-strike--out"><span class="death-card" aria-hidden="true">FIN</span><span class="voice-strike__body">${body}</span></p>`
+    : `<p class="voice-strike">${body}</p>`;
 }
 
 function voicePlayerSection(player, index, activePlayer) {
@@ -272,7 +286,7 @@ function voicePlayerSection(player, index, activePlayer) {
   const clock = active
     ? `<span class="voice-clock ${seconds !== null && seconds <= 5 ? "voice-clock--urgent" : ""}"><span>${timer}</span></span>`
     : "";
-  return `<section class="voice-player voice-player--${index + 1} ${active ? "voice-player--active" : ""} ${struck ? "voice-player--struck" : ""} ${flash?.toId === player.id ? "voice-player--taking" : ""}" data-voice-panel="${escapeHtml(player.id)}" aria-label="${escapeHtml(player.name)}${active ? ", à vous de jouer" : ", en attente"}"><div class="voice-player__head"><h2><i class="voice-seat" aria-hidden="true">${seatMark(index)}</i>${escapeHtml(player.name)}</h2>${clock}${livesMarkup(player.lives, true, { dying: struck })}</div><div class="voice-detection">${body}</div></section>`;
+  return `<section class="voice-player voice-player--${index + 1} ${active ? "voice-player--active" : ""} ${struck && !flashKilled(player.id) ? "voice-player--struck" : ""} ${flashKilled(player.id) ? "voice-player--dying" : ""} ${flash?.toId === player.id ? "voice-player--taking" : ""}" data-voice-panel="${escapeHtml(player.id)}" aria-label="${escapeHtml(player.name)}${active ? ", à vous de jouer" : ", en attente"}"><div class="voice-player__head"><h2><i class="voice-seat" aria-hidden="true">${seatMark(index)}</i>${escapeHtml(player.name)}</h2>${clock}${livesMarkup(player.lives, true, { dying: struck })}</div><div class="voice-detection">${body}</div></section>`;
 }
 
 // The whole table on one strip: turn order, lives, who is out, and what the lit seat is being asked for. There
@@ -291,7 +305,9 @@ function voiceRosterMarkup(activePlayer) {
       "voice-seat-chip",
       active ? "voice-seat-chip--active" : "",
       out ? "voice-seat-chip--out" : "",
-      flash?.strikeId === player.id ? "voice-seat-chip--struck" : "",
+      flash?.strikeId === player.id && !flashKilled(player.id) ? "voice-seat-chip--struck" : "",
+      // La mort a son propre geste : la vignette ne tremble pas, elle s'éteint sous un carton « FIN ».
+      flashKilled(player.id) ? "voice-seat-chip--dying" : "",
       flash?.toId === player.id ? "voice-seat-chip--taking" : "",
     ].filter(Boolean).join(" ");
     return `<li class="${classes}" aria-label="${escapeHtml(`${player.name}, ${role}, ${player.lives} vie${player.lives > 1 ? "s" : ""}`)}"><span class="voice-seat-chip__name"><i class="voice-seat" aria-hidden="true">${seatMark(index)}</i>${escapeHtml(player.name)}</span>${livesMarkup(player.lives, false, { dying: flash?.strikeId === player.id })}<small aria-hidden="true">${escapeHtml(role)}</small></li>`;
@@ -379,7 +395,9 @@ function voiceOutcomeMarkup() {
     ? `<div class="stub film-proof"><span class="slug slug--ambre">Film${outcome.films.length > 1 ? "s" : ""} commun${outcome.films.length > 1 ? "s" : ""}</span><ul>${outcome.films.map((film) => `<li>${escapeHtml(film)}</li>`).join("")}</ul></div>`
     : "";
   const penalty = struck
-    ? `<p class="voice-outcome__penalty"><b>${escapeHtml(struck.name)}</b> perd une vie · ${struck.lives > 0 ? `${struck.lives} restante${struck.lives > 1 ? "s" : ""}` : "éliminé"}</p>`
+    ? (struck.lives > 0
+      ? `<p class="voice-outcome__penalty"><b>${escapeHtml(struck.name)}</b> perd une vie · ${struck.lives} restante${struck.lives > 1 ? "s" : ""}</p>`
+      : `<p class="voice-outcome__penalty voice-outcome__penalty--out"><span class="death-card" aria-hidden="true">FIN</span><span><b>${escapeHtml(struck.name)}</b> est éliminé · sorti de la partie</span></p>`)
     : "";
   return shell(`<section class="screen voice-outcome">
     <span class="stamp verdict ${outcome.valid ? "stamp--vert verdict--valid" : "stamp--rouge verdict--invalid"}">${outcome.valid ? "Liaison valide" : "Aucune liaison"}</span>
@@ -505,8 +523,11 @@ function flashVoiceTransition(before) {
     reason: struck ? strikeReason(state.game) : null,
     remaining: struck ? after.lives[struck.id] : null,
   };
+  const cause = state.voice.flash.reason?.toLocaleLowerCase("fr");
   announceVoice([
-    struck ? `${nameOf(struck.id)} perd une vie : ${state.voice.flash.reason.toLocaleLowerCase("fr")}. Il lui reste ${state.voice.flash.remaining}.` : "",
+    // « Il lui reste 0 » était la façon dont une élimination s'annonçait jusqu'ici. Elle se dit maintenant.
+    struck && state.voice.flash.remaining === 0 ? `${nameOf(struck.id)} est éliminé : ${cause}.` : "",
+    struck && state.voice.flash.remaining > 0 ? `${nameOf(struck.id)} perd une vie : ${cause}. Il lui reste ${state.voice.flash.remaining}.` : "",
     turned ? `Au tour de ${nameOf(after.activeId)}.` : "",
   ].filter(Boolean).join(" "));
   window.clearTimeout(state.voice.flashTimer);

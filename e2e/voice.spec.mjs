@@ -297,3 +297,40 @@ test("at four players a wrong buzz is charged to the seat that had the decision"
   await expect(stage).toHaveAttribute("data-voice-turn", decider);
   expect(await chainOf(page)).toEqual(["Leonardo DiCaprio", "Kate Winslet"]);
 });
+
+// Perdre sa dernière vie, ce n'est pas perdre une vie de plus. La scène le disait par un seul mot en petit et
+// une vignette un peu moins opaque — assez peu pour qu'une table prenne une mort pour un tour d'attente.
+test("losing the last life is played as an exit, not as one more life lost", async ({ page }) => {
+  await startVoiceGame(page, { players: ["Alice", "Bob", "Carol", "Dan"], lives: 1 });
+  await page.getByRole("button", { name: /Activer le micro/i }).click();
+
+  await validate(page, "Leonardo DiCaprio", "Leonardo DiCaprio");
+  await validate(page, "Kate Winslet", "Kate Winslet");
+  const doomed = await page.locator("[data-voice-stage]").getAttribute("data-voice-turn");
+
+  // Un buzz injustifié sur une liaison que le catalogue confirme : le siège qui décidait y laisse sa vie.
+  await page.getByRole("button", { name: /BLUFF/i }).click();
+  await page.getByRole("button", { name: /Vérifier le bluff/i }).click();
+  const penalty = page.locator(".voice-outcome__penalty--out");
+  await expect(penalty).toContainText(doomed);
+  await expect(penalty).toContainText("éliminé");
+  await expect(penalty.locator(".death-card")).toHaveText("FIN");
+
+  await page.getByRole("button", { name: /Continuer/i }).click();
+  // Le geste : la vignette du sortant s'éteint sous un carton de fin, une seule fois.
+  const dying = page.locator(".voice-seat-chip--dying");
+  await expect(dying).toHaveCount(1);
+  await expect(dying).toContainText(doomed);
+  await expect(page.locator(".voice-strike--out")).toContainText("sorti de la partie");
+  // Et l'annonce ne dit plus « il lui reste 0 ».
+  const announcement = page.locator("p.sr-only[role='status']");
+  await expect(announcement).toContainText(`${doomed} est éliminé`);
+  await expect(announcement).not.toContainText("Il lui reste");
+
+  // Le flash retombé, le siège reste hors jeu — décoloré et barré, pas simplement en veilleuse.
+  await expect(page.locator(".voice-seat-chip--dying")).toHaveCount(0, { timeout: 5000 });
+  const out = page.locator(".voice-seat-chip--out");
+  await expect(out).toHaveCount(1);
+  await expect(out).toContainText(doomed);
+  await expect(out).toContainText("éliminé");
+});

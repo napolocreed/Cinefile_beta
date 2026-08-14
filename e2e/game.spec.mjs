@@ -245,3 +245,90 @@ test("the closing credits replay the game, name the bluff nobody called, and ste
   await page.getByRole("link", { name: /Revoir le générique/i }).click();
   await expect(page.locator(".end-credits")).toBeVisible();
 });
+
+// Le symptôme rapporté depuis une table de quatre : des joueurs « disparaissaient » puis revenaient un tour
+// plus tard, l'ordre semblant tiré au sort. C'était le défi rendu au joueur *précédent* : le téléphone partait
+// chez quelqu'un qui avait déjà joué, puis revenait. Ce test épingle la propriété qui manquait — une seule
+// passation par tour : qui arbitre est qui enchaîne.
+test("the device passes once per turn: whoever arbitrates is whoever plays next", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "One browser project covers the hand-over order.");
+  await page.route("https://image.tmdb.org/**", (route) => route.abort());
+  await page.goto("/setup");
+  for (const [index, name] of ["Alice", "Bob", "Carol", "Dan"].entries()) {
+    if (index >= 2) await page.getByRole("button", { name: /Ajouter un joueur/i }).click();
+    await page.getByPlaceholder(`Nom du joueur ${index + 1}`).fill(name);
+  }
+  await page.locator("#no-timer").check();
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+
+  const order = [];
+  for (const name of ["Leonardo DiCaprio", "Kate Winslet", "Tom Hanks", "Meg Ryan", "Tom Cruise", "Michael Caine"]) {
+    order.push(`tape:${(await page.locator(".reel-counter__name").textContent()).trim()}`);
+    await page.getByLabel("Ton artiste").fill(name);
+    const option = page.getByRole("option", { name: new RegExp(name, "i") }).first();
+    if (await option.count()) await option.click();
+    await page.getByRole("button", { name: /Valider/i }).click();
+    // Valider fait un aller-retour réseau : l'écran n'a tourné que lorsque le champ est vide ou remplacé.
+    await page.waitForFunction(() => {
+      const field = document.querySelector("#actor-input");
+      return !field || field.value === "";
+    });
+    if (await page.locator("[data-pass-challenge]").count()) {
+      order.push(`decide:${(await page.locator(".play .prose").textContent()).split(",")[0].trim()}`);
+      await page.getByRole("button", { name: /Laisser passer/i }).click();
+      await expect(page.getByLabel("Ton artiste")).toBeVisible();
+    }
+  }
+
+  // La propriété, et non la séquence : le siège d'ouverture est tiré au sort.
+  const decisions = order.filter((step) => step.startsWith("decide:"));
+  expect(decisions.length).toBeGreaterThanOrEqual(4);
+  // La dernière décision n'a pas de suite observée : la boucle s'arrête là.
+  for (const [index, step] of order.slice(0, -1).entries()) {
+    if (!step.startsWith("decide:")) continue;
+    expect(order[index + 1], `après ${step}, l'écran a réclamé ${order[index + 1]}`).toBe(`tape:${step.slice(7)}`);
+  }
+});
+
+// Une élimination ne se disait nulle part en classique : le joueur sorti cessait simplement de recevoir le
+// téléphone. C'est l'autre moitié des « joueurs disparus ».
+test("an elimination is spelled out on the verdict screen", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "One browser project covers the elimination notice.");
+  await page.route("https://image.tmdb.org/**", (route) => route.abort());
+  await page.route("**/api/verify-link*", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ verdict: "NOT_FOUND", source: "none", films: [], evidence: [], durationMs: 90, steps: [], searchLinks: {} }),
+  }));
+  await page.goto("/setup");
+  for (const [index, name] of ["Alice", "Bob", "Carol", "Dan"].entries()) {
+    if (index >= 2) await page.getByRole("button", { name: /Ajouter un joueur/i }).click();
+    await page.getByPlaceholder(`Nom du joueur ${index + 1}`).fill(name);
+  }
+  await page.locator("#lives-range").fill("1");
+  await page.locator("#no-timer").check();
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+
+  const settle = () => page.waitForFunction(() => {
+    const field = document.querySelector("#actor-input");
+    return !field || field.value === "";
+  });
+  await page.getByLabel("Ton artiste").fill("Leonardo DiCaprio");
+  await page.getByRole("option", { name: /Leonardo DiCaprio/i }).first().click();
+  await page.getByRole("button", { name: /Valider/i }).click();
+  await settle();
+
+  const doomed = (await page.locator(".reel-counter__name").textContent()).trim();
+  await page.getByLabel("Ton artiste").fill("Artiste Totalement Inconnu");
+  await page.getByRole("button", { name: /Valider/i }).click();
+  await settle();
+  await page.getByRole("button", { name: /Bluff !/i }).click();
+  await page.getByRole("button", { name: /Bluff confirmé/i }).click();
+
+  // Le verdict annonce la sortie avant le « Continuer », pas après.
+  const strike = page.locator(".reveal-strike--out");
+  await expect(strike).toBeVisible();
+  await expect(strike).toContainText(doomed);
+  await expect(strike).toContainText("éliminé");
+  await expect(strike.locator(".death-card")).toHaveText("FIN");
+});

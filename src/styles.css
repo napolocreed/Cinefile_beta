@@ -1636,6 +1636,7 @@ h2.marquee {
 }
 
 .voice-seat-chip {
+  position: relative;
   display: grid;
   gap: 0.12rem;
   padding: 0.3rem 0.4rem;
@@ -1693,8 +1694,13 @@ h2.marquee {
   color: var(--ambre-bright);
 }
 
+/* Éteint et hors jeu sont deux choses : un siège inactif est en veilleuse, un
+   siège sorti est une photo décolorée. Les distinguer par la seule opacité
+   faisait passer des morts pour des tours d'attente. */
 .voice-seat-chip--out {
-  opacity: 0.3;
+  opacity: 0.42;
+  border-left-color: var(--rouge-deep);
+  filter: grayscale(1);
 }
 
 .voice-seat-chip--out .voice-seat-chip__name {
@@ -2091,6 +2097,120 @@ h2.marquee {
   font-size: 0.7rem;
   text-align: center;
   color: var(--kraft-soft);
+}
+
+/* -----------------------------------------------------------------------------
+   12 bis. LA MORT D'UN JOUEUR
+   Perdre une vie, c'est encaisser : le siège tremble. Perdre la dernière, c'est
+   sortir du film — et cela ne se disait jusqu'ici que par un mot en petit. La
+   bobine casse donc pour de bon : le siège se décolore et un carton de fin lui
+   tombe dessus. Le geste est bref, joué une seule fois, sur le flash de
+   passation ; ensuite le siège reste simplement décoloré.
+   -------------------------------------------------------------------------- */
+
+@keyframes death-card-in {
+  0% { opacity: 0; transform: scale(2.6) rotate(-14deg); }
+  55% { opacity: 1; transform: scale(0.9) rotate(-5deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-5deg); }
+}
+
+@keyframes seat-death {
+  0% { filter: none; }
+  18% { filter: brightness(2.4) saturate(0.2); }
+  100% { filter: grayscale(1) brightness(0.62); }
+}
+
+/* Le carton de fin, en pastille : dans une phrase de verdict comme sur un siège. */
+.death-card {
+  display: inline-grid;
+  place-items: center;
+  padding: 0.05rem 0.3rem;
+  border: 1.5px solid var(--rouge-bright);
+  border-radius: 2px;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1.5;
+  color: var(--rouge-bright);
+  animation: death-card-in 0.7s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+
+.voice-seat-chip--dying {
+  opacity: 1;
+  border-left-color: var(--rouge-bright);
+  animation: seat-death 1.2s ease-out both;
+}
+
+/* En surimpression sur la vignette : le siège s'éteint sous le carton. */
+.voice-seat-chip--dying::after {
+  content: "FIN";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--rouge-bright);
+  border-radius: 2px;
+  background: rgba(13, 10, 8, 0.9);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--rouge-bright);
+  animation: death-card-in 0.7s cubic-bezier(0.2, 1.5, 0.4, 1) 0.2s both;
+}
+
+.voice-player--dying {
+  animation: seat-death 1.2s ease-out both;
+}
+
+/* La phrase qui accompagne le geste, dans les deux modes. Le carton et le texte
+   sont deux boîtes : dans une strike ordinaire tout est inline, et une grille
+   n'y verrait qu'un seul bloc où la pastille se noierait. */
+.voice-strike--out {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-left-color: var(--rouge-bright);
+}
+
+.voice-strike__body {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.voice-outcome__penalty--out {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--rouge-bright);
+  border-radius: var(--radius);
+  background: rgba(179, 55, 44, 0.16);
+  color: var(--kraft);
+}
+
+.reveal-strike {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-family: var(--font-script);
+  font-size: 0.72rem;
+  color: var(--kraft-soft);
+  text-align: center;
+}
+
+.reveal-strike--out {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--rouge-bright);
+  border-radius: var(--radius);
+  background: rgba(179, 55, 44, 0.16);
+  font-size: 0.8rem;
+  color: var(--kraft);
 }
 
 /* -----------------------------------------------------------------------------
