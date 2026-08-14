@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinefil-v15-embleme";
+const CACHE_NAME = "cinefil-v16-perimetre";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [
@@ -18,6 +18,7 @@ const CORE = [
   "src/game/statistics.js",
   "src/game/storage.js",
   "src/game/transfer.js",
+  "src/game/work-kinds.js",
   "src/ui/format.js",
   "src/ui/link-check.js",
   "src/ui/router.js",

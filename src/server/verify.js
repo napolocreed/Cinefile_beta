@@ -1,4 +1,12 @@
 import { normalizeText } from "../game/identity.js";
+import {
+  classifyWikidataFilm,
+  classifyWikipediaCategories,
+  CORE_KINDS,
+  isKnownKind,
+  isWorkInScope,
+  WORK_KINDS,
+} from "../game/work-kinds.js";
 
 export const VERIFICATION_VERDICTS = Object.freeze({
   CONFIRMED: "CONFIRMED",
@@ -47,11 +55,20 @@ function numericId(value) {
   return /^\d{1,12}$/.test(id) ? id : null;
 }
 
-function pairKey(left, right, leftTmdbId, rightTmdbId, locale) {
+// Le périmètre entre dans la clé de cache : deux tables qui ne jouent pas les mêmes extensions ne posent pas la
+// même question, et servir à l'une la réponse de l'autre rendrait la règle inapplicable dès le second joueur.
+function pairKey(left, right, leftTmdbId, rightTmdbId, locale, scope) {
   return [
     `${normalizeText(left)}#${numericId(leftTmdbId) ?? ""}`,
     `${normalizeText(right)}#${numericId(rightTmdbId) ?? ""}`,
-  ].sort().join("|") + `|${locale}`;
+  ].sort().join("|") + `|${locale}|${[...scope].sort().join("+")}`;
+}
+
+// Le périmètre demandé par le client, réduit à ce qui existe. Une requête muette — un vieux client, un appel à la
+// main — joue le socle : c'est la lecture stricte, celle qui ne valide que du cinéma.
+export function parseScope(value) {
+  const requested = String(value ?? "").split(/[\s,+]+/).filter(isKnownKind);
+  return new Set([...CORE_KINDS, ...requested]);
 }
 
 function percentile(values, ratio) {
@@ -92,6 +109,14 @@ export function createVerificationSearchLinks(left, right) {
   };
 }
 
+// Q11424 « film » a pour sous-classes Q93204 « film documentaire » et Q506240 « téléfilm ». Une requête qui
+// descend la chaîne des sous-classes — et il faut qu'elle la descende, sinon la moitié des vrais films manquent à
+// l'appel — ramène donc forcément les deux. Plutôt que de les exclure d'entrée, on les fait nommer par la requête
+// elle-même : la cascade trouve tout, et c'est la lecture qui décide de ce que la table accepte.
+const WIKIDATA_FILM = "Q11424";
+const WIKIDATA_DOCUMENTARY_FILM = "Q93204";
+const WIKIDATA_TELEVISION_FILM = "Q506240";
+
 function sharedFilmQuery(leftQids, rightQids) {
   const qids = (values) => values.map((qid) => `wd:${qid}`).join(" ");
   const properties = CREDIT_PROPERTIES.map((property) => `wdt:${property}`).join(" ");
@@ -99,13 +124,15 @@ function sharedFilmQuery(leftQids, rightQids) {
 PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-SELECT DISTINCT ?film ?filmLabel ?year ?left ?right WHERE {
+SELECT DISTINCT ?film ?filmLabel ?year ?left ?right ?documentary ?television WHERE {
   VALUES ?left { ${qids(leftQids)} }
   VALUES ?right { ${qids(rightQids)} }
   VALUES ?leftProperty { ${properties} }
   VALUES ?rightProperty { ${properties} }
-  ?film ?leftProperty ?left ; ?rightProperty ?right ; wdt:P31/wdt:P279* wd:Q11424 .
+  ?film ?leftProperty ?left ; ?rightProperty ?right ; wdt:P31/wdt:P279* wd:${WIKIDATA_FILM} .
   FILTER (?left != ?right)
+  BIND(EXISTS { ?film wdt:P31/wdt:P279* wd:${WIKIDATA_DOCUMENTARY_FILM} } AS ?documentary)
+  BIND(EXISTS { ?film wdt:P31/wdt:P279* wd:${WIKIDATA_TELEVISION_FILM} } AS ?television)
   OPTIONAL { ?film wdt:P577 ?date . BIND(YEAR(?date) AS ?year) }
   OPTIONAL { ?film rdfs:label ?labelFr . FILTER(LANG(?labelFr) = "fr") }
   OPTIONAL { ?film rdfs:label ?labelEn . FILTER(LANG(?labelEn) = "en") }
@@ -113,6 +140,8 @@ SELECT DISTINCT ?film ?filmLabel ?year ?left ?right WHERE {
 }
 LIMIT 20`.trim();
 }
+
+const sparqlBoolean = (binding) => binding?.value === "true" || binding?.value === "1";
 
 function classifyFilmsQuery(qids) {
   return `
@@ -124,25 +153,33 @@ SELECT DISTINCT ?film WHERE {
 }`.trim();
 }
 
+// Le support fait partie de l'identité : une série et un film peuvent porter le même titre la même année, et les
+// confondre ici reviendrait à recréer, dans la cascade, la fusion que la base vient d'apprendre à refuser.
 function tmdbWorkKey(work) {
-  const id = work.externalIds?.tmdbMovie;
-  if (id) return `tmdb:${id}`;
-  return `${normalizeText(work.title)}:${work.year ?? ""}`;
+  const id = work.externalIds?.tmdbMovie ?? work.externalIds?.tmdbTv;
+  const type = work.type === "tv" ? "tv" : "movie";
+  if (id) return `tmdb:${type}:${id}`;
+  return `${type}:${normalizeText(work.title)}:${work.year ?? ""}`;
 }
 
-function intersectTmdbPeople(leftPeople, rightPeople) {
+// Le filtre portait sur le support — « type movie » — quand il devait porter sur la nature. C'est ce qui laissait
+// passer les documentaires d'archives, qui sont des « movies » chez TMDb et où deux acteurs se croisent sans
+// s'être jamais rencontrés.
+function intersectTmdbPeople(leftPeople, rightPeople, scope) {
   const matches = new Map();
+  const playable = (work) => isWorkInScope(work, scope);
   for (const left of leftPeople) {
-    const leftWorks = new Map((left.credits ?? []).filter((work) => work.type === "movie").map((work) => [tmdbWorkKey(work), work]));
+    const leftWorks = new Map((left.credits ?? []).filter(playable).map((work) => [tmdbWorkKey(work), work]));
     for (const right of rightPeople) {
       if (String(left.externalIds?.tmdb) === String(right.externalIds?.tmdb)) continue;
-      for (const work of (right.credits ?? []).filter((entry) => entry.type === "movie")) {
+      for (const work of (right.credits ?? []).filter(playable)) {
         const shared = leftWorks.get(tmdbWorkKey(work));
         if (!shared) continue;
         const key = tmdbWorkKey(shared);
         matches.set(key, {
           title: shared.title,
           year: shared.year ?? work.year ?? null,
+          kind: shared.kind ?? work.kind ?? WORK_KINDS.UNKNOWN,
           url: shared.externalIds?.tmdbMovie ? `https://www.themoviedb.org/movie/${shared.externalIds.tmdbMovie}` : null,
           source: "tmdb",
           leftResolved: left.name,
@@ -259,14 +296,14 @@ export function createLinkVerifier({
     return Promise.all(exact.map((candidate) => tmdb.getPerson(candidate.externalIds.tmdb)));
   }
 
-  async function verifyTmdb(left, right, leftTmdbId, rightTmdbId) {
+  async function verifyTmdb(left, right, leftTmdbId, rightTmdbId, scope) {
     if (!tmdb?.configured) return { status: "skipped", source: "tmdb" };
     try {
       const [leftPeople, rightPeople] = await Promise.all([
         resolveTmdbPeople(left, leftTmdbId),
         resolveTmdbPeople(right, rightTmdbId),
       ]);
-      const films = intersectTmdbPeople(leftPeople, rightPeople);
+      const films = intersectTmdbPeople(leftPeople, rightPeople, scope);
       return films.length
         ? { status: "ok", verdict: VERIFICATION_VERDICTS.CONFIRMED, source: "tmdb", films, evidence: films.slice(0, 5) }
         : { status: "ok", source: "tmdb", films: [] };
@@ -276,7 +313,7 @@ export function createLinkVerifier({
     }
   }
 
-  async function verifyWikidata(left, right) {
+  async function verifyWikidata(left, right, scope) {
     try {
       const [leftCandidates, rightCandidates] = await Promise.all([resolveWikidata(left), resolveWikidata(right)]);
       if (!leftCandidates.length || !rightCandidates.length) return { status: "ok", source: "wikidata", films: [] };
@@ -295,6 +332,10 @@ export function createLinkVerifier({
         filmsById.set(qid, {
           title,
           year,
+          kind: classifyWikidataFilm({
+            documentary: sparqlBoolean(binding.documentary),
+            television: sparqlBoolean(binding.television),
+          }),
           url: `https://www.wikidata.org/wiki/${qid}`,
           source: "wikidata",
           qid,
@@ -302,7 +343,7 @@ export function createLinkVerifier({
           rightQid: qidFromUri(binding.right?.value),
         });
       }
-      const films = [...filmsById.values()].slice(0, 20);
+      const films = [...filmsById.values()].filter((film) => isWorkInScope(film, scope)).slice(0, 20);
       return films.length
         ? { status: "ok", verdict: VERIFICATION_VERDICTS.CONFIRMED, source: "wikidata", endpoint, films, evidence: films.slice(0, 5) }
         : { status: "ok", source: "wikidata", endpoint, films: [] };
@@ -363,6 +404,10 @@ export function createLinkVerifier({
       return [{
         title: entry.title,
         year: null,
+        // « Film documentaire de 2016 » commence par « Film » : l'ancienne lecture n'y voyait qu'un film. Les
+        // catégories, elles, disent souvent la nature en toutes lettres — c'est un indice, à la hauteur de ce que
+        // vaut cette étape, qui n'a jamais le droit de valider seule.
+        kind: classifyWikipediaCategories(categories),
         url: wikipediaUrl(language, entry.title),
         source: "wikipedia",
         language,
@@ -373,11 +418,12 @@ export function createLinkVerifier({
     });
   }
 
-  async function verifyWikipedia(left, right) {
+  async function verifyWikipedia(left, right, scope) {
     try {
       const evidence = [];
       for (const language of WIKIPEDIA_LANGUAGES) {
-        evidence.push(...await searchWikipediaLanguage(language, left, right));
+        const found = await searchWikipediaLanguage(language, left, right);
+        evidence.push(...found.filter((entry) => isWorkInScope(entry, scope)));
         if (evidence.length >= 10) break;
       }
       const uniqueEvidence = [...new Map(evidence.map((entry) => [`${entry.language}:${entry.title}`, entry])).values()].slice(0, 10);
@@ -413,15 +459,15 @@ export function createLinkVerifier({
 
   const unreachedStep = (source, outcome = "not-reached") => ({ source, outcome, durationMs: 0, films: 0, error: null });
 
-  async function performVerification({ left, right, leftTmdbId, rightTmdbId, locale }) {
+  async function performVerification({ left, right, leftTmdbId, rightTmdbId, locale, scope }) {
     const searchLinks = createVerificationSearchLinks(left, right);
-    const tmdb = await timedStep("tmdb", verifyTmdb(left, right, leftTmdbId, rightTmdbId));
+    const tmdb = await timedStep("tmdb", verifyTmdb(left, right, leftTmdbId, rightTmdbId, scope));
     if (tmdb.result.verdict === VERIFICATION_VERDICTS.CONFIRMED) {
       return { ...tmdb.result, searchLinks, steps: [tmdb.step, unreachedStep("wikidata"), unreachedStep("wikipedia")] };
     }
 
-    const wikidataPromise = timedStep("wikidata", verifyWikidata(left, right));
-    const wikipediaPromise = timedStep("wikipedia", verifyWikipedia(left, right));
+    const wikidataPromise = timedStep("wikidata", verifyWikidata(left, right, scope));
+    const wikipediaPromise = timedStep("wikipedia", verifyWikipedia(left, right, scope));
     const wikidata = await wikidataPromise;
     if (wikidata.result.verdict === VERIFICATION_VERDICTS.CONFIRMED) {
       // Wikipédia was searched in parallel but its answer is no longer needed.
@@ -445,6 +491,7 @@ export function createLinkVerifier({
       searchLinks,
       steps,
       locale,
+      scope: [...scope].sort(),
     };
   }
 
@@ -454,7 +501,8 @@ export function createLinkVerifier({
     const locale = /^([a-z]{2})(-[A-Z]{2})?$/.test(String(input.locale ?? "fr-FR")) ? String(input.locale ?? "fr-FR") : "fr-FR";
     if (left.length < 2 || right.length < 2) throw Object.assign(new Error("Deux noms d’artistes sont requis."), { status: 400 });
     if (normalizeText(left) === normalizeText(right)) throw Object.assign(new Error("Les deux artistes doivent être différents."), { status: 400 });
-    const key = pairKey(left, right, input.leftTmdbId, input.rightTmdbId, locale);
+    const scope = input.scope instanceof Set ? input.scope : parseScope(input.scope);
+    const key = pairKey(left, right, input.leftTmdbId, input.rightTmdbId, locale, scope);
     metrics.requests += 1;
     const cached = resultCache.get(key);
     if (cached !== undefined) {
@@ -466,10 +514,10 @@ export function createLinkVerifier({
       return inFlight.get(key);
     }
     const startedAt = now();
-    const promise = performVerification({ left, right, leftTmdbId: input.leftTmdbId, rightTmdbId: input.rightTmdbId, locale })
+    const promise = performVerification({ left, right, leftTmdbId: input.leftTmdbId, rightTmdbId: input.rightTmdbId, locale, scope })
       .then((result) => {
         const durationMs = Math.max(0, now() - startedAt);
-        const response = { ...result, left, right, durationMs, cached: false };
+        const response = { ...result, left, right, durationMs, cached: false, scope: [...scope].sort() };
         metrics.verdicts[response.verdict] += 1;
         metrics.sources[response.source] = (metrics.sources[response.source] ?? 0) + 1;
         metrics.latencies.push(durationMs);

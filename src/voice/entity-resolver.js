@@ -175,6 +175,9 @@ export function createVoiceResolver(database) {
     limit = 4,
     previousActor = null,
     linkBonus = LINK_BONUS,
+    // Le coup de pouce de liaison suit le périmètre de la partie : une émission commune ne doit pas faire pencher
+    // la reconnaissance vocale vers un nom que le jeu refusera ensuite de valider.
+    extensions = null,
   } = {}) {
     const alternatives = (Array.isArray(input) ? input : [{ transcript: input }])
       .map((alternative) => (typeof alternative === "string" ? { transcript: alternative } : alternative))
@@ -210,7 +213,7 @@ export function createVoiceResolver(database) {
     if (previousActor && linkBonus > 0) {
       for (const match of shortlist) {
         if (match.score >= 0.999) continue;
-        if (database.sharedFilms(previousActor, match.person.name, themeId).length) match.score = Math.min(0.995, match.score + linkBonus);
+        if (database.sharedFilms(previousActor, match.person.name, themeId, { extensions }).length) match.score = Math.min(0.995, match.score + linkBonus);
       }
       shortlist.sort((left, right) => right.score - left.score || (right.person.popularity ?? 0) - (left.person.popularity ?? 0));
     }

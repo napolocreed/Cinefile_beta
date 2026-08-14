@@ -244,3 +244,39 @@ test("a probable result requires an explicit human VAR decision", () => {
   assert.equal(rejected.wasValid, false);
   assert.deepEqual(rejected.sharedFilms, []);
 });
+
+/* -----------------------------------------------------------------------------
+   Le périmètre appartient à la partie
+   -------------------------------------------------------------------------- */
+
+// La partie du 14 août 2026 : JoeyStarr puis Dany Boon, reliés par « LEGEND » — le plateau de télévision où les
+// deux étaient passés, à des années d'écart. Le joueur qui a crié au bluff avait raison, et a perdu une vie.
+const showDatabase = () => createDatabase({
+  people: [
+    { id: "person_joey", name: "JoeyStarr", credits: ["work_show"], source: "snapshot" },
+    { id: "person_boon", name: "Dany Boon", credits: ["work_show"], source: "snapshot" },
+  ],
+  works: [{ id: "work_show", title: "LEGEND", type: "tv", kind: "show", source: "snapshot" }],
+});
+
+test("a television show links nobody unless the table opened it", () => {
+  const database = showDatabase();
+  const strict = proposeActor(proposeActor(makeGame(), "JoeyStarr", database).game, "Dany Boon", database);
+  assert.deepEqual(strict.pending.sharedFilms, []);
+  assert.equal(strict.pending.wasValid, false);
+
+  const opened = makeGame({ extensions: { shows: true } });
+  const linked = proposeActor(proposeActor(opened, "JoeyStarr", database).game, "Dany Boon", database);
+  assert.deepEqual(linked.pending.sharedFilms, ["LEGEND"]);
+  assert.equal(linked.pending.wasValid, true);
+});
+
+test("the scope is written into the game rather than read from the device", () => {
+  const game = makeGame({ extensions: { documentaries: true, series: "oui" } });
+  assert.deepEqual(game.config.extensions, { documentaries: true, series: false, shows: false });
+  // Une sauvegarde antérieure aux extensions se rejoue au socle plutôt que sous des règles indéfinies.
+  const legacy = { ...makeGame(), config: { themeId: "classic", livesPerPlayer: 3, allowBluffChallenge: true } };
+  legacy.chain = ["JoeyStarr"];
+  legacy.turns = [{ index: 0, playerId: legacy.players[0].id, proposedActor: "JoeyStarr", sharedFilms: [], opening: true, accepted: true }];
+  assert.deepEqual(proposeActor(legacy, "Dany Boon", showDatabase()).pending.sharedFilms, []);
+});

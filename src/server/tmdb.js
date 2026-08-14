@@ -1,3 +1,5 @@
+import { classifyTmdbCredit, WORK_KINDS } from "../game/work-kinds.js";
+
 const API_ROOT = "https://api.themoviedb.org/3";
 const IMAGE_ROOT = "https://image.tmdb.org/t/p/w185";
 
@@ -85,6 +87,10 @@ export function createTmdbClient({ token = process.env.TMDB_API_TOKEN, apiKey = 
     const payload = await request(`/person/${numericId}`, { language: locale, append_to_response: "combined_credits,external_ids" });
     const works = new Map();
     const roles = new Set();
+    // « movie » chez TMDb n'est pas « film de cinéma » : le même support porte les documentaires, les captations
+    // de plateau et les téléfilms. Les genres sont la seule chose de la filmographie combinée qui les sépare, et
+    // ils voyagent donc avec l'œuvre — c'est ce qui permet au jeu de choisir, plus tard et hors connexion, ce
+    // qu'il accepte comme liaison.
     const addCredit = (credit, role) => {
       const title = credit.title ?? credit.name;
       if (!title || !credit.id) return;
@@ -98,10 +104,18 @@ export function createTmdbClient({ token = process.env.TMDB_API_TOKEN, apiKey = 
         aliases: [],
         year: yearFromDate(credit.release_date ?? credit.first_air_date),
         type,
+        kind: classifyTmdbCredit({ mediaType: credit.media_type, genreIds: credit.genre_ids }),
+        genreIds: [...new Set((credit.genre_ids ?? []).map(Number).filter(Number.isFinite))],
         externalIds: type === "tv" ? { tmdbTv: credit.id } : { tmdbMovie: credit.id },
         source: "tmdb",
         roles: [],
       };
+      // Une même œuvre revient une fois par métier, et TMDb ne renseigne pas toujours les genres sur chacune de
+      // ces lignes : la première qui les porte fixe la nature, les suivantes ne la redescendent pas à l'inconnu.
+      if (previousWork && previousWork.kind === WORK_KINDS.UNKNOWN && credit.genre_ids?.length) {
+        previousWork.kind = classifyTmdbCredit({ mediaType: credit.media_type, genreIds: credit.genre_ids });
+        previousWork.genreIds = [...new Set(credit.genre_ids.map(Number).filter(Number.isFinite))];
+      }
       work.roles = [...new Set([...work.roles, role])];
       works.set(key, work);
       roles.add(role);

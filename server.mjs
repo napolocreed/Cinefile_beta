@@ -9,7 +9,7 @@ const workspaceRoot = process.cwd();
 const publicRoot = join(workspaceRoot, "public");
 const port = Number(process.env.PORT || 4173);
 const tmdb = createTmdbClient();
-const publishedCatalog = createPublishedCatalog();
+const publishedCatalog = createPublishedCatalog({ tmdb });
 const linkVerifier = createLinkVerifier({ tmdb });
 // A borrowed API is opened by name, never by reflex. This server fronts a TMDb token with a quota and a
 // verification cascade that hits Wikidata and Wikipédia under its own User-Agent: "*" would publish both as a
@@ -91,6 +91,8 @@ async function handleApi(request, response, url) {
         leftTmdbId: url.searchParams.get("leftTmdbId"),
         rightTmdbId: url.searchParams.get("rightTmdbId"),
         locale: String(url.searchParams.get("locale") ?? "fr-FR").slice(0, 12),
+        // Le périmètre des œuvres que la table accepte. Absent, c'est le socle : du cinéma, et rien d'autre.
+        scope: String(url.searchParams.get("scope") ?? "").slice(0, 120),
       });
       const maxAge = result.verdict === "CONFIRMED" ? 86_400 : result.verdict === "NOT_FOUND" ? 3_600 : 300;
       sendJson(response, 200, result, `public, max-age=${maxAge}`);

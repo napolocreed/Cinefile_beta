@@ -159,3 +159,102 @@ test("upstream concurrency is bounded instead of amplifying public traffic", asy
   release();
   await first;
 });
+
+/* -----------------------------------------------------------------------------
+   Le périmètre, jusque dans la cascade
+   -------------------------------------------------------------------------- */
+
+// TMDb appelle « movie » un documentaire d'archives. Deneuve et Moreau partageaient ainsi seize « films » qui
+// étaient des portraits de Truffaut, de Demy ou de Belmondo — jamais un tournage commun.
+const archiveDocumentary = { title: "Belmondo l’incorrigible", year: 2022, type: "movie", kind: "documentary", externalIds: { tmdbMovie: 1021162 } };
+const sharedFilm = { title: "Le Dernier Métro", year: 1980, type: "movie", kind: "cinema", externalIds: { tmdbMovie: 1234 } };
+
+function tmdbWithCredits(credits) {
+  return {
+    configured: true,
+    getPerson: async (id) => ({ name: `Artiste ${id}`, externalIds: { tmdb: Number(id) }, credits }),
+  };
+}
+
+test("a documentary is not a film until the table says it is", async () => {
+  const tmdb = tmdbWithCredits([archiveDocumentary]);
+  const offline = async () => { throw new Error("offline"); };
+
+  const strict = createLinkVerifier({ tmdb, fetchImpl: offline });
+  const refused = await strict.verify({ left: "Catherine Deneuve", right: "Jeanne Moreau", leftTmdbId: 1, rightTmdbId: 2 });
+  assert.equal(refused.verdict, "UNKNOWN");
+  assert.deepEqual(refused.films, []);
+
+  const opened = createLinkVerifier({ tmdb, fetchImpl: offline });
+  const accepted = await opened.verify({ left: "Catherine Deneuve", right: "Jeanne Moreau", leftTmdbId: 1, rightTmdbId: 2, scope: "documentary" });
+  assert.equal(accepted.verdict, "CONFIRMED");
+  assert.deepEqual(accepted.films.map((film) => film.title), ["Belmondo l’incorrigible"]);
+});
+
+test("a real film still holds the chain together, documentary or not", async () => {
+  const verifier = createLinkVerifier({ tmdb: tmdbWithCredits([archiveDocumentary, sharedFilm]), fetchImpl: async () => { throw new Error("offline"); } });
+  const result = await verifier.verify({ left: "Catherine Deneuve", right: "Gérard Depardieu", leftTmdbId: 1, rightTmdbId: 2 });
+  assert.equal(result.verdict, "CONFIRMED");
+  assert.deepEqual(result.films.map((film) => film.title), ["Le Dernier Métro"]);
+});
+
+test("two scopes are two questions, and never share a cached answer", async () => {
+  let calls = 0;
+  const tmdb = {
+    configured: true,
+    getPerson: async (id) => {
+      calls += 1;
+      return { name: `Artiste ${id}`, externalIds: { tmdb: Number(id) }, credits: [archiveDocumentary] };
+    },
+  };
+  const verifier = createLinkVerifier({ tmdb, fetchImpl: async () => { throw new Error("offline"); } });
+  const pair = { left: "Alice", right: "Bob", leftTmdbId: 1, rightTmdbId: 2 };
+  assert.equal((await verifier.verify(pair)).verdict, "UNKNOWN");
+  assert.equal((await verifier.verify({ ...pair, scope: "documentary" })).verdict, "CONFIRMED");
+  assert.equal(verifier.status().cacheHits, 0);
+  // La même question, elle, ne repart pas en ligne.
+  assert.equal((await verifier.verify({ ...pair, scope: "documentary" })).cached, true);
+  assert.equal(calls, 4);
+});
+
+test("Wikidata names the documentaries and the television films it cannot help but return", async () => {
+  const bindings = [
+    {
+      film: { value: "http://www.wikidata.org/entity/Q1" },
+      filmLabel: { value: "Portrait d’archives" },
+      documentary: { value: "true" },
+      television: { value: "false" },
+      left: { value: "http://www.wikidata.org/entity/Q189422" },
+      right: { value: "http://www.wikidata.org/entity/Q182021" },
+    },
+    {
+      film: { value: "http://www.wikidata.org/entity/Q2" },
+      filmLabel: { value: "Un vrai film" },
+      documentary: { value: "false" },
+      television: { value: "false" },
+      left: { value: "http://www.wikidata.org/entity/Q189422" },
+      right: { value: "http://www.wikidata.org/entity/Q182021" },
+    },
+  ];
+  const requests = [];
+  const verifier = createLinkVerifier({
+    tmdb: { configured: false },
+    fetchImpl: async (url) => {
+      const value = String(url);
+      requests.push(value);
+      if (value.includes("wbsearchentities")) return jsonResponse(wikidataCandidates(new URL(value).searchParams.get("search")));
+      if (value.includes("qlever.dev")) return jsonResponse({ results: { bindings } });
+      if (value.includes("wikipedia.org/w/api.php")) return jsonResponse({ query: { search: [] } });
+      throw new Error(`Unexpected URL ${value}`);
+    },
+  });
+  const result = await verifier.verify({ left: "Jean Dujardin", right: "Bérénice Bejo" });
+  assert.equal(result.verdict, "CONFIRMED");
+  assert.deepEqual(result.films.map((film) => film.title), ["Un vrai film"]);
+  // La requête doit continuer de descendre la chaîne des sous-classes, sans quoi la moitié des vrais films
+  // manquerait à l'appel : c'est à la lecture, et non au filtrage, que le documentaire est écarté.
+  const sparql = new URL(requests.find((request) => request.includes("qlever.dev"))).searchParams.get("query");
+  assert.match(sparql, /wdt:P31\/wdt:P279\* wd:Q11424/);
+  assert.match(sparql, /EXISTS \{ \?film wdt:P31\/wdt:P279\* wd:Q93204 \}/);
+  assert.match(sparql, /EXISTS \{ \?film wdt:P31\/wdt:P279\* wd:Q506240 \}/);
+});

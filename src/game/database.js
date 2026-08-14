@@ -1,4 +1,5 @@
 import { nameKeys, normalizeText, scoreTextMatch, stableId, strictIdentityKey } from "./identity.js";
+import { isWorkInScope, kindsAreCompatible, scopeFromExtensions, WORK_KINDS, workKind } from "./work-kinds.js";
 
 export { normalizeText } from "./identity.js";
 
@@ -47,6 +48,26 @@ export function createDatabase(data = {}, options = {}) {
     }
   }
 
+  // Le rapprochement par titre est la seule prise qu'on ait sur un snapshot sans identifiants — et le snapshot
+  // local n'a ni identifiant ni année sur 41 845 de ses 41 914 œuvres. Rapprocher deux titres identiques y est
+  // donc la règle, pas l'exception, et c'est par là que la série « Beau geste » est venue se ranger dans le film
+  // « Beau Geste » : elle en héritait le type movie, et passait ensuite le filtre des films communs sans être vue.
+  // Trois contradictions suffisent à trancher que ce sont deux œuvres distinctes.
+  function worksCanMerge(raw, candidate) {
+    // Deux identifiants d'une même source qui ne disent pas la même chose.
+    for (const [source, id] of Object.entries(raw.externalIds ?? {})) {
+      const previous = candidate.externalIds?.[source];
+      if (previous && String(previous) !== String(id)) return false;
+    }
+    // Un identifiant de série et un identifiant de film : deux fiches TMDb, deux œuvres.
+    if (Boolean(candidate.externalIds?.tmdbTv) && Boolean(raw.externalIds?.tmdbMovie)) return false;
+    if (Boolean(candidate.externalIds?.tmdbMovie) && Boolean(raw.externalIds?.tmdbTv)) return false;
+    // Deux supports, ou deux natures, qui se contredisent. Une nature inconnue ne contredit rien : c'est ce qui
+    // laisse un crédit non classé continuer d'enrichir une fiche existante.
+    if (raw.type && candidate.type && raw.type !== candidate.type) return false;
+    return kindsAreCompatible(workKind(raw), workKind(candidate));
+  }
+
   function workCandidate(raw) {
     if (raw.id && worksById.has(raw.id)) return worksById.get(raw.id);
     for (const [source, id] of Object.entries(raw.externalIds ?? {})) {
@@ -60,7 +81,8 @@ export function createDatabase(data = {}, options = {}) {
       for (const candidateId of workIdsByTitleKey.get(key) ?? []) {
         const candidate = worksById.get(candidateId);
         if (!candidate) continue;
-        if (!raw.year || !candidate.year || Number(raw.year) === Number(candidate.year)) return candidate;
+        if (raw.year && candidate.year && Number(raw.year) !== Number(candidate.year)) continue;
+        if (worksCanMerge(raw, candidate)) return candidate;
       }
     }
     return null;
@@ -78,7 +100,7 @@ export function createDatabase(data = {}, options = {}) {
       rawTitle !== title ? rawTitle : null,
       ...(synonym?.aliases ?? []),
     ]).filter((alias) => alias !== title);
-    const candidate = workCandidate({ ...rawWork, title });
+    const candidate = workCandidate({ ...rawWork, source: rawWork.source ?? source, title });
     if (candidate) {
       const currentPriority = sourcePriority.get(candidate.source) ?? 0;
       const incomingPriority = sourcePriority.get(source) ?? 0;
@@ -87,6 +109,10 @@ export function createDatabase(data = {}, options = {}) {
       candidate.originalTitle ||= rawWork.originalTitle ?? null;
       candidate.year ||= rawWork.year ? Number(rawWork.year) : null;
       candidate.type ||= rawWork.type ?? "movie";
+      // Une nature nommée l'emporte toujours sur une nature devinée : c'est le seul sens dans lequel la fusion a
+      // le droit de reclasser une œuvre, et c'est ainsi qu'un catalogue enrichi corrige un snapshot muet.
+      const incomingKind = workKind({ ...rawWork, source: rawWork.source ?? source });
+      if (incomingKind !== WORK_KINDS.UNKNOWN) candidate.kind = incomingKind;
       candidate.externalIds = mergeExternalIds(candidate.externalIds, rawWork.externalIds);
       candidate.source = incomingPriority > currentPriority ? source : candidate.source;
       indexWork(candidate);
@@ -100,6 +126,9 @@ export function createDatabase(data = {}, options = {}) {
       aliases: incomingAliases,
       year: rawWork.year ? Number(rawWork.year) : null,
       type: rawWork.type ?? "movie",
+      // La nature est gravée à la création plutôt que recalculée à chaque lecture : elle dépend de la source, et
+      // la source, elle, se perd dès qu'une fiche est fusionnée.
+      kind: workKind({ ...rawWork, source: rawWork.source ?? source }),
       externalIds: mergeExternalIds({}, rawWork.externalIds),
       source,
     };
@@ -242,12 +271,18 @@ export function createDatabase(data = {}, options = {}) {
     return matches.find((person) => strictIdentityKey(person.name) === strict) ?? matches[0];
   }
 
-  function sharedWorks(left, right, themeId = "classic") {
+  // Le périmètre est une règle de la partie, pas une préférence de la base : il arrive avec la question. Sans
+  // extensions demandées, seul le socle répond — le cinéma, et ce qu'on n'a pas encore su nommer.
+  function sharedWorks(left, right, themeId = "classic", { extensions = null } = {}) {
     const leftPerson = findActor(left, themeId);
     const rightPerson = findActor(right, themeId);
     if (!leftPerson || !rightPerson) return [];
+    const scope = scopeFromExtensions(extensions);
     const rightCredits = new Set(rightPerson.credits);
-    return leftPerson.credits.filter((workId) => rightCredits.has(workId)).map((workId) => worksById.get(workId)).filter((work) => work?.type === "movie");
+    return leftPerson.credits
+      .filter((workId) => rightCredits.has(workId))
+      .map((workId) => worksById.get(workId))
+      .filter((work) => work && isWorkInScope(work, scope));
   }
 
   function searchPeople(query, { themeId = "classic", excluded = [], limit = 8, roles = null } = {}) {
@@ -323,7 +358,7 @@ export function createDatabase(data = {}, options = {}) {
     matchMentions,
     searchActors: (query, options = {}) => searchPeople(query, options).map((person) => person.name),
     searchPeople,
-    sharedFilms: (left, right, themeId = "classic") => sharedWorks(left, right, themeId).map((work) => work.title),
+    sharedFilms: (left, right, themeId = "classic", options = {}) => sharedWorks(left, right, themeId, options).map((work) => work.title),
     sharedWorks,
     upsertPerson,
     upsertPeople: (incoming, upsertOptions = {}) => incoming.map((person) => upsertPerson(person, upsertOptions)).filter(Boolean),

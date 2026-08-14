@@ -11,6 +11,7 @@
 // the roll is ready the instant the last life goes and no player ever waits for it.
 
 import { normalizeText } from "./database.js";
+import { normalizeExtensions } from "./work-kinds.js";
 
 // The engine writes this in place of a name when the chrono wins the turn; it is a stage direction, not an artist.
 const TIMEOUT_ACTOR = "(temps écoulé)";
@@ -83,6 +84,9 @@ function assignRoles(cast) {
 export function buildCredits(game, { database = null } = {}) {
   if (!game) return null;
   const themeId = game.config?.themeId ?? "classic";
+  // Le générique interroge de nouveau les archives sur les liaisons prises au vote : il doit le faire sous le
+  // périmètre de la partie, sinon il « retrouverait » après coup l'émission que le jeu avait refusée pendant.
+  const extensions = normalizeExtensions(game.config?.extensions);
   const capacity = game.config?.livesPerPlayer ?? 3;
   const players = game.players ?? [];
   const byId = new Map(players.map((player) => [player.id, player]));
@@ -126,7 +130,7 @@ export function buildCredits(game, { database = null } = {}) {
     let archived = [];
     if (!recorded.length && previousActor && database && turn.proposedActor && turn.proposedActor !== TIMEOUT_ACTOR) {
       try {
-        archived = uniqueTitles(database.sharedFilms(previousActor, turn.proposedActor, themeId));
+        archived = uniqueTitles(database.sharedFilms(previousActor, turn.proposedActor, themeId, { extensions }));
       } catch {
         archived = [];
       }

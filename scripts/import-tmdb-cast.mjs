@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createTmdbClient } from "../src/server/tmdb.js";
 import { nameKeys, normalizeText, stableId, strictIdentityKey } from "../src/game/identity.js";
+import { CORE_SCOPE, isWorkInScope, workKind } from "../src/game/work-kinds.js";
 
 const root = resolve(import.meta.dirname, "..");
 const API_ROOT = "https://api.themoviedb.org/3";
@@ -260,8 +261,10 @@ export async function importTmdbCast({
       report.skipped.knownByName += 1;
       continue;
     }
+    // Le support ne suffit pas : chez TMDb un documentaire d'archives est un « movie », et l'importer comme film
+    // reviendrait à graver dans le snapshot embarqué les liaisons que le jeu refuse désormais en ligne.
     const films = (remote.credits ?? [])
-      .filter((credit) => credit.type === "movie" && (credit.roles ?? []).includes("acting") && credit.title)
+      .filter((credit) => isWorkInScope(credit, CORE_SCOPE) && (credit.roles ?? []).includes("acting") && credit.title)
       .sort((left, right) => (right.year ?? 0) - (left.year ?? 0) || left.title.localeCompare(right.title, "fr") || left.id.localeCompare(right.id))
       .slice(0, Math.max(1, creditsPerPerson));
     if (!films.length) {
@@ -297,6 +300,7 @@ export async function importTmdbCast({
           aliases: [],
           year: film.year ?? null,
           type: "movie",
+          kind: workKind(film),
           externalIds: { ...(film.externalIds?.tmdbMovie ? { tmdbMovie: film.externalIds.tmdbMovie } : {}) },
           source: "tmdb-import",
         };

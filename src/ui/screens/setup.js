@@ -7,6 +7,7 @@
 import { normalizeText } from "../../game/database.js";
 import { createGame, MAX_PLAYERS } from "../../game/engine.js";
 import { castingRoster } from "../../game/storage.js";
+import { DEFAULT_EXTENSIONS, normalizeExtensions, WORK_EXTENSIONS } from "../../game/work-kinds.js";
 import { app, navigate, renderRoute, state } from "../runtime.js";
 import { escapeHtml, initialOf } from "../format.js";
 import { shell } from "../shell.js";
@@ -20,6 +21,7 @@ const DEFAULT_SETUP = {
   livesPerPlayer: 3,
   turnSeconds: 30,
   allowBluffChallenge: true,
+  extensions: DEFAULT_EXTENSIONS,
 };
 
 // Six vignettes tiennent en trois lignes sur un écran de 390 px sans pousser les réglages hors de vue. Au-delà,
@@ -81,13 +83,47 @@ function castingMarkup(setup) {
 }
 
 /* -----------------------------------------------------------------------------
+   Le périmètre
+   -------------------------------------------------------------------------- */
+
+// Ce qui relie deux artistes est un film, et rien d'autre tant qu'on ne le demande pas. Les extensions ouvrent le
+// jeu au reste — un documentaire d'archives, une série, un plateau de télévision — mais elles l'ouvrent
+// explicitement : c'est la différence entre une règle et une surprise.
+function scopeMarkup(setup) {
+  const active = normalizeExtensions(setup.extensions);
+  const rows = WORK_EXTENSIONS.map((extension) => `<label class="check-row check-row--stacked">
+    <input type="checkbox" data-extension="${extension.id}" ${active[extension.id] ? "checked" : ""}>
+    <span><b>${extension.label}</b><small>${extension.hint}</small></span>
+  </label>`).join("");
+  return `<div class="block">
+    <div class="block__head"><span class="slug slug--ambre">Le périmètre</span></div>
+    <p class="fineprint">Une liaison se prouve par un film de cinéma. Ouvrez ce que la table veut aussi jouer.</p>
+    <div class="scope-grid">${rows}</div>
+    <p class="fineprint" data-scope-hint aria-live="polite">${scopeHint(active)}</p>
+  </div>`;
+}
+
+function scopeHint(active) {
+  const opened = WORK_EXTENSIONS.filter((extension) => active[extension.id]);
+  if (!opened.length) return "Cinéma seul : ni documentaire, ni série, ni émission ne fera une liaison.";
+  return `Élargi à : ${opened.map((extension) => extension.label.toLocaleLowerCase("fr")).join(", ")}.`;
+}
+
+/* -----------------------------------------------------------------------------
    L'écran
    -------------------------------------------------------------------------- */
 
 export function setupMarkup() {
-  const setup = state.setup ?? { ...DEFAULT_SETUP, names: [...DEFAULT_SETUP.names] };
+  const setup = state.setup ?? {
+    ...DEFAULT_SETUP,
+    names: [...DEFAULT_SETUP.names],
+    // Le périmètre de la dernière partie lancée : une table qui aime jouer les séries ne doit pas avoir à le
+    // redire chaque soir. Il reste modifiable ici, et c'est la partie qui en garde la trace.
+    extensions: normalizeExtensions(app.storage.loadSettings().extensions),
+  };
   setup.mode ??= "classic";
   setup.themeId ??= "classic";
+  setup.extensions = normalizeExtensions(setup.extensions);
   state.setup = setup;
 
   const removable = setup.names.length > 2;
@@ -132,6 +168,8 @@ export function setupMarkup() {
         <label class="check-row"><input id="allow-bluff" type="checkbox" ${setup.allowBluffChallenge ? "checked" : ""}><span>Défis de bluff</span></label>
       </div>
     </div>
+
+    ${scopeMarkup(setup)}
 
     <div class="screen__spacer"></div>
     <div class="screen__foot">
@@ -296,12 +334,23 @@ export function bindSetup() {
     state.setup.allowBluffChallenge = event.target.checked;
   });
 
+  document.querySelectorAll("[data-extension]").forEach((toggle) => toggle.addEventListener("change", () => {
+    // Aucun repeint : cocher une extension ne doit pas replier la planche de contact ni rendre le focus au corps
+    // du document. Seule la ligne qui résume le périmètre se met à jour, sur place.
+    state.setup.extensions = normalizeExtensions({ ...state.setup.extensions, [toggle.dataset.extension]: toggle.checked });
+    const hint = document.querySelector("[data-scope-hint]");
+    if (hint) hint.textContent = scopeHint(state.setup.extensions);
+  }));
+
   document.querySelector("[data-start-game]")?.addEventListener("click", () => {
     const typed = state.setup.names.map((name) => name.trim()).filter(Boolean);
     if (castingVerdict().blocked) return;
     // Un nom monté sur la feuille de casting est un profil à partir de cet instant, même si la partie est
     // abandonnée — et il rend son orthographe de référence : « alice » tapé ce soir rejoue sous « Alice ».
     const names = typed.map((name) => app.storage.rememberProfile(name)?.name ?? name);
+    // Le périmètre choisi devient le défaut de la prochaine mise en place, pendant que la partie en garde sa
+    // propre copie : rouvrir une sauvegarde ne doit jamais lui appliquer les règles d'une autre soirée.
+    app.storage.saveSettings({ ...app.storage.loadSettings(), extensions: normalizeExtensions(state.setup.extensions) });
     state.game = createGame({ names, config: state.setup });
     stopVoiceSession();
     state.voice = createVoiceState();

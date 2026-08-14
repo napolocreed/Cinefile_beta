@@ -15,6 +15,7 @@
 import { normalizeText } from "../../game/database.js";
 import {
   adjudicatePending,
+  configExtensions,
   currentPlayer,
   nextAliveIndex,
   proposeActor,
@@ -148,6 +149,7 @@ function voiceCandidatesFor(alternatives) {
     excluded,
     limit: 4,
     previousActor: state.game.chain.at(-1) ?? null,
+    extensions: configExtensions(state.game),
   }).map((person) => compactVoiceCandidate(person));
   const query = spokenNameGuess(alternatives[0]?.transcript ?? "");
   // Saying a name twice is what a player does when nothing seems to happen. The turn remembers what the remote
