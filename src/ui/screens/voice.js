@@ -883,7 +883,12 @@ function resolveVoiceVar(valid, { letPass = false } = {}) {
 }
 
 function ensureVoiceTimer() {
-  if (state.timer || !state.voice.consent || state.voice.review || !state.game.config.turnSeconds || state.voice.processing) return;
+  // Sur un navigateur sans reconnaissance vocale, la saisie de secours est le seul mode de jeu et le bouton
+  // « Activer le micro » n'est même pas rendu : exiger le consentement laissait le chrono désarmé pour toujours,
+  // et la durée de tour choisie à la mise en place n'était jamais appliquée. On n'attend donc le consentement que
+  // là où il peut être donné.
+  const awaitingMicrophone = state.voice.supported && !state.voice.consent;
+  if (state.timer || awaitingMicrophone || state.voice.review || !state.game.config.turnSeconds || state.voice.processing) return;
   // Même échéance que le mode classique, portée par la partie : un aller-retour par « ← Accueil » rendait un chrono
   // neuf au joueur à court de temps.
   if (!state.game.turnDeadlineAt) {
