@@ -291,7 +291,19 @@ export async function importTmdbCast({
         credits.push(candidateId);
         continue;
       }
-      const workId = stableId("work", strictKey);
+      // Le rapprochement vient d'écarter toutes les œuvres de ce titre parce que leur année contredit celle du
+      // crédit. Retomber sur stableId(strictKey) rendrait exactement l'identifiant qu'on vient de refuser, et le
+      // crédit irait au remake au lieu du film. On désambiguïse alors par l'année, comme le fait déjà la base.
+      const contradictsYear = (id) => {
+        const work = snapshotWorksById.get(id);
+        return Boolean(work && work.year && film.year && Number(work.year) !== Number(film.year));
+      };
+      const baseWorkId = stableId("work", strictKey);
+      const workId = contradictsYear(baseWorkId) ? stableId("work", `${strictKey}:${film.year ?? ""}`) : baseWorkId;
+      if (contradictsYear(workId)) {
+        report.failures.push({ tmdbId: entry.id, name: remote.name, reason: `Identifiant ${workId} déjà pris par une autre année pour « ${film.title} ».` });
+        continue;
+      }
       if (!snapshotWorksById.has(workId)) {
         const work = {
           id: workId,
