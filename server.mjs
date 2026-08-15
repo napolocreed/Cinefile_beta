@@ -168,7 +168,16 @@ function serveIndex(request, response) {
 }
 
 function serveStatic(request, response, url) {
-  const relative = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, "");
+  // Un pourcentage tronqué — un lien coupé, un scanner — fait lever decodeURIComponent. Le handler étant async,
+  // l'URIError devenait une promesse rejetée non gérée et Node tuait le processus : une seule requête suffisait à
+  // couper /api/verify-link pour toutes les tables en cours.
+  let decoded = null;
+  try {
+    decoded = decodeURIComponent(url.pathname);
+  } catch {
+    return serveIndex(request, response);
+  }
+  const relative = normalize(decoded).replace(/^([/\\])+/, "");
   const base = relative.startsWith("src/") ? workspaceRoot : publicRoot;
   let target = join(base, relative);
   const insideBase = target === base || target.startsWith(`${base}${sep}`);
@@ -187,12 +196,22 @@ function serveStatic(request, response, url) {
 }
 
 const server = createServer(async (request, response) => {
-  const url = new URL(request.url, "http://localhost");
-  if (url.pathname.startsWith("/api/")) {
-    await handleApi(request, response, url);
-    return;
+  // Le handler est async : tout ce qui y lève sans être rattrapé devient une promesse rejetée non gérée, et Node
+  // arrête le processus. Une requête malformée ne doit coûter qu'une réponse d'erreur, pas le serveur.
+  try {
+    const url = new URL(request.url, "http://localhost");
+    if (url.pathname.startsWith("/api/")) {
+      await handleApi(request, response, url);
+      return;
+    }
+    serveStatic(request, response, url);
+  } catch (error) {
+    console.error("Requête abandonnée :", error?.message ?? error);
+    if (response.headersSent) return response.destroy();
+    response.statusCode = 400;
+    response.setHeader("Content-Type", "text/plain; charset=utf-8");
+    response.end("Requête invalide");
   }
-  serveStatic(request, response, url);
 });
 
 server.listen(port, "0.0.0.0", () => {

@@ -139,6 +139,43 @@ test("search links are encoded and invalid pairs are rejected", async () => {
   await assert.rejects(() => verifier.verify({ left: "A", right: "Bob" }), /requis/);
 });
 
+// Le garde-fou ne vivait que dans fetchJson, donc sur Wikidata et Wikipédia. TMDb — la seule source réellement à
+// quota — appelait getPerson et searchPeople en direct, sans borne : un 429 remontait brut, la cascade finissait en
+// UNKNOWN, et ce verdict était mis en cache cinq minutes pour toutes les tables pendant que le quota se vidait.
+test("the TMDb client is bounded by the same limit as the rest", async () => {
+  let active = 0;
+  let peak = 0;
+  let release;
+  const held = new Promise((resolve) => { release = resolve; });
+  const tmdb = {
+    configured: true,
+    searchPeople: async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await held;
+      active -= 1;
+      return [];
+    },
+    getPerson: async () => ({ name: "Personne", credits: [] }),
+  };
+  const verifier = createLinkVerifier({
+    maxConcurrentUpstream: 1,
+    tmdb,
+    fetchImpl: async () => jsonResponse({ search: [] }),
+  });
+
+  const first = verifier.verify({ left: "Alice Artiste", right: "Bob Artiste" });
+  await new Promise((resolve) => setImmediate(resolve));
+  const second = await verifier.verify({ left: "Carole Artiste", right: "David Artiste" });
+
+  // La seconde vérification est refoulée par le garde-fou au lieu d'ouvrir un appel TMDb de plus.
+  assert.equal(second.verdict, "UNKNOWN");
+  assert.equal(verifier.status().upstream.rejected > 0, true);
+  release();
+  await first;
+  assert.equal(peak, 1, `concurrence TMDb observée : ${peak}`);
+});
+
 test("upstream concurrency is bounded instead of amplifying public traffic", async () => {
   let release;
   const heldResponse = new Promise((resolve) => { release = () => resolve(jsonResponse({ search: [] })); });

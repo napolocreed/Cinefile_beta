@@ -223,14 +223,25 @@ export function createLinkVerifier({
   const upstreamLimit = Math.max(1, Math.min(50, Number(maxConcurrentUpstream) || 12));
   let activeUpstream = 0;
 
-  async function fetchJson(url, { accept = "application/json", timeout = timeoutMs } = {}) {
-    if (!networkEnabled || !fetchImpl) throw Object.assign(new Error("network-disabled"), { code: "NETWORK_DISABLED" });
+  // Le compteur ne vivait que dans fetchJson — donc Wikidata et Wikipédia seulement. TMDb, la seule source à quota,
+  // passait à côté : quinze vérifications parallèles y lançaient soixante appels sans aucune borne. Le garde-fou est
+  // donc sorti de fetchJson pour couvrir aussi les appels TMDb.
+  async function withUpstreamSlot(run) {
     if (activeUpstream >= upstreamLimit) {
       metrics.upstreamRejected += 1;
       throw Object.assign(new Error("upstream-overloaded"), { code: "UPSTREAM_OVERLOADED" });
     }
     activeUpstream += 1;
     try {
+      return await run();
+    } finally {
+      activeUpstream -= 1;
+    }
+  }
+
+  async function fetchJson(url, { accept = "application/json", timeout = timeoutMs } = {}) {
+    if (!networkEnabled || !fetchImpl) throw Object.assign(new Error("network-disabled"), { code: "NETWORK_DISABLED" });
+    return withUpstreamSlot(async () => {
       const response = await fetchImpl(url, {
         headers: { Accept: accept, "User-Agent": userAgent },
         signal: AbortSignal.timeout(timeout),
@@ -242,9 +253,7 @@ export function createLinkVerifier({
         throw error;
       }
       return response.json();
-    } finally {
-      activeUpstream -= 1;
-    }
+    });
   }
 
   async function querySparql(query) {
@@ -290,10 +299,10 @@ export function createLinkVerifier({
   async function resolveTmdbPeople(name, id) {
     if (!tmdb?.configured) return [];
     const explicitId = numericId(id);
-    if (explicitId) return [await tmdb.getPerson(explicitId)];
-    const candidates = await tmdb.searchPeople(name, { locale: "fr-FR", limit: 5 });
+    if (explicitId) return [await withUpstreamSlot(() => tmdb.getPerson(explicitId))];
+    const candidates = await withUpstreamSlot(() => tmdb.searchPeople(name, { locale: "fr-FR", limit: 5 }));
     const exact = candidates.filter((candidate) => normalizeText(candidate.name) === normalizeText(name)).slice(0, 3);
-    return Promise.all(exact.map((candidate) => tmdb.getPerson(candidate.externalIds.tmdb)));
+    return Promise.all(exact.map((candidate) => withUpstreamSlot(() => tmdb.getPerson(candidate.externalIds.tmdb))));
   }
 
   async function verifyTmdb(left, right, leftTmdbId, rightTmdbId, scope) {

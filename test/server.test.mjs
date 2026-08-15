@@ -53,6 +53,27 @@ test("the standalone server serves the app shell, source modules and SPA routes"
   }
 });
 
+// decodeURIComponent lève sur un pourcentage tronqué, et le handler passé à createServer est async : l'URIError
+// devenait une promesse rejetée non gérée et Node arrêtait le processus. Une requête — un lien coupé, un crawler —
+// coupait /api/verify-link pour toutes les tables en cours.
+test("a malformed URL costs a response, never the server", async () => {
+  const { server, port, response } = await startServer();
+  try {
+    assert.equal(response?.status, 200);
+    // Trois façons d'écrire un pourcentage invalide, toutes rattrapées.
+    for (const path of ["/%E0%A4%A", "/%%%", "/src/%ZZ"]) {
+      const answer = await fetch(`http://127.0.0.1:${port}${path}`);
+      assert.equal(answer.status < 500, true, `${path} a rendu ${answer.status}`);
+      await answer.text();
+    }
+    // Et le serveur répond encore, sur les fichiers comme sur l'API.
+    assert.equal((await fetch(`http://127.0.0.1:${port}/`)).status, 200);
+    assert.equal((await fetch(`http://127.0.0.1:${port}/api/catalog/status`)).status, 200);
+  } finally {
+    server.kill();
+  }
+});
+
 test("a declared origin may borrow the API, and nothing else may", async () => {
   const origin = "https://napolocreed.github.io";
   const { server, port } = await startServer({ ALLOWED_ORIGINS: `${origin}, https://cinefil.exemple.app/` });

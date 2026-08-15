@@ -46,6 +46,16 @@ test("a quota reached is not an empty filmography", async () => {
   assert.equal(person.credits[0].kind, undefined);
 });
 
+// Le test ci-dessus ne couvre que le jet. Or getPerson rend toujours un tableau — `payload.combined_credits?.cast
+// ?? []` — donc une réponse 200 sans combined_credits donnait credits: [], qui passait le `??` et vidait la fiche
+// publiée sans qu'aucun catch ne se déclenche : l'artiste ressortait injouable.
+test("an empty remote filmography is ignored, not published", async () => {
+  const tmdb = { configured: true, getPerson: async () => ({ name: "Alice", credits: [] }) };
+  const catalog = createPublishedCatalog({ overlayUrl: await overlayUrl("vide"), tmdb });
+  const person = await catalog.getPerson("person_alice");
+  assert.equal(person.credits.length, 1);
+});
+
 test("without TMDb the published catalogue answers on its own", async () => {
   const catalog = createPublishedCatalog({ overlayUrl: await overlayUrl("local"), tmdb: { configured: false } });
   assert.equal((await catalog.getPerson("person_alice")).credits[0].title, "Un portrait");
