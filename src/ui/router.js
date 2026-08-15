@@ -5,6 +5,7 @@ import { resolvePending } from "../game/engine.js";
 import {
   app,
   archiveFinishedGame,
+  bumpGeneration,
   path,
   routeUrl,
   setHooks,
@@ -41,6 +42,8 @@ export function navigate(target) {
   stopTimer();
   stopSearch();
   settlePendingBeforeLeaving();
+  // Ce qui est parti sur le réseau depuis l'écran qu'on quitte n'a plus rien à y écrire.
+  bumpGeneration();
   if (logicalTarget !== "/play" && state.voice?.session) stopVoiceSession();
   history.pushState({}, "", routeUrl(logicalTarget));
   // The turn starts on the field the player needs; there is no hand-over screen to pass through any more.

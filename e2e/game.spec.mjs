@@ -25,6 +25,35 @@ test("classic game setup and opening turn work without browser errors", async ({
   expect(errors).toEqual([]);
 });
 
+// Le décompte ne vivait que dans l'écran : navigate() le remettait à null et ensureTimer repartait de la durée
+// pleine. Un joueur à court de temps sortait par « ← Accueil », revenait, et retrouvait un chrono neuf — autant de
+// fois qu'il le voulait. L'échéance vit désormais avec la partie.
+test("the turn clock keeps running across a trip to the home screen", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Un seul navigateur suffit pour une horloge.");
+  await page.goto("/");
+  await page.getByRole("link", { name: /Nouvelle partie/i }).click();
+  await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
+  await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+  await expect(page.getByLabel("Ton artiste")).toBeVisible();
+
+  const readClock = async () => Number((await page.locator("[data-timer]").textContent()).replace(/\D+/g, ""));
+  const full = await readClock();
+  expect(full).toBeGreaterThan(5);
+
+  // On laisse filer quelques secondes, puis on quitte l'écran et on y revient.
+  await expect.poll(readClock, { timeout: 10_000 }).toBeLessThanOrEqual(full - 3);
+  const beforeLeaving = await readClock();
+  await page.getByRole("link", { name: /Accueil/i }).first().click();
+  await page.getByRole("link", { name: /Reprendre/i }).click();
+  await expect(page.getByLabel("Ton artiste")).toBeVisible();
+
+  // Le chrono reprend où il en était, à la seconde de trajet près — il ne repart pas de la durée pleine.
+  const afterReturning = await readClock();
+  expect(afterReturning).toBeLessThanOrEqual(beforeLeaving);
+  expect(afterReturning).toBeLessThan(full - 2);
+});
+
 test("installed app shell reopens the setup route offline", async ({ page, context }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "One offline browser project is sufficient.");
   await page.goto("/");

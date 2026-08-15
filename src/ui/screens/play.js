@@ -14,6 +14,8 @@ import {
 import {
   app,
   archiveFinishedGame,
+  bumpGeneration,
+  currentGeneration,
   navigate,
   queueCreditsRefresh,
   renderRoute,
@@ -339,17 +341,20 @@ async function callBluff() {
   state.verificationStatus = "loading";
   state.phase = "verifying";
   renderRoute();
+  // La cascade peut mettre plusieurs secondes ; d'ici là la table peut être sortie et avoir relancé une partie.
+  const token = currentGeneration();
+  let verified = null;
   try {
-    state.pending = await verifyPendingLink(state.game, state.pending);
-    state.phase = state.pending.wasValid ? "reveal" : "var";
+    verified = await verifyPendingLink(state.game, state.pending);
   } catch (error) {
     app.diagnostics.capture(error, { phase: "verify-link" });
-    state.pending = applyLinkVerification(state.pending, { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks: {} });
-    state.phase = "var";
-  } finally {
-    state.verificationStatus = "idle";
-    renderRoute();
+    verified = applyLinkVerification(state.pending, { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks: {} });
   }
+  if (token !== currentGeneration()) return;
+  state.pending = verified;
+  state.phase = verified.wasValid ? "reveal" : "var";
+  state.verificationStatus = "idle";
+  renderRoute();
 }
 
 // Le mode sans défi de bluff : entre chaque acteur, on vérifie la liaison sans attendre qu'un joueur la conteste.
@@ -365,14 +370,18 @@ async function runAutoVerification() {
   state.verificationStatus = "loading";
   state.phase = "verifying";
   renderRoute();
+  const token = currentGeneration();
+  let verified = null;
   try {
-    state.pending = await verifyPendingLink(state.game, state.pending);
+    verified = await verifyPendingLink(state.game, state.pending);
   } catch (error) {
     app.diagnostics.capture(error, { phase: "auto-verify-link" });
-    state.pending = applyLinkVerification(state.pending, { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks: {} });
-  } finally {
-    state.verificationStatus = "idle";
+    verified = applyLinkVerification(state.pending, { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks: {} });
   }
+  // Le verdict n'appartient qu'au tour qui l'a demandé : s'il a été quitté, il ne s'applique nulle part.
+  if (token !== currentGeneration()) return;
+  state.pending = verified;
+  state.verificationStatus = "idle";
   if (state.pending.wasValid) {
     // La cascade a trouvé une preuve : on valide automatiquement, sans déranger la table.
     commitResolved(resolvePending(state.game, state.pending, { challenged: false }));
@@ -410,6 +419,11 @@ async function submitActor() {
   if (state.submitting || !state.input.trim()) return;
   state.submitting = true;
   stopSearch();
+  // Le joueur a répondu : le chrono s'arrête ici, pas après l'aller-retour réseau. Il tournait pendant
+  // l'hydratation, armait un timeout, et la proposition arrivée juste après était portée au joueur suivant.
+  const remainingMs = Math.max(0, (state.game.turnDeadlineAt ?? 0) - Date.now());
+  stopTimer();
+  const token = currentGeneration();
   const button = document.querySelector("[data-submit-actor]");
   if (button) {
     button.disabled = true;
@@ -433,13 +447,15 @@ async function submitActor() {
         setCatalogStatus({ ...app.catalog.getState(), online: false });
       }
     }
+    // L'hydratation vient peut-être de coûter plusieurs secondes : si la table a changé d'écran ou de partie entre
+    // temps, cette proposition n'a plus de tour où atterrir.
+    if (token !== currentGeneration()) return;
     const result = proposeActor(state.game, person?.name ?? state.input, app.database);
     state.input = "";
     state.suggestions = [];
     state.selectedPerson = null;
     if (result.type === "pending") {
       state.pending = result.pending;
-      stopTimer();
       if (result.pending.autoVerify) {
         // Pas de défi de bluff : aucun joueur ne va lever la main, c'est donc au jeu de vérifier la liaison avant
         // que la chaîne ne s'allonge.
@@ -464,6 +480,11 @@ async function submitActor() {
       field.disabled = false;
       field.focus();
     }
+    // La proposition est refusée : le joueur récupère le temps qu'il avait, sans l'aller-retour réseau.
+    if (token === currentGeneration() && state.game?.turnDeadlineAt) {
+      state.game.turnDeadlineAt = Date.now() + remainingMs;
+      ensureTimer();
+    }
   } finally {
     state.submitting = false;
   }
@@ -477,6 +498,10 @@ function commitResolved(game) {
   state.verificationStatus = "idle";
   state.input = "";
   state.timeLeft = null;
+  // Le tour est joué : son échéance meurt avec lui, et le suivant en ouvrira une neuve.
+  game.turnDeadlineAt = null;
+  // Ce qui était encore en vol pour le tour précédent n'a plus de tour où atterrir.
+  bumpGeneration();
   app.storage.saveCurrent(game);
   // The roll is assembled between turns, on idle time, so the last life never costs the table a wait.
   queueCreditsRefresh(game);
@@ -493,22 +518,43 @@ function commitResolved(game) {
 }
 
 function ensureTimer() {
-  if (state.timer || !state.game.config.turnSeconds || state.phase !== "input") return;
-  if (state.timeLeft === null) state.timeLeft = state.game.config.turnSeconds;
+  if (state.timer || !state.game.config.turnSeconds || state.phase !== "input" || state.submitting) return;
+  // L'échéance vit avec la partie, pas avec l'écran. Tant que seul un décompte d'écran la portait, un joueur à court
+  // de temps sortait par « ← Accueil » et revenait avec un chrono neuf, autant de fois qu'il le voulait.
+  // Persistée aussitôt : l'accueil relit la partie depuis le stockage, et un rechargement de page repart de là.
+  if (!state.game.turnDeadlineAt) {
+    state.game.turnDeadlineAt = Date.now() + state.game.config.turnSeconds * 1000;
+    app.storage.saveCurrent(state.game);
+  }
+  const remaining = () => Math.max(0, Math.ceil((state.game.turnDeadlineAt - Date.now()) / 1000));
+  const expire = () => {
+    stopTimer();
+    state.pending = timeoutPending(state.game);
+    state.phase = "reveal";
+    state.revealChallenged = false;
+    renderRoute();
+  };
+  // Le compteur est peint tout de suite : le markup vient d'être rendu sur l'ancienne valeur, et attendre le premier
+  // tic afficherait une seconde durant un chrono qui n'est pas celui qui court.
+  const paint = () => {
+    const timer = document.querySelector("[data-timer]");
+    if (!timer) return;
+    timer.textContent = `${state.timeLeft}s`;
+    timer.parentElement.classList.toggle("reel-counter__timer--urgent", state.timeLeft <= 5);
+  };
+  state.timeLeft = remaining();
+  // Revenir sur une échéance déjà passée coûte le tour, plutôt que d'attendre une seconde de plus pour rien.
+  if (state.timeLeft <= 0) {
+    expire();
+    return;
+  }
+  paint();
   state.timer = window.setInterval(() => {
-    state.timeLeft -= 1;
+    state.timeLeft = remaining();
     if (state.timeLeft <= 0) {
-      stopTimer();
-      state.pending = timeoutPending(state.game);
-      state.phase = "reveal";
-      state.revealChallenged = false;
-      renderRoute();
+      expire();
       return;
     }
-    const timer = document.querySelector("[data-timer]");
-    if (timer) {
-      timer.textContent = `${state.timeLeft}s`;
-      timer.parentElement.classList.toggle("reel-counter__timer--urgent", state.timeLeft <= 5);
-    }
+    paint();
   }, 1000);
 }

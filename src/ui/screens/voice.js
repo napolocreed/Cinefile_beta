@@ -549,6 +549,8 @@ function syncVoiceTurn() {
   state.voice.turn = createVoiceTurn(active.id);
   state.voice.interim = "";
   state.timeLeft = null;
+  // Le tour a changé de main : son échéance meurt avec lui, la suivante s'ouvrira au premier tic.
+  if (state.game) state.game.turnDeadlineAt = null;
   return true;
 }
 
@@ -602,6 +604,11 @@ async function validateVoiceCandidate(reference) {
   if (!candidate) return;
   state.voice.processing = true;
   state.voice.error = null;
+  // Le joueur a touché sa carte : le chrono s'arrête ici, pas après l'hydratation. Il continuait de tourner pendant
+  // l'aller-retour réseau, expirait, passait la main — et la validation arrivée juste après était refusée par la
+  // garde « le tour a changé », coûtant une vie à un joueur qui avait répondu à temps.
+  const remainingMs = Math.max(0, (state.game.turnDeadlineAt ?? 0) - Date.now());
+  stopTimer();
   try {
     const speaker = voiceActivePlayer();
     const before = voiceSnapshot();
@@ -641,6 +648,8 @@ async function validateVoiceCandidate(reference) {
     } else renderRoute();
   } catch (error) {
     state.voice.error = error.message;
+    // La proposition est refusée : le joueur récupère le temps qu'il avait, sans l'aller-retour réseau.
+    if (state.game?.turnDeadlineAt) state.game.turnDeadlineAt = Date.now() + remainingMs;
     renderRoute();
   } finally {
     state.voice.processing = false;
@@ -755,6 +764,7 @@ function completeVoiceReview(game, pending, { challenged }) {
   };
   state.voice.review = null;
   state.timeLeft = null;
+  state.game.turnDeadlineAt = null;
   app.storage.saveCurrent(state.game);
   // The reel is rebuilt between turns so the closing roll is ready before the last life is even spent.
   queueCreditsRefresh(state.game);
@@ -776,11 +786,19 @@ async function resolveVoiceReview() {
     const [leftPerson, rightPerson] = await Promise.all([hydrateVoiceCandidate(leftCandidate), hydrateVoiceCandidate(rightCandidate)]);
     // Correcting the previous name is an option; verifying the bluff is the point. A correction the engine
     // refuses — because it would break the link before it — must not strand the players on this screen.
+    // Le buzz sert à vérifier la liaison ; corriger le maillon précédent n'est qu'une option de cet écran, et
+    // review.selected.left part déjà sur la sélection d'origine. Tant que replaceLastActor était appelé sans
+    // condition, un buzz où personne ne touchait à la liste relançait une « correction » du tour déjà accepté :
+    // sharedFilms était recalculé contre le seul catalogue local, ce qui effaçait les preuves venues de la cascade
+    // ou d'une décision VAR, basculait wasValid à false et décomptait un film au joueur.
     let corrected = state.game;
-    try {
-      corrected = replaceLastActor(state.game, leftPerson?.name ?? leftCandidate.name, app.database);
-    } catch (refusal) {
-      review.refusal = refusal.message;
+    const leftName = leftPerson?.name ?? leftCandidate.name;
+    if (normalizeText(leftName) !== normalizeText(state.game.chain.at(-1) ?? "")) {
+      try {
+        corrected = replaceLastActor(state.game, leftName, app.database);
+      } catch (refusal) {
+        review.refusal = refusal.message;
+      }
     }
     const result = proposeActor(corrected, rightPerson?.name ?? rightCandidate.name, app.database);
     if (result.type !== "pending") throw new Error("La liaison à vérifier est incomplète.");
@@ -809,12 +827,23 @@ function resolveVoiceVar(valid, challenged = true) {
 }
 
 function ensureVoiceTimer() {
-  if (state.timer || !state.voice.consent || state.voice.review || !state.game.config.turnSeconds) return;
-  if (state.timeLeft === null) state.timeLeft = state.game.config.turnSeconds;
-  state.timer = window.setInterval(() => {
-    state.timeLeft -= 1;
+  if (state.timer || !state.voice.consent || state.voice.review || !state.game.config.turnSeconds || state.voice.processing) return;
+  // Même échéance que le mode classique, portée par la partie : un aller-retour par « ← Accueil » rendait un chrono
+  // neuf au joueur à court de temps.
+  if (!state.game.turnDeadlineAt) {
+    state.game.turnDeadlineAt = Date.now() + state.game.config.turnSeconds * 1000;
+    app.storage.saveCurrent(state.game);
+  }
+  // Peint tout de suite, pour la même raison qu'en mode classique : le siège vient d'être rendu sur l'ancienne
+  // valeur, et attendre le premier tic afficherait une seconde durant un chrono qui n'est pas celui qui court.
+  const paint = () => {
+    state.timeLeft = Math.max(0, Math.ceil((state.game.turnDeadlineAt - Date.now()) / 1000));
     document.querySelectorAll(".voice-player--active .voice-clock span").forEach((element) => { element.textContent = `${state.timeLeft}s`; });
     document.querySelector(".voice-player--active .voice-clock")?.classList.toggle("voice-clock--urgent", state.timeLeft <= 5);
+  };
+  paint();
+  state.timer = window.setInterval(() => {
+    paint();
     if (state.timeLeft > 0) return;
     stopTimer();
     const before = voiceSnapshot();
@@ -826,6 +855,7 @@ function ensureVoiceTimer() {
     state.voice.verdict = "Temps écoulé";
     flashVoiceTransition(before);
     state.timeLeft = null;
+    state.game.turnDeadlineAt = null;
     app.storage.saveCurrent(state.game);
     queueCreditsRefresh(state.game);
     if (state.game.status === "finished") {
