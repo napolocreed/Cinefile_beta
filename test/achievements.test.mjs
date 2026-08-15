@@ -102,6 +102,40 @@ test("an empty profile earns nothing, and a missing counter never throws", () =>
   assert.equal(achievementsFor(null, blankProfile("X")).length, 0);
 });
 
+// L'écran des scores se revisite — il porte lui-même « Revoir le générique », qui y ramène. Le second passage
+// rappelait recordFinishedGame, tombait sur la garde d'idempotence et écrasait les cartons avec un tableau vide :
+// le classement restait, le bloc « Nouveaux succès » disparaissait.
+test("the cards earned by a game are still owed on a second visit", () => {
+  const storage = createStorage(fakeStorage());
+  const game = playedGame();
+  const first = recordFinishedGame(game, storage);
+  assert.equal(first.newAchievements.length > 0, true);
+  const second = recordFinishedGame(game, storage);
+  assert.deepEqual(second.newAchievements, first.newAchievements);
+  // Et rien n'a été recompté au passage.
+  assert.equal(storage.loadHistory().length, 1);
+});
+
+// recordFinishedGame reconstruisait le rouleau sans la base, alors que l'écran du générique le bâtit avec. Une même
+// partie produisait donc deux rouleaux, et c'est le plus pauvre — sans les films retrouvés aux archives — qui
+// alimentait les compteurs de profil et les succès. Le rouleau est désormais celui qu'on lui remet.
+test("the roll handed in is the one the game is judged on", () => {
+  const storage = createStorage(fakeStorage());
+  const game = playedGame();
+  const roll = buildCredits(game, { database });
+  assert.equal(roll.tally.acts >= 6, true);
+
+  // Jugée sur un rouleau écourté, la partie n'est plus « valable » : la série de soirée ne démarre pas.
+  const shortened = recordFinishedGame(game, storage, { credits: { ...roll, tally: { ...roll.tally, acts: 2 } } });
+  const winnerKey = game.players.find((player) => player.id === game.winnerId).name.toLowerCase();
+  assert.equal(shortened.profiles[winnerKey].streakRun, 0);
+
+  // Jugée sur le vrai rouleau, elle la démarre.
+  const other = createStorage(fakeStorage());
+  const full = recordFinishedGame(game, other, { credits: roll });
+  assert.equal(full.profiles[winnerKey].streakRun, 1);
+});
+
 test("a first finished game opens the career, and only the career", () => {
   const storage = createStorage(fakeStorage());
   const game = playedGame();

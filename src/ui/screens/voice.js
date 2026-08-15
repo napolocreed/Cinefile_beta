@@ -27,6 +27,7 @@ import { candidateConfidenceLabel, createVoiceResolver, spokenNameGuess } from "
 import { createSpeechSession } from "../../voice/speech-session.js";
 import {
   app,
+  archiveFinishedGame,
   catalogStatusLabel,
   navigate,
   queueCreditsRefresh,
@@ -634,8 +635,10 @@ async function validateVoiceCandidate(reference) {
     syncVoiceTurn();
     app.storage.saveCurrent(state.game);
     queueCreditsRefresh(state.game);
-    if (state.game.status === "finished") navigate("/credits");
-    else renderRoute();
+    if (state.game.status === "finished") {
+      archiveFinishedGame(state.game);
+      navigate("/credits");
+    } else renderRoute();
   } catch (error) {
     state.voice.error = error.message;
     renderRoute();
@@ -755,6 +758,9 @@ function completeVoiceReview(game, pending, { challenged }) {
   app.storage.saveCurrent(state.game);
   // The reel is rebuilt between turns so the closing roll is ready before the last life is even spent.
   queueCreditsRefresh(state.game);
+  // Le verdict du buzzer garde la table sur cet écran quand il termine la partie : sans cet appel, une sortie par
+  // le lien retour laissait la partie hors de l'historique, hors des profils et hors des succès.
+  archiveFinishedGame(state.game);
   renderRoute();
 }
 
@@ -822,8 +828,10 @@ function ensureVoiceTimer() {
     state.timeLeft = null;
     app.storage.saveCurrent(state.game);
     queueCreditsRefresh(state.game);
-    if (state.game.status === "finished") navigate("/credits");
-    else renderRoute();
+    if (state.game.status === "finished") {
+      archiveFinishedGame(state.game);
+      navigate("/credits");
+    } else renderRoute();
   }, 1000);
 }
 

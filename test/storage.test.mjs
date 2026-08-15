@@ -45,6 +45,26 @@ test("finished games are idempotent across a refresh", () => {
   assert.equal(storage.loadHistory().length, 1);
 });
 
+// appendHistory passait par safeWrite, qui avale l'erreur de quota, mais markApplied réussissait juste après : la
+// partie était marquée traitée définitivement alors qu'elle n'entrait nulle part, et la garde d'idempotence rendait
+// la perte irréversible.
+test("a full quota never marks a game as archived", () => {
+  const values = new Map();
+  const storage = createStorage({
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => {
+      if (key === "cinelink.history.v1") throw new Error("QuotaExceededError");
+      values.set(key, value);
+    },
+    removeItem: (key) => values.delete(key),
+  });
+  const result = recordFinishedGame(finishedGame(), storage);
+  assert.equal(result.archived, false);
+  assert.deepEqual(storage.loadHistory(), []);
+  // Rien n'a été gravé qui interdirait un nouvel essai.
+  assert.deepEqual(storage.loadApplied(), []);
+});
+
 test("a name can become a profile before it has ever played", () => {
   const storage = createStorage(fakeStorage());
   const created = storage.rememberProfile("  Carol  ");

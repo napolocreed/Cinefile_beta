@@ -13,6 +13,7 @@ import {
 } from "../../game/engine.js";
 import {
   app,
+  archiveFinishedGame,
   navigate,
   queueCreditsRefresh,
   renderRoute,
@@ -479,7 +480,10 @@ function commitResolved(game) {
   app.storage.saveCurrent(game);
   // The roll is assembled between turns, on idle time, so the last life never costs the table a wait.
   queueCreditsRefresh(game);
-  if (game.status === "finished") navigate("/credits");
+  if (game.status === "finished") {
+    archiveFinishedGame(game);
+    navigate("/credits");
+  }
   else {
     // Straight back to the field the next player needs, with the counter clapping their name into place.
     state.phase = "input";

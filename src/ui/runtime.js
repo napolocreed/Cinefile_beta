@@ -3,6 +3,7 @@
 // Nothing here imports a screen, so the module graph stays acyclic.
 
 import { buildCredits, creditsSignature } from "../game/credits.js";
+import { recordFinishedGame } from "../game/storage.js";
 import { createVoiceState } from "./voice-state.js";
 
 // Filled once by main.js. Screens read it; nothing else writes to it.
@@ -125,6 +126,17 @@ export function creditsFor(game = state.game) {
   cancelCreditsBuild?.();
   buildCreditsNow(game);
   return state.credits;
+}
+
+// Une partie terminée entre aux archives à l'instant où elle se termine, pas au rendu de l'écran des scores. On
+// pouvait sortir du générique autrement que par sa zone de clic — le sceau de la barre du haut, une relance de
+// l'application — et la partie n'était alors comptée nulle part : ni historique, ni profils, ni succès. L'appel est
+// idempotent (recordFinishedGame se garde sur loadApplied), et l'écran des scores le refait en filet.
+export function archiveFinishedGame(game = state.game) {
+  if (!game || game.status !== "finished") return null;
+  const result = recordFinishedGame(game, app.storage, { credits: creditsFor(game) });
+  state.newAchievements = result.newAchievements;
+  return result;
 }
 
 // The line follows the state of the API, never the build: hors ligne, the snapshot alone still plays, and saying

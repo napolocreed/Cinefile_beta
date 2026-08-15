@@ -2,8 +2,7 @@
 
 import { achievementById } from "../../game/achievements.js";
 import { createGame } from "../../game/engine.js";
-import { recordFinishedGame } from "../../game/storage.js";
-import { app, navigate, routeUrl, state } from "../runtime.js";
+import { app, archiveFinishedGame, navigate, routeUrl, state } from "../runtime.js";
 import { escapeHtml, portraitMarkup } from "../format.js";
 import { shell } from "../shell.js";
 
@@ -19,8 +18,9 @@ export function renderResults() {
   }
 
   state.game = game;
-  const result = recordFinishedGame(game, app.storage);
-  state.newAchievements = result.newAchievements;
+  // Filet : la partie est normalement déjà entrée aux archives à l'instant où elle s'est terminée. L'appel est
+  // idempotent, et il rend les cartons de cette partie même quand on revient ici par « Revoir le générique ».
+  archiveFinishedGame(game);
   const ordered = [...game.players].sort((left, right) => (right.id === game.winnerId) - (left.id === game.winnerId) || right.score - left.score);
   const winner = game.players.find((player) => player.id === game.winnerId);
   // Toute la table a droit à son carton, pas seulement le vainqueur : un succès décroché en perdant est souvent

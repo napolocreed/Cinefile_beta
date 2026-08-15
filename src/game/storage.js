@@ -83,11 +83,14 @@ function safeRead(storage, key, fallback) {
   }
 }
 
+// Rend le succès de l'écriture : un appelant qui grave « c'est fait » ailleurs doit pouvoir savoir si ça l'est.
 function safeWrite(storage, key, value) {
   try {
     storage?.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
     // Private browsing or a full storage quota should not stop a local game.
+    return false;
   }
 }
 
@@ -98,7 +101,15 @@ export function createStorage(storage = globalThis.localStorage) {
     clearCurrent: () => storage?.removeItem(STORAGE_KEYS.current),
     loadHistory: () => safeRead(storage, STORAGE_KEYS.history, []),
     replaceHistory: (games) => safeWrite(storage, STORAGE_KEYS.history, Array.isArray(games) ? games.slice(0, 50) : []),
-    appendHistory: (game) => safeWrite(storage, STORAGE_KEYS.history, [game, ...safeRead(storage, STORAGE_KEYS.history, [])].slice(0, 50)),
+    // Sous pression de quota, la fenêtre se resserre au lieu d'abandonner : une partie qui n'entre pas aux archives
+    // serait tout de même marquée traitée, et la garde d'idempotence rendrait la perte irréversible.
+    appendHistory: (game) => {
+      const history = [game, ...safeRead(storage, STORAGE_KEYS.history, [])];
+      for (const window of [50, 25, 10, 5, 1]) {
+        if (safeWrite(storage, STORAGE_KEYS.history, history.slice(0, window))) return true;
+      }
+      return false;
+    },
     loadProfiles: () => safeRead(storage, STORAGE_KEYS.profiles, {}),
     saveProfiles: (profiles) => safeWrite(storage, STORAGE_KEYS.profiles, profiles),
     // A name typed at the casting call is a profile from that moment on, with nothing to its name yet. Returning
@@ -153,9 +164,13 @@ export function castingRoster(profiles, selectedKeys = [], { visible = 6 } = {})
   return { shown: entries.slice(0, cut), hidden: entries.slice(cut) };
 }
 
-export function recordFinishedGame(game, storageApi) {
-  if (!game || game.status !== "finished") return { profiles: storageApi.loadProfiles(), newAchievements: [] };
-  if (storageApi.loadApplied?.().includes(game.id)) return { profiles: storageApi.loadProfiles(), newAchievements: [] };
+export function recordFinishedGame(game, storageApi, { credits: providedCredits = null } = {}) {
+  if (!game || game.status !== "finished") return { profiles: storageApi.loadProfiles(), newAchievements: [], archived: false };
+  // Déjà enregistrée : on ne recompte rien, mais les cartons décrochés à ce moment-là restent dus à l'écran, qu'on
+  // y revienne par « Revoir le générique » ou après un rechargement.
+  if (storageApi.loadApplied?.().includes(game.id)) {
+    return { profiles: storageApi.loadProfiles(), newAchievements: game.newAchievements ?? [], archived: true };
+  }
 
   // L'heure de fin n'est posée que par l'écran du générique, et on peut atteindre les scores sans y passer. Sans
   // ce filet, la partie entre aux archives sans durée et toutes les moyennes de temps la perdent en silence.
@@ -167,7 +182,10 @@ export function recordFinishedGame(game, storageApi) {
 
   // Le générique sait déjà dépouiller le journal — vies perdues, liaisons tenues, chronos ratés, ordre des
   // éliminations. On le lit une fois pour toute la table plutôt que de réécrire le même comptage par joueur.
-  const credits = buildCredits(game);
+  // Le rouleau doit être construit AVEC la base : c'est elle qui porte les films retrouvés aux archives en cours de
+  // partie. Sans eux, les succès de filmographie ne pouvaient pas se décrocher alors que le joueur venait de les
+  // voir défiler au générique. L'écran passe donc celui qu'il a déjà bâti.
+  const credits = providedCredits ?? buildCredits(game);
   const seatById = new Map((credits?.cast ?? []).map((seat) => [seat.id, seat]));
   const valable = partieValable(game, credits);
 
@@ -298,7 +316,11 @@ export function recordFinishedGame(game, storageApi) {
   }
 
   storageApi.saveProfiles(profiles);
-  storageApi.appendHistory(game);
-  storageApi.markApplied?.(game.id);
-  return { profiles, newAchievements };
+  // Les cartons voyagent avec la partie : l'écran des scores se revisite, et il les doit encore.
+  game.newAchievements = newAchievements;
+  const archived = storageApi.appendHistory(game) !== false;
+  // Ne graver « partie traitée » que si elle est effectivement aux archives : sinon la garde d'idempotence
+  // interdirait tout nouvel essai et la partie disparaîtrait sans le moindre signal.
+  if (archived) storageApi.markApplied?.(game.id);
+  return { profiles, newAchievements, archived };
 }
