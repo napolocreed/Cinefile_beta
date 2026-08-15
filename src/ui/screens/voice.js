@@ -819,11 +819,13 @@ async function resolveVoiceReview() {
   }
 }
 
-function resolveVoiceVar(valid, challenged = true) {
+function resolveVoiceVar(valid, { letPass = false } = {}) {
   const review = state.voice.review;
   if (!review?.game || !state.pending) return;
-  const pending = challenged ? adjudicatePending(state.pending, { valid }) : state.pending;
-  completeVoiceReview(review.game, pending, { challenged });
+  // Le buzz a bien eu lieu : il reste au journal dans les trois cas. « Laisser passer » porte simplement le coup à
+  // valide faute de preuve, sans sanctionner ni le proposant ni le buzzeur.
+  const adjudicated = adjudicatePending(state.pending, letPass ? { valid: true, source: "let-pass" } : { valid });
+  completeVoiceReview(review.game, letPass ? { ...adjudicated, letPass: true } : adjudicated, { challenged: true });
 }
 
 function ensureVoiceTimer() {
@@ -932,7 +934,7 @@ export function bindVoice() {
   document.querySelector("[data-resolve-voice-review]")?.addEventListener("click", resolveVoiceReview);
   document.querySelector("[data-voice-var-valid]")?.addEventListener("click", () => resolveVoiceVar(true));
   document.querySelector("[data-voice-var-invalid]")?.addEventListener("click", () => resolveVoiceVar(false));
-  document.querySelector("[data-voice-var-pass]")?.addEventListener("click", () => resolveVoiceVar(false, false));
+  document.querySelector("[data-voice-var-pass]")?.addEventListener("click", () => resolveVoiceVar(true, { letPass: true }));
 
   ensureVoiceTimer();
 }

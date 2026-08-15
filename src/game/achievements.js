@@ -464,7 +464,11 @@ export const ACHIEVEMENTS = [
     icon: "🧵",
     family: "cinephilie",
     tier: "argent",
-    earn: ({ valable, game, player, roll, me, t, S, R, P }) => valable && me && me.links >= 8 && me.bluffsAttempted === 0,
+    // Le libellé promet « sans une seule liaison refusée ni un temps mort » ; la condition ne testait que
+    // bluffsAttempted, que le moteur laisse volontairement à zéro quand les défis de bluff sont coupés. Le succès
+    // se décrochait alors avec des maillons recalés par la VAR. On lit donc les scènes, qui les nomment.
+    earn: ({ valable, game, player, roll, me, t, S, R, P }) => valable && me && me.links >= 8
+      && !S.some((scene) => scene.playerId === player.id && (scene.kind === "broken-link" || scene.kind === "timeout")),
   },
   {
     id: "cine-archiviste",
@@ -501,7 +505,10 @@ export const ACHIEVEMENTS = [
     icon: "✨",
     family: "cinephilie",
     tier: "or",
-    earn: ({ valable, game, player, roll, me, t, S, R, P }) => valable && me && t.actors >= 15 && t.bluffsAttempted === 0 && me.links >= 3,
+    // Même correction : « sans un seul bluff ni temps mort à toute la table » se lit sur les scènes, pas sur un
+    // compteur que le moteur neutralise hors du jeu de bluff.
+    earn: ({ valable, game, player, roll, me, t, S, R, P }) => valable && me && t.actors >= 15 && me.links >= 3
+      && !S.some((scene) => scene.bluff || scene.kind === "timeout" || scene.kind === "broken-link"),
   },
   {
     id: "cine-duo-mythique",

@@ -397,10 +397,11 @@ function passVarDecision() {
   // « Laisser passer sans trancher » est un choix positif d'accepter faute de preuve — jamais une rupture de chaîne
   // silencieuse. En mode auto-vérifié, le coup ne s'accepte qu'à travers un verdict « valide » : on l'y porte
   // explicitement, sans preuve filmographique, plutôt que de le laisser tomber.
-  const pending = state.pending.autoVerify
-    ? adjudicatePending(state.pending, { valid: true, source: "let-pass" })
-    : state.pending;
-  commitResolved(resolvePending(state.game, pending, { challenged: false }));
+  // Le buzz a bien eu lieu : il reste au journal, sinon le générique écrit « personne n'a bronché » et crédite au
+  // proposant un bluff jamais démasqué. Faute de preuve, le coup passe à valide et personne n'est sanctionné —
+  // ni le proposant, ni le buzzeur, que `letPass` dispense de la vie qu'un buzz à tort coûterait.
+  const pending = { ...adjudicatePending(state.pending, { valid: true, source: "let-pass" }), letPass: true };
+  commitResolved(resolvePending(state.game, pending, { challenged: state.revealChallenged }));
 }
 
 function revealVarDecision(valid) {

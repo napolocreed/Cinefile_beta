@@ -94,7 +94,12 @@ function applyResolution(game, pending, { challenged }) {
   // Without bluff challenges the automatic check is the sole referee: an unchallenged move never "gets away", only a
   // proven link stands. With challenges, an unchallenged proposition is accepted as before.
   const acceptedAsMove = !pending.forceInvalid && (valid || (!challenged && !pending.autoVerify));
-  const attemptedBluff = !valid;
+  // Un chrono expiré n'est pas une tentative de bluff : personne n'a proposé de liaison. Le compter comme tel
+  // gonflait bluffsAttempted, qui est cumulatif et sert de dénominateur permanent à la jauge « Bluffs réussis ».
+  const attemptedBluff = !valid && pending.method !== "timeout";
+  // « Laisser passer sans trancher » enregistre la contestation mais ne sanctionne personne : faute de preuve, le
+  // coup est porté à valide sans que le buzzeur y laisse une vie ni que le proposant décroche un bluff.
+  const letPass = Boolean(pending.letPass);
 
   if (pending.opening) {
     next.chain.push(pending.proposedActor);
@@ -110,19 +115,25 @@ function applyResolution(game, pending, { challenged }) {
   // bluff counters.
   if (attemptedBluff && !pending.autoVerify) proposer.bluffsAttempted += 1;
 
+  // Qui paie ce tour, décidé ici et gravé dans le tour. Le générique le déduisait de wasValid, qu'une correction
+  // ultérieure pouvait réécrire : la vie perdue disparaissait alors du grand livre, et avec elle le rang final.
+  let struckId = null;
+
   if (acceptedAsMove) {
     next.chain.push(pending.proposedActor);
     proposer.filmsFound += pending.sharedFilms.length || 1;
-    proposer.score += challenged && valid ? 2 : 1;
+    proposer.score += challenged && valid && !letPass ? 2 : 1;
     proposer.streak += 1;
     proposer.bestStreak = Math.max(proposer.bestStreak, proposer.streak);
     if (attemptedBluff) proposer.bluffsSucceeded += 1;
-    if (challenged && valid && challenger) {
+    if (challenged && valid && challenger && !letPass) {
       challenger.lives = Math.max(0, challenger.lives - 1);
+      struckId = challenger.id;
     }
   } else {
     proposer.streak = 0;
     proposer.lives = Math.max(0, proposer.lives - 1);
+    struckId = proposer.id;
     if (challenged) {
       proposer.bluffsCaught += 1;
       if (challenger) {
@@ -139,6 +150,8 @@ function applyResolution(game, pending, { challenged }) {
     // Hors du jeu de bluff, une liaison non prouvée est un maillon invalide, pas un bluff : le générique et ses
     // compteurs ne doivent pas l'y confondre.
     wasBluff: attemptedBluff && !pending.autoVerify,
+    struckId,
+    letPass,
   });
 
   if (!resolveWinner(next)) next.currentPlayerIdx = nextAliveIndex(next, next.currentPlayerIdx);

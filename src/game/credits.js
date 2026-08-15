@@ -108,10 +108,11 @@ export function buildCredits(game, { database = null } = {}) {
     const challengerId = turn.challenged ? turn.challengerId ?? null : null;
     const challengerStats = challengerId ? tallies.get(challengerId) : null;
 
-    // Nothing records a lost life turn by turn, but the rule that spends one is the same rule that accepted or
-    // refused the move, so the ledger is rebuilt rather than guessed.
-    let struckId = null;
-    if (!turn.opening) {
+    // Le moteur grave désormais qui paie le tour, au moment où il le fait payer. La déduction ci-dessous ne sert
+    // plus qu'aux parties enregistrées avant ce changement : elle se lisait sur wasValid, qu'une correction
+    // ultérieure du maillon précédent pouvait réécrire, et la vie perdue disparaissait alors du grand livre.
+    let struckId = turn.struckId ?? null;
+    if (struckId === null && !("struckId" in turn) && !turn.opening) {
       if (!turn.accepted) struckId = turn.playerId;
       else if (turn.challenged && turn.wasValid) struckId = turn.challengerId ?? null;
     }
