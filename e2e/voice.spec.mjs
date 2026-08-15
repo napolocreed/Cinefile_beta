@@ -61,7 +61,7 @@ async function stubCatalog(page, { hydrateDelayMs = 0 } = {}) {
   });
 }
 
-async function startVoiceGame(page, { withClock = false, lives = null, players = ["Alice", "Bob"] } = {}) {
+async function startVoiceGame(page, { withClock = false, lives = null, players = ["Alice", "Bob"], bluffChallenges = true } = {}) {
   if (withClock) await page.clock.install();
   await page.addInitScript(RECOGNISER);
   await stubCatalog(page);
@@ -72,6 +72,7 @@ async function startVoiceGame(page, { withClock = false, lives = null, players =
     await page.getByPlaceholder(`Nom du joueur ${index + 1}`).fill(name);
   }
   if (lives) await page.locator("#lives-range").fill(String(lives));
+  if (!bluffChallenges) await page.locator("#allow-bluff").uncheck();
   await page.getByRole("button", { name: /Lancer la partie/i }).click();
   await expect(page.locator("[data-voice-stage]")).toHaveAttribute("data-voice-turn", /\w/);
 }
@@ -333,4 +334,37 @@ test("losing the last life is played as an exit, not as one more life lost", asy
   await expect(out).toHaveCount(1);
   await expect(out).toContainText(doomed);
   await expect(out).toContainText("éliminé");
+});
+
+// Le vocal était dispensé de la vérification automatique au motif que son buzzer central tenait lieu de défi. Or ce
+// buzzer exige un coup en attente, que le raccourci ne posait jamais : rien n'était vérifié, deux cents noms
+// inventés entraient dans la chaîne sans coût, et « sans chrono » rendait la partie infinie.
+test("voice without bluff challenges verifies each link instead of accepting it blindly", async ({ page }) => {
+  await startVoiceGame(page, { bluffChallenges: false, lives: 3 });
+  await page.getByRole("button", { name: /Activer le micro/i }).click();
+
+  // Le premier maillon ouvre la chaîne : il n'y a rien à vérifier.
+  await validate(page, "leonardo dicaprio", /Leonardo DiCaprio/i);
+  expect(await chainOf(page)).toEqual(["Leonardo DiCaprio"]);
+
+  // Le second n'a aucune liaison prouvable : la consultation s'ouvre au lieu d'allonger la chaîne.
+  await page.evaluate(() => window.__say("bernard tapie"));
+  const pick = page.locator(".voice-pick").filter({ hasText: /Bernard Tapie/i });
+  await expect(pick.first()).toBeVisible();
+  await pick.first().click();
+
+  const review = page.locator(".voice-review");
+  await expect(review).toBeVisible();
+  await expect(review.getByText(/Cette liaison tient-elle/i)).toBeVisible();
+  // Aucun joueur n'a buzzé : l'écran ne doit pas s'annoncer comme un buzzer de bluff.
+  await expect(review.getByText(/Buzzer bluff/i)).toHaveCount(0);
+  // La chaîne n'a pas bougé tant que la table n'a pas tranché.
+  expect(await chainOf(page)).toEqual(["Leonardo DiCaprio"]);
+
+  // La cascade n'a rien trouvé : la table tranche, et le maillon refusé coûte une vie.
+  await expect(page.getByRole("button", { name: /Bluff confirmé/i })).toBeVisible();
+  await page.getByRole("button", { name: /Bluff confirmé/i }).click();
+  expect(await chainOf(page)).toEqual(["Leonardo DiCaprio"]);
+  const lives = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? "{}").players.map((player) => player.lives), CURRENT_GAME_KEY);
+  expect(lives).toContain(2);
 });

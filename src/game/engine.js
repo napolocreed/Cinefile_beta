@@ -186,10 +186,12 @@ export function proposeActor(game, actorName, database) {
 
   if (!previousActor) return { type: "resolved", game: applyResolution(game, pending, { challenged: false }), pending: null };
   if (!game.config.allowBluffChallenge) {
-    // Le vocal garde son acceptation directe : son buzzer central tient lieu de défi et il n'a pas d'écran VAR de
-    // repli. En classique en revanche, couper les défis de bluff ne doit pas laisser passer les liaisons : chaque
-    // maillon est vérifié automatiquement, et le coup reste en attente le temps de cette vérification.
-    if (game.config.mode === "voice") return { type: "resolved", game: applyResolution(game, pending, { challenged: false }), pending: null };
+    // Couper les défis de bluff ne doit pas laisser passer les liaisons : chaque maillon est vérifié
+    // automatiquement, et le coup reste en attente le temps de cette vérification. Le vocal en était dispensé au
+    // motif que son buzzer central tenait lieu de défi — or ce buzzer est précisément inerte dans cette
+    // configuration, puisqu'il exige un coup en attente que ce raccourci ne posait jamais. Rien ne vérifiait donc
+    // quoi que ce soit : deux cents noms inventés entraient dans la chaîne sans coût, et sans chrono la partie
+    // n'avait plus aucun moyen de se terminer.
     pending.autoVerify = true;
   }
   return { type: "pending", game, pending };

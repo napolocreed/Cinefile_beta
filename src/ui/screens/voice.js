@@ -15,6 +15,7 @@
 import { normalizeText } from "../../game/database.js";
 import {
   adjudicatePending,
+  applyLinkVerification,
   configExtensions,
   currentPlayer,
   nextAliveIndex,
@@ -370,13 +371,18 @@ function voiceReviewMarkup() {
   const review = state.voice.review;
   const left = review?.left;
   const right = review?.right;
+  const auto = Boolean(review?.auto);
   const decision = review?.verification
     ? `${verificationPanelMarkup(review.verification)}<div class="decision-grid decision-grid--var"><button class="button button--gold" data-voice-var-valid>Le lien est valide</button><button class="button button--red" data-voice-var-invalid>Bluff confirmé</button><button class="button button--ghost" data-voice-var-pass>Laisser passer sans trancher</button></div>`
-    : `<div class="decision-grid"><button class="button button--ghost" data-cancel-voice-review ${review?.checking ? "disabled" : ""}>Reprendre l’écoute</button><button class="button button--red" data-resolve-voice-review ${review?.checking ? "disabled" : ""}>${review?.checking ? "Consultation…" : "Vérifier le bluff"}</button></div>`;
+    : auto
+      ? `<div class="decision-grid"><button class="button button--ghost" disabled>Consultation des archives…</button></div>`
+      : `<div class="decision-grid"><button class="button button--ghost" data-cancel-voice-review ${review?.checking ? "disabled" : ""}>Reprendre l’écoute</button><button class="button button--red" data-resolve-voice-review ${review?.checking ? "disabled" : ""}>${review?.checking ? "Consultation…" : "Vérifier le bluff"}</button></div>`;
   return shell(`<section class="voice-review">
-    <span class="stamp stamp--rouge">Buzzer bluff</span>
-    <h1 class="marquee">Qu’avez-vous vraiment dit&nbsp;?</h1>
-    <p class="prose">Sélectionnez les deux dernières identités, puis laissez le moteur vérifier la liaison.</p>
+    <span class="stamp ${auto ? "stamp--ambre" : "stamp--rouge"}">${auto ? "Vérification" : "Buzzer bluff"}</span>
+    <h1 class="marquee">${auto ? "Cette liaison tient-elle&nbsp;?" : "Qu’avez-vous vraiment dit&nbsp;?"}</h1>
+    <p class="prose">${auto
+      ? "Les défis de bluff sont coupés : le jeu vérifie chaque maillon. Si les archives ne prouvent rien, c’est à la table de trancher."
+      : "Sélectionnez les deux dernières identités, puis laissez le moteur vérifier la liaison."}</p>
     <div class="voice-review__grid">
       <article><small>Nom précédent · ${escapeHtml(left?.playerName ?? "Joueur")}</small><strong>${escapeHtml(left?.transcript ?? "")}</strong>${voiceCandidateList(left, { review: true, side: "left" })}</article>
       <span class="voice-review__link" aria-hidden="true">ET</span>
@@ -642,6 +648,12 @@ async function validateVoiceCandidate(reference) {
     syncVoiceTurn();
     app.storage.saveCurrent(state.game);
     queueCreditsRefresh(state.game);
+    // Sans défis de bluff, personne ne va lever la main : c'est au jeu de vérifier la liaison avant que la chaîne
+    // ne s'allonge. Le coup reste en attente le temps de cette consultation.
+    if (result.type === "pending" && result.pending.autoVerify) {
+      await runVoiceAutoVerification();
+      return;
+    }
     if (state.game.status === "finished") {
       archiveFinishedGame(state.game);
       navigate("/credits");
@@ -687,7 +699,7 @@ async function selectCurrentVoiceCandidate(entryId, candidateIndex) {
    The buzzer review
    -------------------------------------------------------------------------- */
 
-function openVoiceReview() {
+function openVoiceReview({ auto = false } = {}) {
   if (!state.pending) return;
   stopVoiceSession({ destroy: false });
   // A reloaded page has no spoken history: the pending move and the chain still describe both sides.
@@ -724,7 +736,49 @@ function openVoiceReview() {
     left: previousEntry,
     right: currentEntry,
     selected: { left: previousEntry.selected ?? 0, right: currentEntry?.selected ?? 0 },
+    // Une vérification automatique n'est pas un buzz : personne n'accuse, et l'écran ne propose pas de corriger
+    // ce qui a été dit. Seul l'en-tête et le pied de page changent.
+    auto,
   };
+  renderRoute();
+}
+
+// Le pendant vocal de runAutoVerification du mode classique. Une preuve positive valide le coup en silence ; à
+// défaut, la table tranche sur l'écran de revue — jamais un verdict négatif automatique, fidèle au principe
+// « une absence n'est pas une preuve ».
+async function runVoiceAutoVerification() {
+  if (!state.pending) return;
+  if (state.pending.wasValid) {
+    // Le catalogue local atteste déjà la paire : le coup passe sans déranger la table.
+    completeVoiceReview(state.game, state.pending, { challenged: false });
+    return;
+  }
+  // L'écran de revue se reconstruit depuis la chaîne et le coup en attente, sans avoir besoin d'un buzz.
+  openVoiceReview({ auto: true });
+  const review = state.voice.review;
+  if (!review) return;
+  review.checking = true;
+  renderRoute();
+  let verified = null;
+  try {
+    verified = await verifyPendingLink(state.game, state.pending);
+  } catch (error) {
+    app.diagnostics.capture(error, { phase: "voice-auto-verify" });
+    verified = applyLinkVerification(state.pending, { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks: {} });
+  }
+  // La table a pu quitter l'écran pendant la consultation.
+  if (state.voice.review !== review) return;
+  review.checking = false;
+  if (verified.wasValid) {
+    // La cascade a trouvé une preuve : on valide sans écran de décision.
+    state.voice.review = null;
+    completeVoiceReview(state.game, verified, { challenged: false });
+    return;
+  }
+  // Rien n'a pu être prouvé : la décision revient aux joueurs.
+  review.game = state.game;
+  review.verification = verified.verification ?? { verdict: "UNKNOWN", source: "none", films: [], evidence: [] };
+  state.pending = verified;
   renderRoute();
 }
 

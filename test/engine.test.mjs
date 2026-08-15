@@ -153,13 +153,27 @@ test("without bluff challenges letting a link pass accepts it without a life los
   assert.equal(game.turns[1].accepted, true);
 });
 
-test("voice keeps its direct accept when bluff challenges are off", () => {
+// Le vocal était dispensé de la vérification automatique au motif que son buzzer central tenait lieu de défi. Or ce
+// buzzer exige un coup en attente, que le raccourci ne posait jamais : rien ne vérifiait quoi que ce soit, deux
+// cents noms inventés entraient dans la chaîne sans coût, et « sans chrono » rendait la partie infinie.
+test("voice verifies its links too when bluff challenges are off", () => {
   let game = makeGame({ allowBluffChallenge: false, mode: "voice" }, ["Alice", "Bob"]);
   game = proposeActor(game, "Leonardo DiCaprio", database).game;
   const result = proposeActor(game, "An Acteur Inventé", database);
-  // The passive voice mode has no VAR screen to fall back on: it resolves as before.
-  assert.equal(result.type, "resolved");
-  assert.deepEqual(result.game.chain, ["Leonardo DiCaprio", "An Acteur Inventé"]);
+  // Le coup reste en attente le temps de la consultation, comme en classique.
+  assert.equal(result.type, "pending");
+  assert.equal(result.pending.autoVerify, true);
+  assert.deepEqual(result.game.chain, ["Leonardo DiCaprio"]);
+
+  // Sans preuve, le maillon est refusé et coûte une vie plutôt que d'allonger la chaîne.
+  const refused = resolvePending(result.game, result.pending, { challenged: false });
+  assert.deepEqual(refused.chain, ["Leonardo DiCaprio"]);
+  assert.equal(refused.players[1].lives, 2);
+
+  // Une liaison que le catalogue atteste passe, elle, sans rien demander à la table.
+  const proven = proposeActor(game, "Kate Winslet", database);
+  assert.equal(proven.pending.wasValid, true);
+  assert.deepEqual(resolvePending(proven.game, proven.pending, { challenged: false }).chain, ["Leonardo DiCaprio", "Kate Winslet"]);
 });
 
 test("duplicate actors are rejected before changing the game", () => {
