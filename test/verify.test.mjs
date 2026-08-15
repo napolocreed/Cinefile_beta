@@ -295,3 +295,26 @@ test("Wikidata names the documentaries and the television films it cannot help b
   assert.match(sparql, /EXISTS \{ \?film wdt:P31\/wdt:P279\* wd:Q93204 \}/);
   assert.match(sparql, /EXISTS \{ \?film wdt:P31\/wdt:P279\* wd:Q506240 \}/);
 });
+
+// `timeoutMs` ne bornait qu'une requête isolée. Wikipédia parcourait ses deux langues l'une après l'autre et chaque
+// interrogation Wikidata essaie deux endpoints SPARQL en série : les délais s'additionnaient, mesurés à quatre fois
+// le timeout unitaire. Le jeu restait bloqué sur « Consultation des archives » sans abandon possible, et le verdict
+// UNKNOWN étant mis en cache, la lenteur se rejouait au tour suivant.
+test("a whole cascade of hanging sources is bounded, not summed", async () => {
+  const started = Date.now();
+  const verifier = createLinkVerifier({
+    tmdb: { configured: false },
+    timeoutMs: 200,
+    maxVerificationMs: 500,
+    // Toutes les sources pendent bien au-delà du budget.
+    fetchImpl: () => new Promise((resolve) => setTimeout(() => resolve(jsonResponse({ search: [] })), 5_000)),
+  });
+  const result = await verifier.verify({ left: "Alice Artiste", right: "Bob Artiste" });
+  const elapsed = Date.now() - started;
+
+  assert.equal(result.verdict, "UNKNOWN");
+  // Le budget est tenu : sans échéance globale, les délais s'additionnaient bien au-delà.
+  assert.equal(elapsed < 2_000, true, `cascade rendue en ${elapsed} ms`);
+  // Et la réponse dit franchement que rien n'a été consulté jusqu'au bout.
+  assert.equal(result.steps.every((step) => step.outcome === "abandoned"), true);
+});

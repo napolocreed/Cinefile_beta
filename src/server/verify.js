@@ -204,6 +204,11 @@ export function createLinkVerifier({
   now = Date.now,
   userAgent = DEFAULT_USER_AGENT,
   timeoutMs = 6_000,
+  // `timeoutMs` ne borne qu'une requête isolée. Rien ne bornait la cascade : Wikipédia parcourait ses langues l'une
+  // après l'autre et chaque interrogation Wikidata essaie deux endpoints SPARQL en série, si bien que les délais
+  // s'additionnaient — mesuré à quatre fois le timeout unitaire. Le jeu restait bloqué sur « Consultation des
+  // archives » sans abandon possible, et comme le verdict tombait en UNKNOWN, la lenteur se rejouait au tour suivant.
+  maxVerificationMs = 12_000,
   networkEnabled = process.env.VERIFY_LINK_NETWORK !== "0",
   maxConcurrentUpstream = 12,
 } = {}) {
@@ -429,12 +434,14 @@ export function createLinkVerifier({
 
   async function verifyWikipedia(left, right, scope) {
     try {
-      const evidence = [];
-      for (const language of WIKIPEDIA_LANGUAGES) {
-        const found = await searchWikipediaLanguage(language, left, right);
-        evidence.push(...found.filter((entry) => isWorkInScope(entry, scope)));
-        if (evidence.length >= 10) break;
-      }
+      // Les langues sont interrogées de front : elles sont indépendantes, et les enchaîner ajoutait un timeout
+      // complet au budget de la cascade pour un gain nul.
+      const settled = await Promise.allSettled(WIKIPEDIA_LANGUAGES.map((language) => searchWikipediaLanguage(language, left, right)));
+      // Une langue qui échoue n'est pas une absence de preuve ; toutes qui échouent, si.
+      if (settled.every((entry) => entry.status === "rejected")) throw settled[0].reason;
+      const evidence = settled
+        .flatMap((entry) => (entry.status === "fulfilled" ? entry.value : []))
+        .filter((entry) => isWorkInScope(entry, scope));
       const uniqueEvidence = [...new Map(evidence.map((entry) => [`${entry.language}:${entry.title}`, entry])).values()].slice(0, 10);
       return uniqueEvidence.length
         ? { status: "ok", verdict: VERIFICATION_VERDICTS.PROBABLE, source: "wikipedia", films: uniqueEvidence.map(({ snippet, classification, language, qid, ...film }) => film), evidence: uniqueEvidence }
@@ -468,7 +475,37 @@ export function createLinkVerifier({
 
   const unreachedStep = (source, outcome = "not-reached") => ({ source, outcome, durationMs: 0, films: 0, error: null });
 
-  async function performVerification({ left, right, leftTmdbId, rightTmdbId, locale, scope }) {
+  // Le budget total de la cascade. Les requêtes déjà parties continuent de se vider — chacune reste bornée par
+  // `timeoutMs` — mais la table, elle, cesse d'attendre : sans preuve dans le temps imparti, la réponse est
+  // « on ne sait pas », qui est exactement ce que la cascade aurait fini par dire.
+  const verificationBudget = Math.max(timeoutMs, Number(maxVerificationMs) || timeoutMs * 2);
+
+  async function performVerification(input) {
+    let expire = null;
+    const deadline = new Promise((_, reject) => {
+      expire = setTimeout(() => reject(Object.assign(new Error("verification-deadline"), { code: "DEADLINE" })), verificationBudget);
+    });
+    try {
+      return await Promise.race([runCascade(input), deadline]);
+    } catch (error) {
+      if (error?.code !== "DEADLINE") throw error;
+      metrics.deadlines = (metrics.deadlines ?? 0) + 1;
+      return {
+        verdict: VERIFICATION_VERDICTS.UNKNOWN,
+        source: "none",
+        films: [],
+        evidence: [],
+        searchLinks: createVerificationSearchLinks(input.left, input.right),
+        steps: [unreachedStep("tmdb", "abandoned"), unreachedStep("wikidata", "abandoned"), unreachedStep("wikipedia", "abandoned")],
+        locale: input.locale,
+        scope: [...input.scope].sort(),
+      };
+    } finally {
+      clearTimeout(expire);
+    }
+  }
+
+  async function runCascade({ left, right, leftTmdbId, rightTmdbId, locale, scope }) {
     const searchLinks = createVerificationSearchLinks(left, right);
     const tmdb = await timedStep("tmdb", verifyTmdb(left, right, leftTmdbId, rightTmdbId, scope));
     if (tmdb.result.verdict === VERIFICATION_VERDICTS.CONFIRMED) {
