@@ -5,6 +5,8 @@ import { createGame } from "../../game/engine.js";
 import { app, archiveFinishedGame, navigate, routeUrl, state } from "../runtime.js";
 import { escapeHtml, portraitMarkup } from "../format.js";
 import { shell } from "../shell.js";
+import { createVoiceState } from "../voice-state.js";
+import { stopVoiceSession } from "./voice.js";
 
 export function renderResults() {
   const game = state.game ?? app.storage.loadCurrent();
@@ -63,6 +65,11 @@ export function renderResults() {
 
   document.querySelector("[data-replay]")?.addEventListener("click", () => {
     const names = game.players.map((player) => player.name);
+    // La mise en place fait déjà exactement ceci. Sans cette remise à zéro, la nouvelle partie vocale démarrait avec
+    // le verdict de la précédente à la place de sa consigne, et le tiroir de secours déjà déplié.
+    stopVoiceSession();
+    state.voice = createVoiceState();
+    state.newAchievements = [];
     state.game = createGame({ names, config: game.config });
     app.storage.saveCurrent(state.game);
     navigate("/play");
