@@ -13,11 +13,18 @@ export function createDiagnostics(storage = globalThis.localStorage, location = 
     return settings().localDiagnostics === true;
   }
   function setEnabled(enabled) {
-    storage?.setItem("cinefil.settings.v1", JSON.stringify({ ...settings(), localDiagnostics: Boolean(enabled) }));
+    try {
+      storage?.setItem("cinefil.settings.v1", JSON.stringify({ ...settings(), localDiagnostics: Boolean(enabled) }));
+    } catch {
+      // Un réglage qu'on ne peut pas écrire ne doit pas emporter l'écran qui l'affiche.
+    }
     if (!enabled) clear();
   }
+  // Une valeur stockée qui n'est pas un tableau — sauvegarde bricolée, clé écrasée — donnait un « not iterable »
+  // au premier spread, depuis le collecteur d'erreurs lui-même.
   function load() {
-    return safeParse(storage?.getItem(DIAGNOSTICS_KEY), []);
+    const entries = safeParse(storage?.getItem(DIAGNOSTICS_KEY), []);
+    return Array.isArray(entries) ? entries : [];
   }
   function capture(error, context = {}) {
     if (!isEnabled()) return false;
@@ -28,8 +35,16 @@ export function createDiagnostics(storage = globalThis.localStorage, location = 
       path: String(context.path ?? location?.pathname ?? "").slice(0, 200),
       phase: String(context.phase ?? "runtime").slice(0, 80),
     };
-    storage?.setItem(DIAGNOSTICS_KEY, JSON.stringify([entry, ...load()].slice(0, MAX_ENTRIES)));
-    return true;
+    // Le journal d'erreurs ne doit jamais devenir la source d'une erreur. Il écrivait sans filet, là où tout le
+    // reste du dépôt passe par safeWrite : un quota plein faisait remonter une exception depuis le catch qui
+    // l'appelait, sautait les lignes de rattrapage, et laissait la table bloquée sur l'écran de vérification avec
+    // un coup en attente. Même effet à l'import, dont le message d'erreur n'était jamais affiché.
+    try {
+      storage?.setItem(DIAGNOSTICS_KEY, JSON.stringify([entry, ...load()].slice(0, MAX_ENTRIES)));
+      return true;
+    } catch {
+      return false;
+    }
   }
   function clear() {
     storage?.removeItem(DIAGNOSTICS_KEY);

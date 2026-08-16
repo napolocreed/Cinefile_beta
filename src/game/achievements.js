@@ -187,7 +187,10 @@ export const ACHIEVEMENTS = [
     family: "carriere",
     tier: "culte",
     earn: ({ valable, game, player, roll, me, t, S, R, P }) => valable && P.firstPlayedAt && P.games >= 50 && ((P.lastSeenAt ?? 0) - P.firstPlayedAt) >= 365 * 86400000,
-    progress: (P) => reach(P.games >= 50 && P.firstPlayedAt ? (P.lastSeenAt ?? 0) - P.firstPlayedAt : 0, 365 * 86400000),
+    // En jours, pas en millisecondes : l'écran rend la progression telle quelle, et la ligne sortait
+    // « 25 920 000 000 / 31 536 000 000 » au milieu de décomptes lisibles. La condition, elle, reste en
+    // millisecondes — c'est la mesure exacte.
+    progress: (P) => reach(P.games >= 50 && P.firstPlayedAt ? Math.floor(((P.lastSeenAt ?? 0) - P.firstPlayedAt) / 86400000) : 0, 365),
   },
   {
     id: "exploit-pellicule-intacte",

@@ -41,7 +41,15 @@ function playerTemplate(id, name, lives) {
 export function createGame({ names, config = {}, random = Math.random, now = Date.now, idFactory = fallbackId } = {}) {
   const cleanNames = [...new Set((names ?? []).map((name) => String(name).trim()).filter(Boolean))].slice(0, MAX_PLAYERS);
   if (cleanNames.length < 2) throw new Error("Une partie nécessite au moins deux joueurs.");
-  const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+  // Le tri se fait ici plutôt qu'à l'appel : l'écran de mise en place passait son propre objet d'état, dont le
+  // spread superficiel emportait le tableau brut des champs de saisie — cases vides comprises — et la clé de focus
+  // jusque dans la configuration de la partie. Cette configuration part ensuite dans la sauvegarde courante, dans
+  // l'historique et dans les exports, et le tableau restait partagé avec l'écran : retaper un nom sur la mise en
+  // place modifiait la partie en cours. Seules les clés que le jeu connaît sont retenues.
+  const mergedConfig = { ...DEFAULT_CONFIG };
+  for (const key of Object.keys(DEFAULT_CONFIG)) {
+    if (config[key] !== undefined) mergedConfig[key] = config[key];
+  }
   mergedConfig.extensions = normalizeExtensions(config.extensions);
   const players = cleanNames.map((name) => playerTemplate(idFactory(), name, mergedConfig.livesPerPlayer));
   return {
