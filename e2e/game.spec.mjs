@@ -389,3 +389,43 @@ test("the suggestion list can be walked with the keyboard", async ({ page }, tes
   await expect(page.getByText(/Acteur précédent/i)).toBeVisible();
   await expect(page.getByText("Leonardo DiCaprio", { exact: true })).toBeVisible();
 });
+
+// Le mode classique sans défis de bluff n'avait aucune couverture d'interface : c'est pourtant lui qui remplace le
+// buzzer par une vérification automatique, et qui ouvre la VAR quand rien ne peut être prouvé.
+test("without bluff challenges the game verifies each link and hands the doubt to the table", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Un seul navigateur suffit pour ce parcours.");
+  await page.route("**/api/verify-link?*", async (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ verdict: "NOT_FOUND", source: "none", films: [], evidence: [], durationMs: 400, steps: [], searchLinks: {} }),
+  }));
+  await page.goto("/setup");
+  await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
+  await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
+  await page.locator("#allow-bluff").uncheck();
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+
+  const play = async (name) => {
+    const field = page.getByLabel("Ton artiste");
+    await field.fill(name);
+    await field.press("Enter");
+  };
+
+  // Le premier maillon ouvre la chaîne : rien à vérifier, et surtout aucun écran de défi.
+  await play("Leonardo DiCaprio");
+  await expect(page.getByText(/Acteur précédent/i)).toBeVisible();
+  // Le bouton de défi du mode avec bluff ne doit apparaître à aucun moment de ce parcours.
+  await expect(page.locator("[data-call-bluff]")).toHaveCount(0);
+
+  // Le second n'a aucune liaison prouvable : la VAR s'ouvre d'elle-même, sans que personne ait buzzé.
+  await play("Louis de Funès");
+  await expect(page.getByRole("button", { name: /Laisser passer sans trancher/i })).toBeVisible();
+  await expect(page.locator("[data-call-bluff]")).toHaveCount(0);
+
+  // « Laisser passer » accepte le maillon faute de preuve, sans sanctionner personne.
+  await page.getByRole("button", { name: /Laisser passer sans trancher/i }).click();
+  await expect(page.getByLabel("Ton artiste")).toBeVisible();
+  const chain = await page.evaluate(() => JSON.parse(localStorage.getItem("cinelink.current.v1") ?? "{}"));
+  expect(chain.chain).toEqual(["Leonardo DiCaprio", "Louis de Funès"]);
+  expect(chain.players.every((player) => player.lives === 3)).toBe(true);
+});
