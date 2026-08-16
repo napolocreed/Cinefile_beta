@@ -153,7 +153,7 @@ test("choosing a profile never shifts the neighbours under the finger", async ({
   await expect(page.locator(".casting-chips .casting-chip").nth(4)).toBeFocused();
 });
 
-test("a profile that never played shows as such, and can be forgotten in two taps", async ({ page }) => {
+test("a profile that never played shows as such, and can be archived in two taps", async ({ page }) => {
   await seedProfiles(page, { chloe: profile("Chloé", { lastSeenAt: 42 }) });
   await page.goto("/profiles");
   await expect(page.getByText("Jamais tourné")).toBeVisible();
@@ -166,11 +166,11 @@ test("a profile that never played shows as such, and can be forgotten in two tap
   for await (const chunk of stream) raw += chunk;
   expect(JSON.parse(raw).data.profiles.chloe.games).toBe(0);
 
-  const forget = page.getByRole("button", { name: /Oublier ce profil/i });
+  const forget = page.getByRole("button", { name: /Archiver la fiche/i });
   await forget.click();
-  await expect(page.getByRole("button", { name: /Confirmer l’oubli/i })).toBeVisible();
-  await page.getByRole("button", { name: /Confirmer l’oubli/i }).click();
-  await expect(page.getByText(/n’est plus dans les archives/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Confirmer l’archivage/i })).toBeVisible();
+  await page.getByRole("button", { name: /Confirmer l’archivage/i }).click();
+  await expect(page.getByText(/fiche de .* est archivée/i)).toBeVisible();
   expect(await readProfiles(page)).toEqual({});
 });
 
