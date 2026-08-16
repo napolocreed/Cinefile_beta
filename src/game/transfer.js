@@ -1,4 +1,8 @@
 import { GAME_VERSION } from "./engine.js";
+import { completeProfile } from "./storage.js";
+
+const isPlainObject = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+const passes = (check) => { try { check(); return true; } catch { return false; } };
 
 export const BACKUP_FORMAT = "cinefil-backup";
 export const BACKUP_VERSION = 1;
@@ -53,23 +57,31 @@ function isSafeVerificationCache(cache) {
 }
 
 export function createBackup(storageApi, { catalogCache = null, verificationCache = null, appVersion = GAME_VERSION, now = Date.now } = {}) {
-  const backup = {
+  // L'export est un filet de sécurité : il ne doit pas se refuser en bloc parce que le stockage contient une
+  // entrée abîmée — c'est précisément la situation où il sert. Il soumettait pourtant ses propres données au
+  // validateur d'import, si bien qu'une seule partie sans chaîne, ou un cache corrompu, faisait échouer le
+  // téléchargement entier, sans fichier ni message. On écarte donc ce qui ne passe pas et on exporte le reste ;
+  // la sévérité reste entière à l'import, où elle protège de l'extérieur.
+  const current = storageApi.loadCurrent();
+  const history = (storageApi.loadHistory() ?? []).filter((game) => passes(() => validateGame(game))).slice(0, 50);
+  const profiles = Object.fromEntries(
+    Object.entries(storageApi.loadProfiles() ?? {}).filter(([key, profile]) => key && isPlainObject(profile)),
+  );
+  return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     appVersion,
     exportedAt: new Date(now()).toISOString(),
     data: {
-      current: storageApi.loadCurrent(),
-      history: storageApi.loadHistory(),
-      profiles: storageApi.loadProfiles(),
-      applied: storageApi.loadApplied(),
+      current: passes(() => validateGame(current, { allowNull: true })) ? current : null,
+      history,
+      profiles,
+      applied: (storageApi.loadApplied() ?? []).filter((id) => typeof id === "string"),
       settings: storageApi.loadSettings?.() ?? {},
-      catalogCache,
-      verificationCache,
+      catalogCache: catalogCache?.version === 1 && Array.isArray(catalogCache.people) ? catalogCache : null,
+      verificationCache: isSafeVerificationCache(verificationCache) ? verificationCache : null,
     },
   };
-  validateBackup(backup);
-  return backup;
 }
 
 export function validateBackup(backup) {
@@ -80,7 +92,15 @@ export function validateBackup(backup) {
   validateGame(backup.data.current, { allowNull: true });
   assert(Array.isArray(backup.data.history) && backup.data.history.length <= 50, "Historique de sauvegarde invalide.");
   for (const game of backup.data.history) validateGame(game);
-  assert(backup.data.profiles && typeof backup.data.profiles === "object" && !Array.isArray(backup.data.profiles), "Profils invalides.");
+  assert(isPlainObject(backup.data.profiles), "Profils invalides.");
+  // Le contenu de la table n'était pas regardé : n'importe quelle valeur pouvait se trouver derrière une clé. Le
+  // tri de l'écran Profils lit `.wins` sans garde, et le rendu se fait hors du try/catch de l'import — l'écran
+  // cessait de se repeindre, et comme c'est lui qui porte le bouton Importer, il ne restait plus aucun moyen de
+  // réimporter une sauvegarde saine.
+  for (const [key, profile] of Object.entries(backup.data.profiles)) {
+    assert(typeof key === "string" && key.length > 0, "Clé de profil invalide.");
+    assert(isPlainObject(profile), "Profil invalide.");
+  }
   assert(Array.isArray(backup.data.applied) && backup.data.applied.every((id) => typeof id === "string"), "Index des parties invalide.");
   assert(!backup.data.catalogCache || (backup.data.catalogCache.version === 1 && Array.isArray(backup.data.catalogCache.people)), "Cache cinéma invalide.");
   assert(!backup.data.verificationCache || isSafeVerificationCache(backup.data.verificationCache), "Cache de vérification invalide.");
@@ -100,18 +120,59 @@ export function parseBackup(raw, { maxBytes = MAX_BACKUP_BYTES } = {}) {
 
 export function restoreBackup(backup, storageApi, { storage = globalThis.localStorage, catalogCacheKey = "cinefil.catalog-cache.v1", verificationCacheKey = "cinefil.verification-cache.v1" } = {}) {
   validateBackup(backup);
-  if (backup.data.current) storageApi.saveCurrent(backup.data.current);
-  else storageApi.clearCurrent();
-  storageApi.replaceHistory(backup.data.history);
-  storageApi.saveProfiles(backup.data.profiles);
-  storageApi.replaceApplied(backup.data.applied);
-  storageApi.saveSettings?.(backup.data.settings ?? {});
-  if (backup.data.catalogCache) storage?.setItem(catalogCacheKey, JSON.stringify(backup.data.catalogCache));
-  if (backup.data.verificationCache) storage?.setItem(verificationCacheKey, JSON.stringify(backup.data.verificationCache));
+  // Tout ou rien. L'écriture détruisait les profils et l'historique locaux avant de buter sur le quota du cache,
+  // et les deux régimes étaient incompatibles : safeWrite avale l'erreur, les setItem de cache la laissaient
+  // remonter. L'utilisateur voyait donc une exception — et croyait l'import annulé — sur une base déjà écrasée,
+  // ou un compte rendu triomphal sur une base restée vide, puisque le rapport décrivait le fichier et non ce qui
+  // avait été écrit. On garde de quoi remettre l'existant, et on relit la base pour dire ce qui s'y trouve.
+  const cacheOf = (key) => { try { return storage?.getItem(key) ?? null; } catch { return null; } };
+  const writeCache = (key, value) => {
+    try {
+      if (value === null) storage?.removeItem(key);
+      else storage?.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const previous = {
+    current: storageApi.loadCurrent(),
+    history: storageApi.loadHistory(),
+    profiles: storageApi.loadProfiles(),
+    applied: storageApi.loadApplied(),
+    settings: storageApi.loadSettings?.() ?? {},
+    catalogCache: cacheOf(catalogCacheKey),
+    verificationCache: cacheOf(verificationCacheKey),
+  };
+  const restore = (data, { complete = false } = {}) => {
+    const profiles = complete
+      ? Object.fromEntries(Object.entries(data.profiles ?? {}).map(([key, profile]) => [key, completeProfile(profile)]))
+      : data.profiles ?? {};
+    const written = [
+      data.current ? storageApi.saveCurrent(data.current) : (storageApi.clearCurrent(), true),
+      storageApi.replaceHistory(data.history ?? []),
+      storageApi.saveProfiles(profiles),
+      storageApi.replaceApplied(data.applied ?? []),
+      storageApi.saveSettings?.(data.settings ?? {}) ?? true,
+      writeCache(catalogCacheKey, data.catalogCache ?? null),
+      writeCache(verificationCacheKey, data.verificationCache ?? null),
+    ];
+    return written.every((result) => result !== false);
+  };
+
+  // Les fiches passent par completeProfile plutôt que d'être écrites brutes : c'est ce qui garantit que l'écran
+  // Profils trouvera les compteurs qu'il lit, quelle que soit l'ancienneté de la sauvegarde.
+  if (!restore(backup.data, { complete: true })) {
+    restore(previous);
+    throw new Error("L’espace de stockage est insuffisant : la sauvegarde précédente a été remise en place.");
+  }
+
+  const profiles = storageApi.loadProfiles();
+  const history = storageApi.loadHistory();
   return {
-    current: backup.data.current,
-    games: backup.data.history.length,
-    profiles: Object.keys(backup.data.profiles).length,
+    current: storageApi.loadCurrent(),
+    games: history.length,
+    profiles: Object.keys(profiles).length,
     catalogPeople: backup.data.catalogCache?.people?.length ?? 0,
     verifiedLinks: backup.data.verificationCache?.links?.length ?? 0,
   };

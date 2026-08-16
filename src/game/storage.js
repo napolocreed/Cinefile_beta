@@ -55,7 +55,17 @@ export function blankProfile(name) {
 
 // Old saves predate every counter added since, so a profile read from disk is completed rather than trusted.
 export function completeProfile(profile, name = profile?.name) {
-  const complete = { ...blankProfile(name), ...(profile ?? {}) };
+  const blank = blankProfile(name);
+  const complete = { ...blank, ...(profile ?? {}) };
+  // La valeur stockée l'emporte dès que la clé existe : un compteur présent mais non numérique traversait donc
+  // intact. Or recordFinishedGame fait `profile.x += player.x` sans coercition — un joueur auquel il manque un
+  // compteur produit NaN, que JSON enregistre en null, et qui se relisait en null à chaque démarrage. Chaque
+  // compteur numérique est donc recoercé sur le gabarit vierge.
+  for (const [key, fallback] of Object.entries(blank)) {
+    if (typeof fallback !== "number") continue;
+    const value = Number(complete[key]);
+    complete[key] = Number.isFinite(value) ? value : fallback;
+  }
   complete.name = String(name ?? profile?.name ?? "").trim() || complete.name;
   complete.achievements = Array.isArray(complete.achievements) ? complete.achievements : [];
   complete.opponents = Array.isArray(complete.opponents) ? complete.opponents : [];
