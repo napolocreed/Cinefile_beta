@@ -83,7 +83,13 @@ export function renderSuggestions() {
     hint.textContent = suggestionHint();
     hint.classList.remove("input-hint--error");
   }
-  document.querySelector("#actor-input")?.setAttribute("aria-expanded", String(state.suggestions.length > 0));
+  const field = document.querySelector("#actor-input");
+  field?.setAttribute("aria-expanded", String(state.suggestions.length > 0));
+  // Sans cet attribut, un lecteur d'écran n'a aucun moyen d'annoncer l'option que les flèches viennent d'atteindre.
+  const active = state.suggestions.findIndex((person) => person.id === state.selectedPerson?.id);
+  if (active >= 0) field?.setAttribute("aria-activedescendant", `actor-suggestion-${active}`);
+  else field?.removeAttribute("aria-activedescendant");
+  document.querySelector(`#actor-suggestions [data-suggestion-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
   const submit = document.querySelector("[data-submit-actor]");
   if (!submit) return;
   submit.disabled = !state.input.trim();
@@ -291,21 +297,50 @@ export function bindPlay() {
       scheduleCatalogSearch(state.input);
     });
     actorInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") submitActor();
+      // Le champ s'annonce comme un combobox, mais sa liste n'était atteignable qu'à la souris : les options
+      // portent tabindex="-1" et rien ne gérait les flèches. Au clavier, la seule issue était de taper le nom en
+      // entier et d'espérer que la validation retombe sur la bonne fiche.
+      if ((event.key === "ArrowDown" || event.key === "ArrowUp") && state.suggestions.length) {
+        event.preventDefault();
+        const current = state.suggestions.findIndex((person) => person.id === state.selectedPerson?.id);
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        const next = current === -1
+          ? (step === 1 ? 0 : state.suggestions.length - 1)
+          : (current + step + state.suggestions.length) % state.suggestions.length;
+        selectSuggestion(next, { keepInput: true });
+        return;
+      }
+      // Entrée valide la suggestion mise en avant. Sans cela, la proposition partirait sur le texte encore tapé —
+      // « Leo » plutôt que « Leonardo DiCaprio » — puisque submitActor n'accepte la fiche choisie que si elle
+      // correspond au contenu du champ.
+      if (event.key === "Enter") {
+        if (state.selectedPerson && state.suggestions.some((person) => person.id === state.selectedPerson.id)) {
+          state.input = state.selectedPerson.name;
+          actorInput.value = state.selectedPerson.name;
+          state.suggestions = [];
+        }
+        submitActor();
+      }
       if (event.key === "Escape" && state.suggestions.length) {
         state.suggestions = [];
+        state.selectedPerson = null;
         renderSuggestions();
       }
     });
   }
 
-  document.querySelector("#actor-suggestions")?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-suggestion-index]");
-    if (!button) return;
-    const person = state.suggestions[Number(button.dataset.suggestionIndex)];
+  // Le même geste, qu'il vienne du doigt ou des flèches. `keepInput` distingue les deux : parcourir la liste au
+  // clavier met une option en avant sans refermer la liste ni voler le focus du champ, sinon la flèche suivante
+  // n'aurait plus rien à parcourir.
+  function selectSuggestion(index, { keepInput = false } = {}) {
+    const person = state.suggestions[index];
     if (!person) return;
-    stopSearch();
     state.selectedPerson = person;
+    if (keepInput) {
+      renderSuggestions();
+      return;
+    }
+    stopSearch();
     state.input = person.name;
     actorInput.value = person.name;
     // Closing the list is what brings the button back above the fold, and moving focus off the field also
@@ -313,6 +348,12 @@ export function bindPlay() {
     state.suggestions = [];
     renderSuggestions();
     document.querySelector("[data-submit-actor]")?.focus({ preventScroll: false });
+  }
+
+  document.querySelector("#actor-suggestions")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-suggestion-index]");
+    if (!button) return;
+    selectSuggestion(Number(button.dataset.suggestionIndex));
   });
 
   document.querySelector("[data-submit-actor]")?.addEventListener("click", submitActor);

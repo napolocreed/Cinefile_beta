@@ -361,3 +361,31 @@ test("an elimination is spelled out on the verdict screen", async ({ page }, tes
   await expect(strike).toContainText("éliminé");
   await expect(strike.locator(".death-card")).toHaveText("FIN");
 });
+
+// Le champ s'annonce comme un combobox, mais ses options portent tabindex="-1" et rien ne gérait les flèches : au
+// clavier, la liste était inatteignable et la seule issue était de taper le nom en entier.
+test("the suggestion list can be walked with the keyboard", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Un seul navigateur suffit pour le clavier.");
+  await page.goto("/");
+  await page.getByRole("link", { name: /Nouvelle partie/i }).click();
+  await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
+  await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+
+  const field = page.getByLabel("Ton artiste");
+  await field.click();
+  await field.fill("Leo");
+  await expect(page.getByRole("option").first()).toBeVisible();
+
+  // La flèche du bas met la première option en avant, et le lecteur d'écran peut la nommer.
+  await page.keyboard.press("ArrowDown");
+  await expect(field).toHaveAttribute("aria-activedescendant", "actor-suggestion-0");
+  await expect(page.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
+  // La liste reste ouverte pour être parcourue, et le bouton nomme déjà le choix.
+  await expect(page.getByRole("button", { name: /Valider Leonardo DiCaprio/i })).toBeVisible();
+
+  // Entrée valide ce choix : le maillon entre dans la chaîne.
+  await page.keyboard.press("Enter");
+  await expect(page.getByText(/Acteur précédent/i)).toBeVisible();
+  await expect(page.getByText("Leonardo DiCaprio", { exact: true })).toBeVisible();
+});

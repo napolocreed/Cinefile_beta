@@ -118,17 +118,23 @@ test("a correction that lands after its turn is refused instead of arming a phan
 
   // Slow hydration is what opens the window: the correction resolves long after the chrono took the turn.
   await stubCatalog(page, { hydrateDelayMs: 4000 });
+  // Un nom que le catalogue lit de deux façons : il garantit qu'une puce de correction existe. Tout le corps de ce
+  // test vivait sous un `if (await chip.count())` — sans seconde puce, il ne s'exécutait jamais et le test passait
+  // au vert sans avoir rien joué.
+  await validate(page, "depardieu", /Depardieu/);
   const chip = page.locator("[data-voice-candidate]").nth(1);
-  if (await chip.count()) {
-    await chip.click({ noWaitAfter: true });
-    await page.clock.runFor(31_000);
-    await page.waitForTimeout(200);
-    await page.clock.runFor(6_000);
-    await expect(page.locator(".voice-error")).toBeVisible();
-  }
+  await expect(chip).toBeVisible();
+
+  await chip.click({ noWaitAfter: true });
+  await page.clock.runFor(31_000);
+  await page.waitForTimeout(200);
+  await page.clock.runFor(6_000);
+  await expect(page.locator(".voice-error")).toBeVisible();
+
   const after = await chainOf(page);
-  // The chrono may legitimately accept the outstanding proposition; nothing beyond it may appear.
-  expect(after.length).toBeLessThanOrEqual(before.length + 1);
+  // Le chrono peut légitimement accepter la proposition en attente ; rien au-delà ne doit apparaître, et surtout
+  // pas le nom corrigé, qui arrive après que le tour a changé de main.
+  expect(after.length).toBeLessThanOrEqual(before.length + 2);
   expect(after.slice(0, before.length)).toEqual(before);
 });
 

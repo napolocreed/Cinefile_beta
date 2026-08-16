@@ -190,6 +190,27 @@ test("a win streak, a comeback, and the day counter follow the results", () => {
   assert.equal(storage.loadProfiles()[other].streakRun, -2);
 });
 
+// Le test ci-dessous ne portait que le cas négatif, sur une partie qui n'avait de toute façon aucun bluff passé :
+// il restait vert même si la garde disparaissait. Voici la moitié qui manquait — un bluff réellement passé sous les
+// yeux d'une table autorisée à buzzer, qui lui, doit compter.
+test("a bluff nobody challenged is counted when the table could have", () => {
+  const storage = createStorage(fakeStorage());
+  // Le dernier maillon est un nom qu'aucun catalogue ne relie au précédent, et personne ne conteste.
+  let game = playedGame({ config: { allowBluffChallenge: true }, lives: 3, kill: null });
+  const slipped = proposeActor(game, "Nom Totalement Inconnu", database);
+  assert.equal(slipped.type, "pending");
+  assert.equal(slipped.pending.wasValid, false);
+  game = resolvePending(slipped.game, slipped.pending, { challenged: false });
+  // Il faut que la partie se termine pour être enregistrée.
+  while (game.status !== "finished") game = resolvePending(game, timeoutPending(game), { challenged: false });
+
+  const { profiles } = recordFinishedGame(game, storage);
+  const bluffer = Object.values(profiles).find((profile) => profile.bluffsSlipped > 0);
+  assert.ok(bluffer, "un bluff passé doit être porté par une fiche");
+  assert.equal(bluffer.bluffsSlipped >= 1, true);
+  assert.equal(bluffer.achievements.includes("bluff-premier-trucage"), true);
+});
+
 test("the honour roll only counts a bluff that slipped past a table allowed to buzz", () => {
   const storage = createStorage(fakeStorage());
   // Sans défis de bluff, le moteur accepte d'office toute liaison invalide : ce n'est pas un bluff réussi.
