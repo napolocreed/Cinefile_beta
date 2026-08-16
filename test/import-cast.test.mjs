@@ -382,3 +382,40 @@ test("the discovery window is read defensively", () => {
   assert.deepEqual(parseYearRange("n’importe quoi", { defaultFrom: 2005, defaultTo: 2026 }), { from: 2005, to: 2026 });
   assert.deepEqual(nameKeys("Marmaï, Pio"), ["marmai pio", "pio marmai"]);
 });
+
+// Une erreur HTTP sur /discover ou /credits remontait à travers le générateur : la vague échouait en entier et les
+// identités déjà acquises n'étaient jamais écrites, alors que chacune avait coûté un appel réseau.
+test("a network failure mid-wave keeps what was already collected", async () => {
+  const paths = await workspace();
+  let calls = 0;
+  const failing = async (url) => {
+    const target = new URL(String(url));
+    if (target.pathname === "/3/discover/movie") {
+      calls += 1;
+      // La première année répond, la suivante tombe.
+      if (calls > 1) return { ok: false, status: 503, json: async () => ({ status_message: "service indisponible" }) };
+    }
+    return fixtureFetch()(url);
+  };
+  const report = await importTmdbCast({
+    snapshotPath: paths.snapshotPath,
+    overlayPath: paths.overlayPath,
+    snapshotOutputPath: paths.snapshotPath,
+    overlayOutputPath: paths.overlayPath,
+    token: "fixture-token",
+    fetchImpl: failing,
+    years: "2017-2019",
+    pages: 1,
+    limit: 10,
+    minVotes: 100,
+  });
+
+  // L'incident est consigné, et ce qui avait été trouvé avant la coupure est bien enregistré.
+  assert.equal(report.failures.some((failure) => /Exploration interrompue/.test(failure.reason)), true);
+  assert.equal(report.added.length > 0, true);
+  assert.equal(report.written, true);
+  const snapshot = await readJson(paths.snapshotPath);
+  for (const added of report.added) {
+    assert.equal(snapshot.people.some((person) => person.name === added.name), true, added.name);
+  }
+});

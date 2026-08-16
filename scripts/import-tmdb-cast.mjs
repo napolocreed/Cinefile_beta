@@ -226,7 +226,19 @@ export async function importTmdbCast({
   const addedPeople = [];
   const addedWorks = [];
 
-  for await (const { movie, entry } of walkCandidates({ discovery, years: range, pages, minVotes, originalLanguage, castDepth, seen })) {
+  // Une erreur HTTP sur /discover ou /credits remontait à travers le générateur et perdait tout le travail déjà
+  // accompli : les identités acquises n'étaient jamais écrites. L'exploration s'arrête maintenant là où le réseau
+  // l'a coupée, l'incident est consigné, et la vague enregistre ce qu'elle a.
+  async function* survivingCandidates() {
+    try {
+      yield* walkCandidates({ discovery, years: range, pages, minVotes, originalLanguage, castDepth, seen });
+    } catch (error) {
+      report.failures.push({ tmdbId: null, name: null, reason: `Exploration interrompue : ${error?.message ?? error}` });
+      log(`[!] Exploration interrompue : ${error?.message ?? error}. Les ${report.added.length} identités déjà acquises sont conservées.`);
+    }
+  }
+
+  for await (const { movie, entry } of survivingCandidates()) {
     if (report.added.length >= budget) break;
     report.films = seen.movies.size;
     report.castSeen += 1;

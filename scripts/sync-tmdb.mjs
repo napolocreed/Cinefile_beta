@@ -127,6 +127,16 @@ if (!tmdb.configured) {
     }
     const manualOverride = overrideByLocalId.get(person.localPersonId);
     if (manualOverride && String(person.externalIds?.tmdb) === String(manualOverride.tmdbId)) continue;
+    // Un override qui désigne un AUTRE identifiant est une correction humaine explicite : elle doit primer. Elle
+    // tombait jusqu'ici dans le calcul de recouvrement ci-dessous, et la fiche fautive — qui partage forcément des
+    // crédits avec la bonne, sans quoi personne n'aurait eu à la corriger — ressortait relabellisée « audited ».
+    if (manualOverride) {
+      overlay.people = overlay.people.filter((entry) => entry.localPersonId !== person.localPersonId);
+      enrichedByLocalId.delete(person.localPersonId);
+      failureByLocalId.delete(person.localPersonId);
+      console.warn(`[audit] ${person.name}: correspondance retirée, un override manuel désigne tmdb:${manualOverride.tmdbId}.`);
+      continue;
+    }
     const overlap = existingCreditOverlap(localPerson, person, worksById, overlayWorksById);
     if (overlap > 0) {
       if (person.matchedBy === "normalized-exact") person.matchedBy = "normalized-exact-credit-overlap-audited";

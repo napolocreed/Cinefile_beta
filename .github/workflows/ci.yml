@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Un commit poussé avec le GITHUB_TOKEN ne déclenche aucun workflow — c'est la garde anti-boucle de GitHub. Les
+  # workflows de données commitent pourtant les fichiers que le déploiement sert : sans ce déclencheur manuel,
+  # qu'ils appellent en fin de course, ni la quality gate ni la mise en ligne ne voyaient jamais leur commit.
+  workflow_dispatch:
 
 jobs:
   test:

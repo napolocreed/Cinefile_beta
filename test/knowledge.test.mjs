@@ -62,3 +62,15 @@ test("the shipped snapshot only dates works whose title says so", () => {
   assert.equal(dated.length > 0, true);
   for (const work of dated) assert.equal(parseYear(work.title), work.year, work.title);
 });
+
+// Les tests du snapshot n'assertaient que le JSON brut : la corruption apparaissait au CHARGEMENT, quand une fusion
+// perdait l'identifiant qu'elle absorbait et que le crédit orphelin devenait une œuvre titrée « work_0g8sb5b ».
+// Cette garde se place là où le défaut vivait — sur la base construite, pas sur le fichier.
+test("the built database never turns an identifier into a work title", () => {
+  const database = createDatabase(snapshot);
+  const identifiers = database.works.filter((work) => /^(?:work|person)_[0-9a-z]{7}$|^tmdb(?:-movie|-tv)?:\d+$/.test(work.title));
+  assert.deepEqual(identifiers.map((work) => work.title), []);
+  // Et aucune filmographie ne porte un identifiant en guise de titre de film.
+  const corrupted = database.people.filter((person) => (person.films ?? []).some((film) => /^work_[0-9a-z]{7}$/.test(film)));
+  assert.deepEqual(corrupted.map((person) => person.name), []);
+});

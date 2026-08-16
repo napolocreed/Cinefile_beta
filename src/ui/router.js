@@ -36,7 +36,7 @@ function settlePendingBeforeLeaving() {
   if (resolved.status === "finished") archiveFinishedGame(resolved);
 }
 
-export function navigate(target) {
+export function navigate(target, { replace = false } = {}) {
   const destination = new URL(target, window.location.origin);
   const logicalTarget = logicalPath(destination.pathname);
   stopTimer();
@@ -45,7 +45,10 @@ export function navigate(target) {
   // Ce qui est parti sur le réseau depuis l'écran qu'on quitte n'a plus rien à y écrire.
   bumpGeneration();
   if (logicalTarget !== "/play" && state.voice?.session) stopVoiceSession();
-  history.pushState({}, "", routeUrl(logicalTarget));
+  // Un renvoi automatique ne doit pas empiler une entrée d'historique : le bouton Retour du navigateur y revenait
+  // aussitôt, et la table restait piégée sur le générique sans pouvoir en sortir par ce geste.
+  if (replace) history.replaceState({}, "", routeUrl(logicalTarget));
+  else history.pushState({}, "", routeUrl(logicalTarget));
   // The turn starts on the field the player needs; there is no hand-over screen to pass through any more.
   state.phase = "input";
   state.pending = null;
@@ -86,7 +89,7 @@ export function renderRoute() {
     state.game ??= app.storage.loadCurrent();
     // A finished game normally jumps to the credits, but a buzz that ended it still owes the table its verdict.
     if (!state.game || (state.game.status === "finished" && !state.voice?.outcome)) {
-      navigate(state.game?.status === "finished" ? "/credits" : "/");
+      navigate(state.game?.status === "finished" ? "/credits" : "/", { replace: true });
       return;
     }
     app.root.innerHTML = playMarkup();

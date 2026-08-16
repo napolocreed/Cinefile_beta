@@ -21,6 +21,8 @@ on:
 
 permissions:
   contents: write
+  # Pour relancer la quality gate après le commit de données.
+  actions: write
 
 concurrency:
   group: tmdb-enrichment
@@ -50,16 +52,25 @@ jobs:
           BATCH_SIZE: ${{ inputs.batch_size || '100' }}
           ONLY_MISSING_KINDS: ${{ inputs.only_missing_kinds && '--only-missing-kinds' || '' }}
         run: npm run sync:tmdb -- --limit="$BATCH_SIZE" --refresh-days=60 --output=src/data/tmdb-overlay.json $ONLY_MISSING_KINDS
+      # L'index des portraits est dérivé de l'overlay : sans cette étape, il reste sur l'ancienne version et le test
+      # de non-régression qui compare les deux échoue, bloquant tout commit de la campagne d'enrichissement.
+      - name: Rebuild the portrait index
+        run: npm run build:portraits
       - name: Run non-regression tests
         run: npm run test:unit
       - name: Persist refreshed overlay
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/data/tmdb-overlay.json
+          git add src/data/tmdb-overlay.json src/data/tmdb-portraits.json
           if git diff --cached --quiet; then
             echo "Catalogue already current."
           else
             git commit -m "Refresh TMDb catalogue overlay"
             git push
+            # Un push signé du GITHUB_TOKEN ne déclenche rien : on réveille la quality gate à la main, qui
+            # entraîne à son tour le déploiement Cloud Run.
+            gh workflow run ci.yml --ref "${{ github.ref_name }}"
           fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
