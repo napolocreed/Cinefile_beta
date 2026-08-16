@@ -112,7 +112,11 @@ export function createTmdbClient({ token = process.env.TMDB_API_TOKEN, apiKey = 
       };
       // Une même œuvre revient une fois par métier, et TMDb ne renseigne pas toujours les genres sur chacune de
       // ces lignes : la première qui les porte fixe la nature, les suivantes ne la redescendent pas à l'inconnu.
-      if (previousWork && previousWork.kind === WORK_KINDS.UNKNOWN && credit.genre_ids?.length) {
+      // La garde portait sur `kind === UNKNOWN`, structurellement inatteignable pour la télévision : une ligne tv
+      // sans genres rend déjà « série ». Un talk-show dont la ligne muette arrivait en premier restait donc classé
+      // série — et passait le périmètre d'une table qui avait ouvert les séries mais pas les plateaux. C'est
+      // l'absence de genres, et non la nature obtenue, qui dit que la nature a été devinée.
+      if (previousWork && !previousWork.genreIds.length && credit.genre_ids?.length) {
         previousWork.kind = classifyTmdbCredit({ mediaType: credit.media_type, genreIds: credit.genre_ids });
         previousWork.genreIds = [...new Set(credit.genre_ids.map(Number).filter(Number.isFinite))];
       }

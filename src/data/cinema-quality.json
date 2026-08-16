@@ -1,7 +1,7 @@
 {
   "version": 1,
   "snapshotId": "snapshot_09h8lu0",
-  "generatedAt": "2026-08-13T01:14:14.109Z",
+  "generatedAt": "2026-08-16T03:13:59.667Z",
   "people": 1523,
   "works": 41914,
   "credits": 84497,
@@ -64,12 +64,12 @@
       {
         "id": "work_06ff8du",
         "title": "Anton Tchekhov 1890",
-        "year": 1890
+        "year": null
       },
       {
         "id": "work_1jntlvy",
         "title": "Anton Tchékhov 1890",
-        "year": 1890
+        "year": null
       }
     ],
     [

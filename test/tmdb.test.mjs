@@ -65,3 +65,28 @@ test("credit genres travel with the work, because nothing else separates a docum
   const kinds = Object.fromEntries(person.credits.map((work) => [work.title, work.kind]));
   assert.deepEqual(kinds, { "Un film": "cinema", "Un portrait": "documentary", "Un plateau": "show" });
 });
+
+// La garde du rattrapage portait sur `kind === UNKNOWN`, structurellement inatteignable pour la télévision : une
+// ligne tv sans genres rend déjà « série ». Un talk-show dont la ligne muette arrivait en premier restait donc
+// classé série, et passait le périmètre d'une table qui avait ouvert les séries mais pas les plateaux.
+test("a work's nature does not depend on the order of its credit lines", async () => {
+  const person = (castFirst) => ({
+    id: 5,
+    name: "Invité",
+    known_for_department: "Acting",
+    combined_credits: {
+      cast: [castFirst
+        ? { id: 77, media_type: "tv", name: "Le Grand Plateau", first_air_date: "2019-01-01" }
+        : { id: 77, media_type: "tv", name: "Le Grand Plateau", first_air_date: "2019-01-01", genre_ids: [10767] }],
+      crew: [castFirst
+        ? { id: 77, media_type: "tv", name: "Le Grand Plateau", first_air_date: "2019-01-01", genre_ids: [10767], department: "Production" }
+        : { id: 77, media_type: "tv", name: "Le Grand Plateau", first_air_date: "2019-01-01", department: "Production" }],
+    },
+  });
+  for (const castFirst of [true, false]) {
+    const client = createTmdbClient({ token: "t", fetchImpl: async () => response(person(castFirst)) });
+    const hydrated = await client.getPerson(5);
+    assert.equal(hydrated.credits[0].kind, "show", `ligne avec genres en ${castFirst ? "second" : "premier"}`);
+    assert.deepEqual(hydrated.credits[0].genreIds, [10767]);
+  }
+});

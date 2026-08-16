@@ -119,14 +119,30 @@ export function classifyWikidataFilm({ documentary = false, television = false }
 
 // Les catégories d'une page Wikipédia, en français comme en anglais. C'est une source d'indices, jamais de
 // preuve : elle ne sert qu'à écarter une page dont la catégorie dit franchement autre chose qu'un film.
-const WIKIPEDIA_DOCUMENTARY = /\b(documentaire|documentary|docufiction)\b/i;
-const WIKIPEDIA_TELEVISION = /\b(t[ée]l[ée]vis(?:ion|ée|é|ed)|t[ée]l[ée]film|s[ée]rie|series|sitcom|feuilleton|[ée]mission|talk[- ]show|television)\b/i;
+// `\b` est ASCII : il ne se déclenche ni devant ni derrière une lettre accentuée. L'alternative « émission » ne
+// pouvait donc matcher que l'orthographe sans accent, celle que Wikipédia n'écrit jamais, et « Film télévisé
+// américain » ressortait en cinéma — le cas exact que la branche existe pour rejeter. Les gardes Unicode
+// remplacent les deux.
+const EDGE_BEFORE = "(?<![\\p{L}\\p{N}])";
+const EDGE_AFTER = "(?![\\p{L}\\p{N}])";
+const WIKIPEDIA_DOCUMENTARY = new RegExp(`${EDGE_BEFORE}(documentaire|documentary|docufiction)${EDGE_AFTER}`, "iu");
+const WIKIPEDIA_TELEVISION = new RegExp(
+  `${EDGE_BEFORE}(t[ée]l[ée]vis(?:ion|ée|é|ed)|t[ée]l[ée]film|s[ée]rie|series|sitcom|feuilleton|[ée]mission|talk[- ]show|television)${EDGE_AFTER}`,
+  "iu",
+);
+// « Film de la série Saw », « Film de la série James Bond », « American film series » : ici « série » désigne une
+// franchise de cinéma, pas un feuilleton. Sans cette réserve, de vrais films perdaient leur indice Wikipédia et
+// leur verdict PROBABLE retombait en NOT_FOUND.
+const WIKIPEDIA_FILM_FRANCHISE = new RegExp(`${EDGE_BEFORE}(film|films|saga)${EDGE_AFTER}`, "iu");
 
 export function classifyWikipediaCategories(categories = []) {
   const values = (Array.isArray(categories) ? categories : []).map((value) => String(value ?? ""));
   if (values.some((category) => WIKIPEDIA_DOCUMENTARY.test(category))) return WORK_KINDS.DOCUMENTARY;
-  if (values.some((category) => WIKIPEDIA_TELEVISION.test(category))) return WORK_KINDS.SERIES;
-  return WORK_KINDS.CINEMA;
+  const television = values.some((category) => WIKIPEDIA_TELEVISION.test(category)
+    // Une catégorie qui parle de film ET de série parle d'une franchise de cinéma, sauf si elle nomme franchement
+    // la télévision par ailleurs (« Téléfilm », « Série télévisée américaine »).
+    && !(WIKIPEDIA_FILM_FRANCHISE.test(category) && !/t[ée]l[ée]/iu.test(category)));
+  return television ? WORK_KINDS.SERIES : WORK_KINDS.CINEMA;
 }
 
 // La nature d'une œuvre déjà rangée en base. Une nature enregistrée fait foi ; sinon on relit ce qu'on a :

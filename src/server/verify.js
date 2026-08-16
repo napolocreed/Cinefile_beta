@@ -143,13 +143,20 @@ LIMIT 20`.trim();
 
 const sparqlBoolean = (binding) => binding?.value === "true" || binding?.value === "1";
 
+// Q11424 a pour sous-classes le film documentaire et le téléfilm : la requête les ramène donc forcément, et ne
+// demander que l'appartenance faisait du QID un simple portail. La nature était alors décidée par les seules
+// catégories Wikipédia, qui rendent « cinéma » par défaut — y compris sur une liste vide — si bien qu'un
+// documentaire était présenté à une table qui les avait explicitement refusés. On projette les deux sous-classes,
+// exactement comme le fait déjà la requête des films communs.
 function classifyFilmsQuery(qids) {
   return `
 PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
-SELECT DISTINCT ?film WHERE {
+SELECT DISTINCT ?film ?documentary ?television WHERE {
   VALUES ?film { ${qids.map((qid) => `wd:${qid}`).join(" ")} }
   ?film wdt:P31/wdt:P279* wd:Q11424 .
+  BIND(EXISTS { ?film wdt:P31/wdt:P279* wd:${WIKIDATA_DOCUMENTARY_FILM} } AS ?documentary)
+  BIND(EXISTS { ?film wdt:P31/wdt:P279* wd:${WIKIDATA_TELEVISION_FILM} } AS ?television)
 }`.trim();
 }
 
@@ -396,11 +403,19 @@ export function createLinkVerifier({
     const detailsPayload = await fetchJson(detailsUrl);
     const details = new Map(Object.values(detailsPayload.query?.pages ?? {}).map((page) => [Number(page.pageid), page]));
     const qids = [...new Set([...details.values()].map((page) => page.pageprops?.wikibase_item).filter((qid) => /^Q\d+$/.test(qid)))];
-    let filmQids = new Set();
+    // La nature que Wikidata attribue à chaque fiche, quand elle la connaît.
+    const filmKinds = new Map();
     if (qids.length) {
       try {
         const { payload } = await querySparql(classifyFilmsQuery(qids));
-        filmQids = new Set((payload.results?.bindings ?? []).map((binding) => qidFromUri(binding.film?.value)).filter(Boolean));
+        for (const binding of payload.results?.bindings ?? []) {
+          const qid = qidFromUri(binding.film?.value);
+          if (!qid) continue;
+          filmKinds.set(qid, classifyWikidataFilm({
+            documentary: sparqlBoolean(binding.documentary),
+            television: sparqlBoolean(binding.television),
+          }));
+        }
       } catch {
         // Category evidence below remains useful as a probable, never definitive, result.
       }
@@ -414,20 +429,22 @@ export function createLinkVerifier({
         const professionCategory = /\b(actor|actress|director|producer|screenwriter|composer|editor|cinematographer|critics?|festival|award)\b/i.test(category);
         return filmCategory && !professionCategory;
       });
-      if (!filmQids.has(qid) && !categoryLooksLikeFilm) return [];
+      if (!filmKinds.has(qid) && !categoryLooksLikeFilm) return [];
       return [{
         title: entry.title,
         year: null,
         // « Film documentaire de 2016 » commence par « Film » : l'ancienne lecture n'y voyait qu'un film. Les
         // catégories, elles, disent souvent la nature en toutes lettres — c'est un indice, à la hauteur de ce que
         // vaut cette étape, qui n'a jamais le droit de valider seule.
-        kind: classifyWikipediaCategories(categories),
+        // Quand Wikidata connaît la fiche, c'est elle qui tranche : les catégories ne sont qu'un indice de repli,
+        // pour les pages qu'aucun QID ne rattache.
+        kind: filmKinds.get(qid) ?? classifyWikipediaCategories(categories),
         url: wikipediaUrl(language, entry.title),
         source: "wikipedia",
         language,
         qid,
         snippet: decodeSnippet(entry.snippet),
-        classification: filmQids.has(qid) ? "wikidata-film" : "category-film",
+        classification: filmKinds.has(qid) ? "wikidata-film" : "category-film",
       }];
     });
   }

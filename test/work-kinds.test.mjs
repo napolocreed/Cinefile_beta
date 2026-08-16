@@ -93,3 +93,30 @@ test("only a named nature can contradict another", () => {
   assert.equal(kindsAreCompatible(WORK_KINDS.CINEMA, WORK_KINDS.SERIES), false);
   assert.equal(kindsAreCompatible(WORK_KINDS.DOCUMENTARY, WORK_KINDS.CINEMA), false);
 });
+
+/* -----------------------------------------------------------------------------
+   Ce que les accents et les franchises ont failli faire passer
+   -------------------------------------------------------------------------- */
+
+// `\b` est ASCII : il ne se déclenche ni devant ni derrière une lettre accentuée. L'alternative « émission » ne
+// pouvait donc matcher que l'orthographe sans accent, celle que Wikipédia n'écrit jamais, et « Film télévisé
+// américain » ressortait en cinéma — le cas exact que la branche existe pour rejeter.
+test("an accented category is read like any other", () => {
+  assert.equal(classifyWikipediaCategories(["Émission de plateau"]), WORK_KINDS.SERIES);
+  assert.equal(classifyWikipediaCategories(["Émission diffusée sur TF1"]), WORK_KINDS.SERIES);
+  assert.equal(classifyWikipediaCategories(["Film télévisé américain"]), WORK_KINDS.SERIES);
+  assert.equal(classifyWikipediaCategories(["Téléfilm français"]), WORK_KINDS.SERIES);
+  assert.equal(classifyWikipediaCategories(["Feuilleton télévisé"]), WORK_KINDS.SERIES);
+  // L'orthographe sans accent marchait déjà : elle ne doit pas régresser.
+  assert.equal(classifyWikipediaCategories(["emission de plateau"]), WORK_KINDS.SERIES);
+});
+
+// « Film de la série Saw » parle d'une franchise de cinéma, pas d'un feuilleton. De vrais films perdaient leur
+// indice Wikipédia, et leur verdict PROBABLE retombait en NOT_FOUND.
+test("a film franchise is not a television series", () => {
+  assert.equal(classifyWikipediaCategories(["Film de la série Saw"]), WORK_KINDS.CINEMA);
+  assert.equal(classifyWikipediaCategories(["Film de la série James Bond"]), WORK_KINDS.CINEMA);
+  assert.equal(classifyWikipediaCategories(["American film series"]), WORK_KINDS.CINEMA);
+  // Mais une catégorie qui nomme franchement la télévision reste de la télévision.
+  assert.equal(classifyWikipediaCategories(["Série télévisée américaine"]), WORK_KINDS.SERIES);
+});
