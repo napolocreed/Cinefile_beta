@@ -247,6 +247,12 @@ function ficheMarkup(profile, stats) {
    -------------------------------------------------------------------------- */
 
 export function renderProfiles() {
+  // La bannière se consomme à l'affichage. Rien ne la remettait à null — ni ce rendu, ni navigate(), qui
+  // réinitialise pourtant huit autres champs : « Sauvegarde exportée » réapparaissait à chaque retour sur l'écran
+  // comme si l'export venait d'avoir lieu, et un message d'erreur d'importation survivait à l'importation réussie
+  // qui le suivait.
+  const notice = state.transferNotice;
+  state.transferNotice = null;
   const profiles = Object.values(app.storage.loadProfiles()).sort((left, right) => right.wins - left.wins || right.xp - left.xp || (right.lastSeenAt ?? 0) - (left.lastSeenAt ?? 0));
   const diagnosticEntries = app.diagnostics.load();
   // Un seul dépouillement de l'historique pour toutes les fiches, et non un par carte.
@@ -255,7 +261,7 @@ export function renderProfiles() {
 
   app.root.innerHTML = shell(`<section class="profiles-page">
     <h1 class="marquee">Profils</h1>
-    ${state.transferNotice ? `<p class="transfer-notice ${state.transferNotice.type === "error" ? "transfer-notice--error" : ""}" role="status">${escapeHtml(state.transferNotice.message)}</p>` : ""}
+    ${notice ? `<p class="transfer-notice ${notice.type === "error" ? "transfer-notice--error" : ""}" role="status">${escapeHtml(notice.message)}</p>` : ""}
 
     ${profiles.length ? `<div class="profile-list">${profiles.map((profile) => {
       const stats = archive.get(profileKey(profile.name)) ?? EMPTY_ARCHIVE;
@@ -378,8 +384,13 @@ function bindProfileTools() {
         return;
       }
       const name = button.dataset.forgetProfile;
-      app.storage.forgetProfile(name);
-      state.transferNotice = { type: "success", message: `${name} n’est plus dans les archives.` };
+      // La valeur de retour n'était pas lue : quand la clé n'existait pas, le message annonçait une suppression
+      // qui n'avait pas eu lieu et la carte restait affichée juste en dessous. Ce bouton étant le seul geste de
+      // suppression de l'interface, la fiche devenait inextirpable sans que rien ne le dise.
+      const forgotten = app.storage.forgetProfile(name);
+      state.transferNotice = forgotten
+        ? { type: "success", message: `${name} n’est plus dans les archives.` }
+        : { type: "error", message: `${name} n’a pas pu être retiré des archives.` };
       renderProfiles();
     });
   });

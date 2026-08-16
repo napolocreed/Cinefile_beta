@@ -6,7 +6,7 @@
 
 import { normalizeText } from "../../game/database.js";
 import { createGame, MAX_PLAYERS } from "../../game/engine.js";
-import { castingRoster } from "../../game/storage.js";
+import { castingRoster, profileKey } from "../../game/storage.js";
 import { DEFAULT_EXTENSIONS, normalizeExtensions, WORK_EXTENSIONS } from "../../game/work-kinds.js";
 import { app, navigate, renderRoute, state } from "../runtime.js";
 import { escapeHtml, initialOf } from "../format.js";
@@ -29,7 +29,10 @@ const DEFAULT_SETUP = {
 const VISIBLE_CHIPS = 6;
 const FILTER_FROM = 7;
 
-const seatKeys = (names) => names.map((name) => normalizeText(name));
+// La même clé que les profils. `normalizeText` seul rend la chaîne vide pour un nom sans caractère latin, et toute
+// la validation du casting en dépend : deux joueurs cyrilliques affichaient « 00 / 10 » et le bouton Lancer restait
+// mort, tandis qu'un mélange les comptait à part puis les faisait s'écraser au premier tap de vignette.
+const seatKeys = (names) => names.map((name) => profileKey(name));
 const filledSeats = (names) => seatKeys(names).filter(Boolean);
 // Le vocal n'a plus de plafond à lui : le tour de table s'y joue au même nombre qu'en classique, le micro
 // écoutant celui dont c'est le tour et la scène ne montrant qu'un siège à la fois.

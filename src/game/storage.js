@@ -1,6 +1,7 @@
 import { achievementsFor, partieValable } from "./achievements.js";
 import { buildCredits } from "./credits.js";
 import { normalizeText } from "./database.js";
+import { strictIdentityKey } from "./identity.js";
 import { MAX_SESSION_MS } from "./statistics.js";
 
 // One shape for a profile, written once. A profile used to exist only as the by-product of a finished game, so
@@ -74,7 +75,11 @@ export function completeProfile(profile, name = profile?.name) {
   return complete;
 }
 
-export const profileKey = (name) => normalizeText(name);
+// `normalizeText` réduit à l'ASCII et rend la chaîne vide pour « Ольга », « 李小龍 », « أحمد » ou « Ελένη » : tous
+// ces joueurs partageaient une seule et même fiche, celle de la clé vide. On garde la clé historique là où elle
+// répond — sans quoi toutes les fiches existantes seraient orphelines — et on retombe sur une normalisation
+// Unicode quand elle ne donne rien.
+export const profileKey = (name) => normalizeText(name) || strictIdentityKey(name);
 
 export const STORAGE_KEYS = Object.freeze({
   current: "cinelink.current.v1",
@@ -232,6 +237,9 @@ export function recordFinishedGame(game, storageApi, { credits: providedCredits 
 
   for (const player of game.players) {
     const key = profileKey(player.name);
+    // `rememberProfile` se garde déjà de la clé vide ; ici rien ne le faisait, et deux joueurs qu'aucune
+    // normalisation ne sait nommer — un pseudo tout en emojis — fusionnaient dans une seule fiche.
+    if (!key) continue;
     // L'orthographe sur fiche l'emporte : une partie ne renomme pas un profil ni son historique. Sans ce garde,
     // une partie restaurée où le nom a été saisi en minuscules réécrivait « Alice » en « alice ».
     const profile = completeProfile(profiles[key], profiles[key]?.name ?? player.name);
