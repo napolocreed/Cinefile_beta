@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { importTmdbCast, parseYearRange } from "../scripts/import-tmdb-cast.mjs";
 import { buildPortraitIndex } from "../scripts/build-portraits.mjs";
-import { nameKeys, normalizeText, stableId } from "../src/game/identity.js";
+import { nameKeys, normalizeText, stableId, strictIdentityKey } from "../src/game/identity.js";
 
 const SNAPSHOT_ID = "snapshot_fixture";
 const IMAGE_ROOT = "https://image.tmdb.org/t/p/w185";
@@ -165,6 +165,36 @@ async function runImport(paths, options = {}) {
 }
 
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
+
+// Le snapshot livré vérifie stableId("work", strictIdentityKey(titre)) === id pour ses 41 914 œuvres. Quand le
+// rapprochement par titre écartait un candidat parce que l'année ne correspondait pas — un remake, un homonyme —,
+// le repli forgeait exactement l'identifiant qui venait d'être refusé : aucune œuvre n'était créée et le crédit
+// partait sur le film écarté.
+test("a title already known under another year does not recycle the existing work's identifier", async () => {
+  const miserablesId = stableId("work", strictIdentityKey("Les Misérables"));
+  const snapshot = baseSnapshot();
+  snapshot.works.push(localWork(miserablesId, "Les Misérables", 1995));
+  const paths = await workspace({ snapshot });
+  const { report } = await runImport(paths, {
+    years: "2019",
+    limit: 1,
+    fixtures: {
+      "discover:2019:1": { page: 1, results: [{ id: 400_010, title: "Les Misérables", release_date: "2019-11-20", popularity: 22.5, vote_count: 910 }] },
+      "credits:400010": { id: 400_010, cast: [{ id: 500_010, name: "Damien Bonnard", original_name: "Damien Bonnard", known_for_department: "Acting", order: 0, adult: false }] },
+      "person:500010": personPayload({ id: 500_010, name: "Damien Bonnard", credits: [movieCredit(400_010, "Les Misérables", 2019)] }),
+    },
+  });
+  assert.deepEqual(report.added.map((person) => person.name), ["Damien Bonnard"]);
+
+  const after = await readJson(paths.snapshotPath);
+  const bonnard = after.people.find((person) => person.name === "Damien Bonnard");
+  // Le crédit ne doit pas pointer sur le film de 1995, et l'œuvre de 2019 doit exister pour de bon.
+  assert.equal(bonnard.credits.includes(miserablesId), false);
+  const credited = after.works.find((work) => work.id === bonnard.credits[0]);
+  assert.equal(credited.title, "Les Misérables");
+  assert.equal(credited.year, 2019);
+  assert.equal(after.works.filter((work) => work.title === "Les Misérables").length, 2);
+});
 
 test("an import wave adds the artists the snapshot lacks, with their films, in both files", async () => {
   const paths = await workspace();
@@ -351,4 +381,41 @@ test("the discovery window is read defensively", () => {
   assert.deepEqual(parseYearRange("2026-2005"), { from: 2005, to: 2026 });
   assert.deepEqual(parseYearRange("n’importe quoi", { defaultFrom: 2005, defaultTo: 2026 }), { from: 2005, to: 2026 });
   assert.deepEqual(nameKeys("Marmaï, Pio"), ["marmai pio", "pio marmai"]);
+});
+
+// Une erreur HTTP sur /discover ou /credits remontait à travers le générateur : la vague échouait en entier et les
+// identités déjà acquises n'étaient jamais écrites, alors que chacune avait coûté un appel réseau.
+test("a network failure mid-wave keeps what was already collected", async () => {
+  const paths = await workspace();
+  let calls = 0;
+  const failing = async (url) => {
+    const target = new URL(String(url));
+    if (target.pathname === "/3/discover/movie") {
+      calls += 1;
+      // La première année répond, la suivante tombe.
+      if (calls > 1) return { ok: false, status: 503, json: async () => ({ status_message: "service indisponible" }) };
+    }
+    return fixtureFetch()(url);
+  };
+  const report = await importTmdbCast({
+    snapshotPath: paths.snapshotPath,
+    overlayPath: paths.overlayPath,
+    snapshotOutputPath: paths.snapshotPath,
+    overlayOutputPath: paths.overlayPath,
+    token: "fixture-token",
+    fetchImpl: failing,
+    years: "2017-2019",
+    pages: 1,
+    limit: 10,
+    minVotes: 100,
+  });
+
+  // L'incident est consigné, et ce qui avait été trouvé avant la coupure est bien enregistré.
+  assert.equal(report.failures.some((failure) => /Exploration interrompue/.test(failure.reason)), true);
+  assert.equal(report.added.length > 0, true);
+  assert.equal(report.written, true);
+  const snapshot = await readJson(paths.snapshotPath);
+  for (const added of report.added) {
+    assert.equal(snapshot.people.some((person) => person.name === added.name), true, added.name);
+  }
 });

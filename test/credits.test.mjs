@@ -161,3 +161,65 @@ test("an unplayed game still produces an empty but complete reel", () => {
   assert.equal(credits.tally.acts, 0);
   assert.equal(buildCredits(null), null);
 });
+
+/* -----------------------------------------------------------------------------
+   Ce que le générique n'a pas le droit de dire deux fois
+   -------------------------------------------------------------------------- */
+
+// `recorded` retenait les films de la vérification sans regarder son verdict, alors que le moteur refuse de valider
+// sur autre chose qu'un CONFIRMED. Les pages remontées par l'étape Wikipédia — un indice, jamais une preuve —
+// rachetaient donc le bluff, effaçaient son badge et gonflaient le compteur de films.
+test("a probable clue never redeems a bluff", () => {
+  const bluffed = (verdict) => ({
+    id: "g", status: "finished", winnerId: "p1", chain: ["Alice Un", "Bob Deux"],
+    players: [{ id: "p1", name: "Un", lives: 3 }, { id: "p2", name: "Deux", lives: 3 }],
+    turns: [
+      { index: 0, opening: true, playerId: "p1", proposedActor: "Alice Un", accepted: true, sharedFilms: [], wasValid: true },
+      {
+        index: 1, playerId: "p2", proposedActor: "Bob Deux", accepted: true, challenged: false,
+        wasBluff: true, wasValid: false, sharedFilms: [],
+        verification: { verdict, source: "wikipedia", films: [{ title: "Les Bronzés" }] },
+      },
+    ],
+  });
+
+  const probable = buildCredits(bluffed("PROBABLE"));
+  assert.deepEqual(probable.scenes[1].films, []);
+  assert.equal(probable.tally.films, 0);
+  assert.equal(probable.tally.bluffsSlipped, 1);
+
+  // Une preuve confirmée, elle, compte toujours.
+  const confirmed = buildCredits(bluffed("CONFIRMED"));
+  assert.deepEqual(confirmed.scenes[1].films, ["Les Bronzés"]);
+  assert.equal(confirmed.tally.films, 1);
+});
+
+// Les agrégats de bluff filtraient sur le seul genre de scène, calculé avant l'interrogation des archives : un
+// bluff rattrapé apparaissait à la fois crédité de ses films et sous « Cette liaison n'a jamais existé ».
+test("a bluff the archive redeemed is not also counted as one that slipped", () => {
+  const database = createDatabase({
+    actors: [
+      { name: "Alice Un", films: ["Le Raccord"], tags: [] },
+      { name: "Bob Deux", films: ["Le Raccord"], tags: [] },
+    ],
+    films: ["Le Raccord"],
+  });
+  const game = {
+    id: "g", status: "finished", winnerId: "p1", chain: ["Alice Un", "Bob Deux"],
+    players: [{ id: "p1", name: "Un", lives: 3 }, { id: "p2", name: "Deux", lives: 3 }],
+    turns: [
+      { index: 0, opening: true, playerId: "p1", proposedActor: "Alice Un", accepted: true, sharedFilms: [], wasValid: true },
+      { index: 1, playerId: "p2", proposedActor: "Bob Deux", accepted: true, challenged: false, wasBluff: true, wasValid: false, sharedFilms: [] },
+    ],
+  };
+  const roll = buildCredits(game, { database });
+  const scene = roll.scenes[1];
+  // Les archives ont retrouvé le film : la scène le porte, et le dit.
+  assert.deepEqual(scene.films, ["Le Raccord"]);
+  assert.equal(scene.lateEvidence, true);
+  assert.equal(scene.redeemed, true);
+  // Elle ne peut donc plus figurer parmi les bluffs jamais démasqués.
+  assert.equal(roll.tally.bluffsSlipped, 0);
+  assert.equal(roll.bluffs.slipped.length, 0);
+  assert.equal(roll.cast.find((seat) => seat.id === "p2").bluffsSlipped, 0);
+});

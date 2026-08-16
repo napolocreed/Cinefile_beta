@@ -187,7 +187,11 @@ function sceneNarration(scene) {
     case "opening": return `${who} ouvre la bobine sur <b>${actor}</b>.`;
     case "link": return `${who} enchaîne sur <b>${actor}</b>${films}.`;
     case "challenge-failed": return `${challenger} crie au bluff ; la pellicule donne raison à ${who}${films}.`;
-    case "bluff-slipped": return `${who} glisse <b>${actor}</b> après ${from} sans le moindre film commun. Personne ne bronche.`;
+    // Une scène que les archives ont rachetée ne peut pas être racontée « sans le moindre film commun » : le même
+    // générique la créditait de ses films deux blocs plus haut.
+    case "bluff-slipped": return scene.redeemed
+      ? `${who} glisse <b>${actor}</b> après ${from} sans rien pour l’étayer. Personne ne bronche — les archives, elles, donneront raison au raccord${films}.`
+      : `${who} glisse <b>${actor}</b> après ${from} sans le moindre film commun. Personne ne bronche.`;
     case "bluff-unmasked": return `${challenger} démasque ${who} : rien ne relie ${from} à <b>${actor}</b>.`;
     case "timeout": return `Le chrono coupe la réplique de ${who}.`;
     default: return `${who} propose <b>${actor}</b> ; le raccord ne tient pas.`;

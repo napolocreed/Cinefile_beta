@@ -26,6 +26,9 @@ const french = createDatabase({
     { name: "Bérénice Bejo", films: ["The Artist", "OSS 117"], tags: ["fr"] },
     { name: "Marion Cotillard", films: ["La Môme"], tags: ["fr"] },
     { name: "Jean Reno", films: ["Léon"], tags: ["fr"] },
+    // Un mononyme : le catalogue livré en compte 34 (Bourvil, Coluche, Fernandel, Arletty, Zendaya…) et ils
+    // tombaient tous sous le plancher d'acceptation dès qu'un mot de plus était prononcé.
+    { name: "Bourvil", films: ["Le Corniaud"], tags: ["fr"] },
   ],
   films: ["OSS 117", "The Artist", "Les Valseuses", "Un secret", "Intouchables", "Le Corniaud", "La Môme", "Léon"],
 });
@@ -231,4 +234,77 @@ test("a completed sentence retires the fragment it grew from", () => {
   other.ingest({ id: "1:0", transcript: "Jean Dujardin", final: true, candidates: [{ id: "jd", name: "Jean Dujardin", confidence: 0.97 }], at: 1 });
   other.ingest({ id: "1:1", transcript: "euh attends", final: true, candidates: [], at: 2 });
   assert.deepEqual(other.candidates().map((candidate) => candidate.name), ["Jean Dujardin"]);
+});
+
+/* -----------------------------------------------------------------------------
+   Ce que le micro, le tampon et le résolveur doivent tenir
+   -------------------------------------------------------------------------- */
+
+// `onstart` est asynchrone dans les navigateurs. stop() ne coupait la reconnaissance que si `listening` était déjà
+// vrai : un appui pendant cette fenêtre n'envoyait rien, puis onstart repassait la session à l'écoute sans relire
+// l'intention. Le micro restait ouvert pour toujours pendant que l'interface affichait « Micro en pause ».
+test("pausing the microphone before it has started still closes it", () => {
+  let instance = null;
+  const calls = [];
+  class LateStartRecognition {
+    constructor() { instance = this; }
+    start() { calls.push("start"); }
+    stop() { calls.push("stop"); }
+    abort() { calls.push("abort"); }
+  }
+  const session = createSpeechSession({ scope: { SpeechRecognition: LateStartRecognition, setTimeout: () => 0 } });
+  session.start();
+  session.stop();
+  assert.equal(calls.includes("stop"), true, "l'arrêt est transmis même avant onstart");
+  // Le navigateur signale le démarrage après coup : la session ne doit pas se rallumer.
+  instance.onstart?.({});
+  assert.equal(session.isListening(), false);
+});
+
+// La peine de fragment ne visait que les alias d'après son propre commentaire, mais s'appliquait à toute forme d'un
+// seul mot : les mononymes du catalogue passaient sous le plancher d'acceptation dès qu'un autre mot informatif
+// était prononcé, et le repli hors catalogue proposait « Bourvil Pardon » au lieu de l'artiste.
+test("a one-word artist survives being said inside a sentence", () => {
+  const resolver = createVoiceResolver(french);
+  assert.equal(resolver.resolve("bourvil")[0]?.name, "Bourvil");
+  assert.equal(resolver.resolve("je prends bourvil pardon")[0]?.name, "Bourvil");
+  assert.equal(resolver.resolve("vas-y bourvil")[0]?.name, "Bourvil");
+});
+
+// Les particules étaient retirées aux deux extrémités : « Van Damme » devenait « Damme », un nom qui n'existe pas,
+// sur lequel la table votait et que la requête TMDb reprenait tel quel.
+test("a leading particle belongs to the name, a trailing one does not", () => {
+  assert.equal(spokenNameGuess("Van Damme"), "Van Damme");
+  assert.equal(spokenNameGuess("Le Bihan"), "Le Bihan");
+  // L'emballage conversationnel, lui, saute toujours — trait d'union compris.
+  assert.equal(spokenNameGuess("alors moi je dis Machin Bidule"), "Machin Bidule");
+  assert.equal(spokenNameGuess("vas-y Machin Bidule"), "Machin Bidule");
+});
+
+// L'écran ré-injecte volontairement le même identifiant après son aller-retour réseau. Si la phrase complète est
+// arrivée entre-temps, le fragment périmé se réinstallait avec ses candidats et lastTranscript() régressait.
+test("an utterance replaced by its fuller sentence cannot come back", () => {
+  const buffer = createTurnBuffer();
+  buffer.ingest({ id: "u1", transcript: "Camille", final: true, candidates: [{ id: "p1", name: "Prince", confidence: 0.8 }], at: 1 });
+  buffer.ingest({ id: "u2", transcript: "Camille Chamoux", final: true, candidates: [], at: 2 });
+  assert.deepEqual(buffer.candidates().map((candidate) => candidate.name), []);
+
+  buffer.ingest({ id: "u1", transcript: "Camille", final: true, candidates: [{ id: "p1", name: "Prince", confidence: 0.8 }], at: 1 });
+  assert.deepEqual(buffer.candidates().map((candidate) => candidate.name), []);
+  assert.equal(buffer.lastTranscript(), "Camille Chamoux");
+});
+
+// La règle de préfixe traitait l'égalité comme un préfixe : deux énoncés identiques faisaient disparaître le
+// premier, et le bonus de répétition ne s'appliquait jamais au cas qu'il vise — le joueur qui répète un nom parce
+// que rien ne se passe.
+test("saying the same name twice counts as a second mention", () => {
+  const buffer = createTurnBuffer();
+  const said = (id, at) => ({ id, transcript: "Jean Reno", final: true, candidates: [{ id: "p1", name: "Jean Reno", confidence: 0.8 }], at });
+  buffer.ingest(said("u1", 1));
+  const once = buffer.candidates()[0];
+  buffer.ingest(said("u2", 2));
+  const twice = buffer.candidates()[0];
+  assert.equal(once.mentions, 1);
+  assert.equal(twice.mentions, 2);
+  assert.equal(twice.confidence > once.confidence, true);
 });

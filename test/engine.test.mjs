@@ -153,13 +153,27 @@ test("without bluff challenges letting a link pass accepts it without a life los
   assert.equal(game.turns[1].accepted, true);
 });
 
-test("voice keeps its direct accept when bluff challenges are off", () => {
+// Le vocal était dispensé de la vérification automatique au motif que son buzzer central tenait lieu de défi. Or ce
+// buzzer exige un coup en attente, que le raccourci ne posait jamais : rien ne vérifiait quoi que ce soit, deux
+// cents noms inventés entraient dans la chaîne sans coût, et « sans chrono » rendait la partie infinie.
+test("voice verifies its links too when bluff challenges are off", () => {
   let game = makeGame({ allowBluffChallenge: false, mode: "voice" }, ["Alice", "Bob"]);
   game = proposeActor(game, "Leonardo DiCaprio", database).game;
   const result = proposeActor(game, "An Acteur Inventé", database);
-  // The passive voice mode has no VAR screen to fall back on: it resolves as before.
-  assert.equal(result.type, "resolved");
-  assert.deepEqual(result.game.chain, ["Leonardo DiCaprio", "An Acteur Inventé"]);
+  // Le coup reste en attente le temps de la consultation, comme en classique.
+  assert.equal(result.type, "pending");
+  assert.equal(result.pending.autoVerify, true);
+  assert.deepEqual(result.game.chain, ["Leonardo DiCaprio"]);
+
+  // Sans preuve, le maillon est refusé et coûte une vie plutôt que d'allonger la chaîne.
+  const refused = resolvePending(result.game, result.pending, { challenged: false });
+  assert.deepEqual(refused.chain, ["Leonardo DiCaprio"]);
+  assert.equal(refused.players[1].lives, 2);
+
+  // Une liaison que le catalogue atteste passe, elle, sans rien demander à la table.
+  const proven = proposeActor(game, "Kate Winslet", database);
+  assert.equal(proven.pending.wasValid, true);
+  assert.deepEqual(resolvePending(proven.game, proven.pending, { challenged: false }).chain, ["Leonardo DiCaprio", "Kate Winslet"]);
 });
 
 test("duplicate actors are rejected before changing the game", () => {
@@ -279,4 +293,59 @@ test("the scope is written into the game rather than read from the device", () =
   legacy.chain = ["JoeyStarr"];
   legacy.turns = [{ index: 0, playerId: legacy.players[0].id, proposedActor: "JoeyStarr", sharedFilms: [], opening: true, accepted: true }];
   assert.deepEqual(proposeActor(legacy, "Dany Boon", showDatabase()).pending.sharedFilms, []);
+});
+
+/* -----------------------------------------------------------------------------
+   Ce que le tour grave, et ce qu'il ne grave pas
+   -------------------------------------------------------------------------- */
+
+// timeoutPending produit un coup wasValid:false sans autoVerify : applyResolution le traitait exactement comme une
+// liaison inventée. bluffsAttempted est cumulatif dans le profil et sert de dénominateur permanent à la jauge
+// « Bluffs réussis » — chaque temps mort diluait définitivement le taux de bluff du joueur.
+test("an expired clock is a lost turn, never an attempted bluff", () => {
+  const game = makeGame();
+  const opened = proposeActor(game, "Leonardo DiCaprio", database);
+  const started = opened.game;
+  const after = resolvePending(started, timeoutPending(started), { challenged: false });
+  const struck = after.players.find((player) => player.id === started.players[started.currentPlayerIdx].id);
+  assert.equal(struck.lives, 2);
+  assert.equal(struck.bluffsAttempted, 0);
+  assert.equal(after.turns.at(-1).wasBluff, false);
+  assert.equal(after.turns.at(-1).method, "timeout");
+});
+
+// Le grand livre du générique se déduisait de wasValid, qu'une correction ultérieure du maillon précédent pouvait
+// réécrire : la vie perdue disparaissait alors, et avec elle le rang final du joueur.
+test("the turn records who paid for it, so a later correction cannot erase the life", () => {
+  const game = makeGame({ allowBluffChallenge: true });
+  const opened = proposeActor(game, "Leonardo DiCaprio", database);
+  const proposed = proposeActor(opened.game, "Kate Winslet", database);
+  assert.equal(proposed.type, "pending");
+  // La liaison est vraie : le buzz est à tort, et c'est le challenger qui paie.
+  const after = resolvePending(proposed.game, proposed.pending, { challenged: true });
+  const turn = after.turns.at(-1);
+  assert.equal(turn.struckId, proposed.pending.challengerId);
+  assert.equal(after.players.find((player) => player.id === turn.struckId).lives, 2);
+});
+
+// « Laisser passer sans trancher » enregistrait le tour comme non contesté : le buzz disparaissait du journal et le
+// proposant encaissait un bluff jamais démasqué, que le générique commentait par « personne n'a bronché ».
+test("letting a proposition pass keeps the buzz on record and punishes nobody", () => {
+  const game = makeGame({ allowBluffChallenge: true });
+  const opened = proposeActor(game, "Leonardo DiCaprio", database);
+  const proposed = proposeActor(opened.game, "Nobody At All", database);
+  assert.equal(proposed.type, "pending");
+  const letPass = { ...adjudicatePending(proposed.pending, { valid: true, source: "let-pass" }), letPass: true };
+  const after = resolvePending(proposed.game, letPass, { challenged: true });
+
+  const turn = after.turns.at(-1);
+  assert.equal(turn.challenged, true, "le buzz reste au journal");
+  assert.equal(turn.wasBluff, false, "aucun bluff n'est crédité au proposant");
+  assert.equal(turn.struckId, null, "personne ne perd de vie");
+  const proposer = after.players.find((player) => player.id === turn.playerId);
+  const challenger = after.players.find((player) => player.id === turn.challengerId);
+  assert.equal(proposer.bluffsSucceeded, 0);
+  assert.equal(challenger.challengesMade, 1);
+  assert.equal(challenger.lives, 3);
+  assert.equal(proposer.lives, 3);
 });

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { blankProfile, castingRoster, completeProfile, createStorage, recordFinishedGame } from "../src/game/storage.js";
+import { blankProfile, castingRoster, completeProfile, createStorage, profileKey, recordFinishedGame } from "../src/game/storage.js";
 
 function fakeStorage() {
   const values = new Map();
@@ -43,6 +43,26 @@ test("finished games are idempotent across a refresh", () => {
   assert.deepEqual(second.newAchievements, []);
   assert.equal(storage.loadProfiles().alice.games, 1);
   assert.equal(storage.loadHistory().length, 1);
+});
+
+// appendHistory passait par safeWrite, qui avale l'erreur de quota, mais markApplied réussissait juste après : la
+// partie était marquée traitée définitivement alors qu'elle n'entrait nulle part, et la garde d'idempotence rendait
+// la perte irréversible.
+test("a full quota never marks a game as archived", () => {
+  const values = new Map();
+  const storage = createStorage({
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => {
+      if (key === "cinelink.history.v1") throw new Error("QuotaExceededError");
+      values.set(key, value);
+    },
+    removeItem: (key) => values.delete(key),
+  });
+  const result = recordFinishedGame(finishedGame(), storage);
+  assert.equal(result.archived, false);
+  assert.deepEqual(storage.loadHistory(), []);
+  // Rien n'a été gravé qui interdirait un nouvel essai.
+  assert.deepEqual(storage.loadApplied(), []);
 });
 
 test("a name can become a profile before it has ever played", () => {
@@ -189,4 +209,35 @@ test("a buzz opportunity is only counted where someone could actually buzz", () 
   assert.deepEqual(chancesOf(gameWithChallenges("legacy", undefined)), [1, 1]);
   // Et l'ouverture n'en est jamais une : elle ne se conteste pas.
   assert.deepEqual(chancesOf({ ...gameWithChallenges("opening-only", {}), turns: [{ playerId: "p1", opening: true, challengerId: "p2" }] }), [0, 0]);
+});
+
+// `normalizeText` réduit à l'ASCII et rend la chaîne vide pour un nom sans caractère latin : « Ольга », « 李小龍 »
+// et « أحمد » partageaient tous une seule fiche, celle de la clé vide, et deux joueurs non latins fusionnaient donc
+// dans un même profil dès la première partie.
+test("a name without latin letters gets a profile of its own", () => {
+  assert.notEqual(profileKey("Ольга"), "");
+  assert.notEqual(profileKey("李小龍"), "");
+  assert.notEqual(profileKey("Ольга"), profileKey("李小龍"));
+  // Les clés historiques ne bougent pas : les fiches déjà enregistrées restent les leurs.
+  assert.equal(profileKey("Timothée"), "timothee");
+  assert.equal(profileKey("Alice"), "alice");
+
+  const storage = createStorage(fakeStorage());
+  const game = { ...finishedGame(), players: [
+    { id: "p1", name: "Ольга", filmsFound: 1, score: 1, bestStreak: 1 },
+    { id: "p2", name: "李小龍", filmsFound: 0, score: 0, bestStreak: 0 },
+  ], winnerId: "p1" };
+  const { profiles } = recordFinishedGame(game, storage);
+  assert.equal(Object.keys(profiles).length, 2);
+  assert.equal(profiles[""], undefined);
+});
+
+// La valeur stockée l'emportait dès que la clé existait : un compteur non numérique traversait intact, et
+// recordFinishedGame l'additionnait ensuite en NaN, que JSON enregistre en null.
+test("a counter stored as null or text is coerced back to a number", () => {
+  const completed = completeProfile({ name: "Alice", games: null, wins: "3", livesLost: undefined, xp: NaN });
+  assert.equal(completed.games, 0);
+  assert.equal(completed.wins, 3);
+  assert.equal(completed.livesLost, 0);
+  assert.equal(completed.xp, 0);
 });

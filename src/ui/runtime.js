@@ -3,6 +3,7 @@
 // Nothing here imports a screen, so the module graph stays acyclic.
 
 import { buildCredits, creditsSignature } from "../game/credits.js";
+import { recordFinishedGame } from "../game/storage.js";
 import { createVoiceState } from "./voice-state.js";
 
 // Filled once by main.js. Screens read it; nothing else writes to it.
@@ -125,6 +126,35 @@ export function creditsFor(game = state.game) {
   cancelCreditsBuild?.();
   buildCreditsNow(game);
   return state.credits;
+}
+
+/* -----------------------------------------------------------------------------
+   Le jeton de génération
+   -------------------------------------------------------------------------- */
+
+// Tout ce qui reprend la main après un `await` doit pouvoir vérifier que la partie et le tour sont encore ceux
+// qu'il a quittés. Une cascade de vérification lente rendait sinon son verdict dans une partie qui n'existait plus :
+// l'écran de saisie était remplacé par la VAR de l'ancienne partie, et son artiste devenait le premier maillon de la
+// nouvelle chaîne, avec des joueurs qui n'étaient plus à la table. Le jeton change à chaque changement d'écran et à
+// chaque tour commité — c'est la garde que scheduleCatalogSearch appliquait déjà, généralisée.
+let generation = 0;
+
+export const currentGeneration = () => generation;
+
+export function bumpGeneration() {
+  generation += 1;
+  return generation;
+}
+
+// Une partie terminée entre aux archives à l'instant où elle se termine, pas au rendu de l'écran des scores. On
+// pouvait sortir du générique autrement que par sa zone de clic — le sceau de la barre du haut, une relance de
+// l'application — et la partie n'était alors comptée nulle part : ni historique, ni profils, ni succès. L'appel est
+// idempotent (recordFinishedGame se garde sur loadApplied), et l'écran des scores le refait en filet.
+export function archiveFinishedGame(game = state.game) {
+  if (!game || game.status !== "finished") return null;
+  const result = recordFinishedGame(game, app.storage, { credits: creditsFor(game) });
+  state.newAchievements = result.newAchievements;
+  return result;
 }
 
 // The line follows the state of the API, never the build: hors ligne, the snapshot alone still plays, and saying

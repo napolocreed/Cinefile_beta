@@ -139,6 +139,43 @@ test("search links are encoded and invalid pairs are rejected", async () => {
   await assert.rejects(() => verifier.verify({ left: "A", right: "Bob" }), /requis/);
 });
 
+// Le garde-fou ne vivait que dans fetchJson, donc sur Wikidata et Wikipédia. TMDb — la seule source réellement à
+// quota — appelait getPerson et searchPeople en direct, sans borne : un 429 remontait brut, la cascade finissait en
+// UNKNOWN, et ce verdict était mis en cache cinq minutes pour toutes les tables pendant que le quota se vidait.
+test("the TMDb client is bounded by the same limit as the rest", async () => {
+  let active = 0;
+  let peak = 0;
+  let release;
+  const held = new Promise((resolve) => { release = resolve; });
+  const tmdb = {
+    configured: true,
+    searchPeople: async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await held;
+      active -= 1;
+      return [];
+    },
+    getPerson: async () => ({ name: "Personne", credits: [] }),
+  };
+  const verifier = createLinkVerifier({
+    maxConcurrentUpstream: 1,
+    tmdb,
+    fetchImpl: async () => jsonResponse({ search: [] }),
+  });
+
+  const first = verifier.verify({ left: "Alice Artiste", right: "Bob Artiste" });
+  await new Promise((resolve) => setImmediate(resolve));
+  const second = await verifier.verify({ left: "Carole Artiste", right: "David Artiste" });
+
+  // La seconde vérification est refoulée par le garde-fou au lieu d'ouvrir un appel TMDb de plus.
+  assert.equal(second.verdict, "UNKNOWN");
+  assert.equal(verifier.status().upstream.rejected > 0, true);
+  release();
+  await first;
+  assert.equal(peak, 1, `concurrence TMDb observée : ${peak}`);
+});
+
 test("upstream concurrency is bounded instead of amplifying public traffic", async () => {
   let release;
   const heldResponse = new Promise((resolve) => { release = () => resolve(jsonResponse({ search: [] })); });
@@ -257,4 +294,27 @@ test("Wikidata names the documentaries and the television films it cannot help b
   assert.match(sparql, /wdt:P31\/wdt:P279\* wd:Q11424/);
   assert.match(sparql, /EXISTS \{ \?film wdt:P31\/wdt:P279\* wd:Q93204 \}/);
   assert.match(sparql, /EXISTS \{ \?film wdt:P31\/wdt:P279\* wd:Q506240 \}/);
+});
+
+// `timeoutMs` ne bornait qu'une requête isolée. Wikipédia parcourait ses deux langues l'une après l'autre et chaque
+// interrogation Wikidata essaie deux endpoints SPARQL en série : les délais s'additionnaient, mesurés à quatre fois
+// le timeout unitaire. Le jeu restait bloqué sur « Consultation des archives » sans abandon possible, et le verdict
+// UNKNOWN étant mis en cache, la lenteur se rejouait au tour suivant.
+test("a whole cascade of hanging sources is bounded, not summed", async () => {
+  const started = Date.now();
+  const verifier = createLinkVerifier({
+    tmdb: { configured: false },
+    timeoutMs: 200,
+    maxVerificationMs: 500,
+    // Toutes les sources pendent bien au-delà du budget.
+    fetchImpl: () => new Promise((resolve) => setTimeout(() => resolve(jsonResponse({ search: [] })), 5_000)),
+  });
+  const result = await verifier.verify({ left: "Alice Artiste", right: "Bob Artiste" });
+  const elapsed = Date.now() - started;
+
+  assert.equal(result.verdict, "UNKNOWN");
+  // Le budget est tenu : sans échéance globale, les délais s'additionnaient bien au-delà.
+  assert.equal(elapsed < 2_000, true, `cascade rendue en ${elapsed} ms`);
+  // Et la réponse dit franchement que rien n'a été consulté jusqu'au bout.
+  assert.equal(result.steps.every((step) => step.outcome === "abandoned"), true);
 });

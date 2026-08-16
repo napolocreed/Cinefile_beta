@@ -32,6 +32,34 @@ test("TMDb movie and TV identifiers occupy distinct namespaces", () => {
   assert.equal(freshDatabase.stats().works, 2);
 });
 
+// Une œuvre absorbée par une fusion cesse d'exister, mais les crédits déjà écrits continuent de la citer par son
+// identifiant. Tant que cet identifiant n'était pas aliasé, resolveCredit ne le retrouvait plus et le passait à
+// upsertWork comme un titre : le snapshot livré produisait 145 œuvres dont le titre était « work_0g8sb5b », et
+// l'une d'elles s'affichait aux joueurs comme film commun de Tom Cruise et Jamie Foxx.
+test("a merged work keeps answering to the identifier it was absorbed under", () => {
+  const database = createDatabase({
+    people: [],
+    works: [{ id: "work_aaaaaaa", title: "Le Voyage", source: "snapshot" }],
+  });
+  const merged = database.upsertWork({ id: "work_bbbbbbb", title: "Le voyage", year: 1998 }, { source: "tmdb" });
+  assert.equal(merged.id, "work_aaaaaaa");
+  assert.equal(database.stats().works, 1);
+
+  const person = database.upsertPerson({ name: "Comédienne Une", credits: ["work_bbbbbbb"] }, { source: "snapshot" });
+  assert.deepEqual(person.credits, ["work_aaaaaaa"]);
+  // La source la plus prioritaire impose sa casse au titre survivant : c'est « Le voyage » de TMDb qui l'emporte.
+  assert.deepEqual(person.films, ["Le voyage"]);
+});
+
+// Un identifiant qu'aucune œuvre ne porte n'est pas un titre : le laisser filer vers upsertWork fabriquait une
+// fiche titrée avec l'identifiant brut, qui remontait ensuite jusqu'à l'écran comme preuve de liaison.
+test("an unresolved identifier is dropped instead of becoming a work title", () => {
+  const database = createDatabase({ people: [], works: [] });
+  const person = database.upsertPerson({ name: "Comédien Deux", credits: ["work_0g8sb5b", "tmdb-movie:404", "Un Vrai Titre"] }, { source: "snapshot" });
+  assert.deepEqual(person.films, ["Un Vrai Titre"]);
+  assert.equal(database.stats().works, 1);
+});
+
 test("a higher-priority canonical name preserves the previous name as an alias", () => {
   const database = createDatabase({ people: [{ id: "person:42", name: "Stage Name", credits: [], source: "snapshot" }], works: [] });
   const person = database.upsertPerson({ id: "person:42", name: "Canonical Name", credits: [] }, { source: "tmdb" });

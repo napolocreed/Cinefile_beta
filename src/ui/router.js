@@ -1,8 +1,11 @@
 // The route table. It owns navigation and the single repaint entry point; every screen reaches both through the
 // runtime's indirection rather than by importing this module back.
 
+import { resolvePending } from "../game/engine.js";
 import {
   app,
+  archiveFinishedGame,
+  bumpGeneration,
   path,
   routeUrl,
   setHooks,
@@ -19,17 +22,44 @@ import { renderResults } from "./screens/results.js";
 import { renderProfiles } from "./screens/profiles.js";
 import { stopVoiceSession } from "./screens/voice.js";
 
-export function navigate(target) {
+// Un coup en attente est un coup déjà joué, et la vie qu'il coûte est due. Rien ne le persistait : navigate()
+// l'effaçait, si bien qu'un aller-retour par « ← Accueil » annulait un chrono expiré — et, quand ce coup terminait
+// la partie, annulait la partie gagnée elle-même. On le règle donc avant de quitter l'écran, exactement tel qu'il
+// s'y affichait : une proposition que personne n'a contestée est une proposition acceptée.
+function settlePendingBeforeLeaving() {
+  if (!state.pending || !state.game) return;
+  const pending = state.pending;
+  state.pending = null;
+  const resolved = resolvePending(state.game, pending, { challenged: state.revealChallenged });
+  state.game = resolved;
+  app.storage.saveCurrent(resolved);
+  if (resolved.status === "finished") archiveFinishedGame(resolved);
+}
+
+export function navigate(target, { replace = false } = {}) {
   const destination = new URL(target, window.location.origin);
   const logicalTarget = logicalPath(destination.pathname);
   stopTimer();
   stopSearch();
+  settlePendingBeforeLeaving();
+  // Ce qui est parti sur le réseau depuis l'écran qu'on quitte n'a plus rien à y écrire.
+  bumpGeneration();
   if (logicalTarget !== "/play" && state.voice?.session) stopVoiceSession();
-  history.pushState({}, "", routeUrl(logicalTarget));
+  // Un renvoi automatique ne doit pas empiler une entrée d'historique : le bouton Retour du navigateur y revenait
+  // aussitôt, et la table restait piégée sur le générique sans pouvoir en sortir par ce geste.
+  if (replace) history.replaceState({}, "", routeUrl(logicalTarget));
+  else history.pushState({}, "", routeUrl(logicalTarget));
   // The turn starts on the field the player needs; there is no hand-over screen to pass through any more.
   state.phase = "input";
   state.pending = null;
   state.revealChallenged = false;
+  // L'écran de revue du buzzer survivait à la navigation : ses trois boutons passent tous par state.pending, qui
+  // venait d'être vidé, et il ne rendait plus aucun autre lien que « ← Accueil ». La table restait bloquée dessus
+  // à chaque retour, sans autre issue qu'un rechargement complet.
+  if (state.voice) {
+    state.voice.review = null;
+    state.voice.outcome = null;
+  }
   state.input = "";
   state.suggestions = [];
   state.selectedPerson = null;
@@ -59,7 +89,7 @@ export function renderRoute() {
     state.game ??= app.storage.loadCurrent();
     // A finished game normally jumps to the credits, but a buzz that ended it still owes the table its verdict.
     if (!state.game || (state.game.status === "finished" && !state.voice?.outcome)) {
-      navigate(state.game?.status === "finished" ? "/credits" : "/");
+      navigate(state.game?.status === "finished" ? "/credits" : "/", { replace: true });
       return;
     }
     app.root.innerHTML = playMarkup();

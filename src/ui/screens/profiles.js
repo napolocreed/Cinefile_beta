@@ -247,6 +247,12 @@ function ficheMarkup(profile, stats) {
    -------------------------------------------------------------------------- */
 
 export function renderProfiles() {
+  // La bannière se consomme à l'affichage. Rien ne la remettait à null — ni ce rendu, ni navigate(), qui
+  // réinitialise pourtant huit autres champs : « Sauvegarde exportée » réapparaissait à chaque retour sur l'écran
+  // comme si l'export venait d'avoir lieu, et un message d'erreur d'importation survivait à l'importation réussie
+  // qui le suivait.
+  const notice = state.transferNotice;
+  state.transferNotice = null;
   const profiles = Object.values(app.storage.loadProfiles()).sort((left, right) => right.wins - left.wins || right.xp - left.xp || (right.lastSeenAt ?? 0) - (left.lastSeenAt ?? 0));
   const diagnosticEntries = app.diagnostics.load();
   // Un seul dépouillement de l'historique pour toutes les fiches, et non un par carte.
@@ -255,10 +261,15 @@ export function renderProfiles() {
 
   app.root.innerHTML = shell(`<section class="profiles-page">
     <h1 class="marquee">Profils</h1>
-    ${state.transferNotice ? `<p class="transfer-notice ${state.transferNotice.type === "error" ? "transfer-notice--error" : ""}" role="status">${escapeHtml(state.transferNotice.message)}</p>` : ""}
+    ${notice ? `<p class="transfer-notice ${notice.type === "error" ? "transfer-notice--error" : ""}" role="status">${escapeHtml(notice.message)}</p>` : ""}
 
     ${profiles.length ? `<div class="profile-list">${profiles.map((profile) => {
-      const stats = archive.get(profileKey(profile.name)) ?? EMPTY_ARCHIVE;
+      // Le journal des parties appartient à toute la table : archiver une fiche n'en retire personne, sinon les
+      // parties des autres joueurs seraient amputées. Mais il ne doit pas non plus rebrancher l'ancienne vie sur
+      // une fiche neuve — la carte annonçait « 1 partie » pendant que la bobine disait « ×9 ». On ne lit donc le
+      // journal que lorsqu'il ne raconte pas plus de parties que la fiche n'en revendique.
+      const archived = archive.get(profileKey(profile.name)) ?? EMPTY_ARCHIVE;
+      const stats = archived.games > profile.games ? EMPTY_ARCHIVE : archived;
       return `<article class="profile-card">
       <div class="profile-card__head"><div><h2>${escapeHtml(profile.name)}</h2><p>${escapeHtml(levelForXp(profile.xp))} · ${profile.xp} XP</p></div>${profile.games ? `<span>${profile.games} partie${profile.games > 1 ? "s" : ""}</span>` : `<span class="stamp stamp--vert">Jamais tourné</span>`}</div>
       <div class="profile-stats"><div><b>${profile.wins}</b><small>Victoires</small></div><div><b>${profile.filmsFound}</b><small>Films</small></div><div><b>${profile.bluffsSucceeded}</b><small>Bluffs</small></div><div><b>${profile.challengesSuccessful}</b><small>Démasqués</small></div></div>
@@ -268,7 +279,7 @@ export function renderProfiles() {
         return achievement ? `<span title="${escapeHtml(achievement.description)}">${achievement.icon} ${escapeHtml(achievement.label)}</span>` : "";
       }).join("")}${profile.achievements.length > 4 ? `<span class="profile-achievements__more">+ ${profile.achievements.length - 4}</span>` : ""}</div>` : ""}
       ${profile.games ? ficheMarkup(profile, stats) : `<p class="fineprint">Aucune partie jouée. La fiche s’écrit au premier générique.</p>`}
-      <button class="button button--text profile-card__forget" data-forget-profile="${escapeHtml(profile.name)}">Oublier ce profil</button>
+      <button class="button button--text profile-card__forget" data-forget-profile="${escapeHtml(profile.name)}">Archiver la fiche</button>
     </article>`;
     }).join("")}</div>` : `<div class="empty-state empty-state--panel">
       <span class="stamp stamp--ambre">Pas encore de générique</span>
@@ -365,7 +376,7 @@ function bindProfileTools() {
   // confirmation en devenant lui-même la confirmation, et se rétracte si le doigt part ailleurs.
   document.querySelectorAll("[data-forget-profile]").forEach((button) => {
     const settle = () => {
-      button.textContent = "Oublier ce profil";
+      button.textContent = "Archiver la fiche";
       button.classList.remove("button--armed");
       delete button.dataset.armed;
     };
@@ -373,13 +384,21 @@ function bindProfileTools() {
     button.addEventListener("click", () => {
       if (!button.dataset.armed) {
         button.dataset.armed = "true";
-        button.textContent = "Confirmer l’oubli ?";
+        button.textContent = "Confirmer l’archivage ?";
         button.classList.add("button--armed");
         return;
       }
       const name = button.dataset.forgetProfile;
-      app.storage.forgetProfile(name);
-      state.transferNotice = { type: "success", message: `${name} n’est plus dans les archives.` };
+      // La valeur de retour n'était pas lue : quand la clé n'existait pas, le message annonçait une suppression
+      // qui n'avait pas eu lieu et la carte restait affichée juste en dessous. Ce bouton étant le seul geste de
+      // suppression de l'interface, la fiche devenait inextirpable sans que rien ne le dise.
+      const archived = app.storage.forgetProfile(name);
+      // Le message dit ce que le code fait vraiment. Le journal des parties appartient à toute la table : on n'en
+      // retire personne, sous peine d'amputer les parties des autres joueurs. C'est la fiche qui se range, pas
+      // la mémoire de la soirée — et l'ancienne vie ne se rebranche plus sur une fiche neuve du même nom.
+      state.transferNotice = archived
+        ? { type: "success", message: `La fiche de ${name} est archivée. Les parties déjà jouées restent au journal de la table.` }
+        : { type: "error", message: `La fiche de ${name} n’a pas pu être archivée.` };
       renderProfiles();
     });
   });

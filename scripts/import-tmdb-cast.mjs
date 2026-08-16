@@ -226,7 +226,19 @@ export async function importTmdbCast({
   const addedPeople = [];
   const addedWorks = [];
 
-  for await (const { movie, entry } of walkCandidates({ discovery, years: range, pages, minVotes, originalLanguage, castDepth, seen })) {
+  // Une erreur HTTP sur /discover ou /credits remontait à travers le générateur et perdait tout le travail déjà
+  // accompli : les identités acquises n'étaient jamais écrites. L'exploration s'arrête maintenant là où le réseau
+  // l'a coupée, l'incident est consigné, et la vague enregistre ce qu'elle a.
+  async function* survivingCandidates() {
+    try {
+      yield* walkCandidates({ discovery, years: range, pages, minVotes, originalLanguage, castDepth, seen });
+    } catch (error) {
+      report.failures.push({ tmdbId: null, name: null, reason: `Exploration interrompue : ${error?.message ?? error}` });
+      log(`[!] Exploration interrompue : ${error?.message ?? error}. Les ${report.added.length} identités déjà acquises sont conservées.`);
+    }
+  }
+
+  for await (const { movie, entry } of survivingCandidates()) {
     if (report.added.length >= budget) break;
     report.films = seen.movies.size;
     report.castSeen += 1;
@@ -291,7 +303,19 @@ export async function importTmdbCast({
         credits.push(candidateId);
         continue;
       }
-      const workId = stableId("work", strictKey);
+      // Le rapprochement vient d'écarter toutes les œuvres de ce titre parce que leur année contredit celle du
+      // crédit. Retomber sur stableId(strictKey) rendrait exactement l'identifiant qu'on vient de refuser, et le
+      // crédit irait au remake au lieu du film. On désambiguïse alors par l'année, comme le fait déjà la base.
+      const contradictsYear = (id) => {
+        const work = snapshotWorksById.get(id);
+        return Boolean(work && work.year && film.year && Number(work.year) !== Number(film.year));
+      };
+      const baseWorkId = stableId("work", strictKey);
+      const workId = contradictsYear(baseWorkId) ? stableId("work", `${strictKey}:${film.year ?? ""}`) : baseWorkId;
+      if (contradictsYear(workId)) {
+        report.failures.push({ tmdbId: entry.id, name: remote.name, reason: `Identifiant ${workId} déjà pris par une autre année pour « ${film.title} ».` });
+        continue;
+      }
       if (!snapshotWorksById.has(workId)) {
         const work = {
           id: workId,

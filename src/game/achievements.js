@@ -187,7 +187,10 @@ export const ACHIEVEMENTS = [
     family: "carriere",
     tier: "culte",
     earn: ({ valable, game, player, roll, me, t, S, R, P }) => valable && P.firstPlayedAt && P.games >= 50 && ((P.lastSeenAt ?? 0) - P.firstPlayedAt) >= 365 * 86400000,
-    progress: (P) => reach(P.games >= 50 && P.firstPlayedAt ? (P.lastSeenAt ?? 0) - P.firstPlayedAt : 0, 365 * 86400000),
+    // En jours, pas en millisecondes : l'écran rend la progression telle quelle, et la ligne sortait
+    // « 25 920 000 000 / 31 536 000 000 » au milieu de décomptes lisibles. La condition, elle, reste en
+    // millisecondes — c'est la mesure exacte.
+    progress: (P) => reach(P.games >= 50 && P.firstPlayedAt ? Math.floor(((P.lastSeenAt ?? 0) - P.firstPlayedAt) / 86400000) : 0, 365),
   },
   {
     id: "exploit-pellicule-intacte",
@@ -464,7 +467,11 @@ export const ACHIEVEMENTS = [
     icon: "🧵",
     family: "cinephilie",
     tier: "argent",
-    earn: ({ valable, game, player, roll, me, t, S, R, P }) => valable && me && me.links >= 8 && me.bluffsAttempted === 0,
+    // Le libellé promet « sans une seule liaison refusée ni un temps mort » ; la condition ne testait que
+    // bluffsAttempted, que le moteur laisse volontairement à zéro quand les défis de bluff sont coupés. Le succès
+    // se décrochait alors avec des maillons recalés par la VAR. On lit donc les scènes, qui les nomment.
+    earn: ({ valable, game, player, roll, me, t, S, R, P }) => valable && me && me.links >= 8
+      && !S.some((scene) => scene.playerId === player.id && (scene.kind === "broken-link" || scene.kind === "timeout")),
   },
   {
     id: "cine-archiviste",
@@ -501,7 +508,10 @@ export const ACHIEVEMENTS = [
     icon: "✨",
     family: "cinephilie",
     tier: "or",
-    earn: ({ valable, game, player, roll, me, t, S, R, P }) => valable && me && t.actors >= 15 && t.bluffsAttempted === 0 && me.links >= 3,
+    // Même correction : « sans un seul bluff ni temps mort à toute la table » se lit sur les scènes, pas sur un
+    // compteur que le moteur neutralise hors du jeu de bluff.
+    earn: ({ valable, game, player, roll, me, t, S, R, P }) => valable && me && t.actors >= 15 && me.links >= 3
+      && !S.some((scene) => scene.bluff || scene.kind === "timeout" || scene.kind === "broken-link"),
   },
   {
     id: "cine-duo-mythique",

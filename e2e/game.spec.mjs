@@ -25,6 +25,35 @@ test("classic game setup and opening turn work without browser errors", async ({
   expect(errors).toEqual([]);
 });
 
+// Le décompte ne vivait que dans l'écran : navigate() le remettait à null et ensureTimer repartait de la durée
+// pleine. Un joueur à court de temps sortait par « ← Accueil », revenait, et retrouvait un chrono neuf — autant de
+// fois qu'il le voulait. L'échéance vit désormais avec la partie.
+test("the turn clock keeps running across a trip to the home screen", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Un seul navigateur suffit pour une horloge.");
+  await page.goto("/");
+  await page.getByRole("link", { name: /Nouvelle partie/i }).click();
+  await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
+  await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+  await expect(page.getByLabel("Ton artiste")).toBeVisible();
+
+  const readClock = async () => Number((await page.locator("[data-timer]").textContent()).replace(/\D+/g, ""));
+  const full = await readClock();
+  expect(full).toBeGreaterThan(5);
+
+  // On laisse filer quelques secondes, puis on quitte l'écran et on y revient.
+  await expect.poll(readClock, { timeout: 10_000 }).toBeLessThanOrEqual(full - 3);
+  const beforeLeaving = await readClock();
+  await page.getByRole("link", { name: /Accueil/i }).first().click();
+  await page.getByRole("link", { name: /Reprendre/i }).click();
+  await expect(page.getByLabel("Ton artiste")).toBeVisible();
+
+  // Le chrono reprend où il en était, à la seconde de trajet près — il ne repart pas de la durée pleine.
+  const afterReturning = await readClock();
+  expect(afterReturning).toBeLessThanOrEqual(beforeLeaving);
+  expect(afterReturning).toBeLessThan(full - 2);
+});
+
 test("installed app shell reopens the setup route offline", async ({ page, context }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "One offline browser project is sufficient.");
   await page.goto("/");
@@ -331,4 +360,72 @@ test("an elimination is spelled out on the verdict screen", async ({ page }, tes
   await expect(strike).toContainText(doomed);
   await expect(strike).toContainText("éliminé");
   await expect(strike.locator(".death-card")).toHaveText("FIN");
+});
+
+// Le champ s'annonce comme un combobox, mais ses options portent tabindex="-1" et rien ne gérait les flèches : au
+// clavier, la liste était inatteignable et la seule issue était de taper le nom en entier.
+test("the suggestion list can be walked with the keyboard", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Un seul navigateur suffit pour le clavier.");
+  await page.goto("/");
+  await page.getByRole("link", { name: /Nouvelle partie/i }).click();
+  await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
+  await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+
+  const field = page.getByLabel("Ton artiste");
+  await field.click();
+  await field.fill("Leo");
+  await expect(page.getByRole("option").first()).toBeVisible();
+
+  // La flèche du bas met la première option en avant, et le lecteur d'écran peut la nommer.
+  await page.keyboard.press("ArrowDown");
+  await expect(field).toHaveAttribute("aria-activedescendant", "actor-suggestion-0");
+  await expect(page.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
+  // La liste reste ouverte pour être parcourue, et le bouton nomme déjà le choix.
+  await expect(page.getByRole("button", { name: /Valider Leonardo DiCaprio/i })).toBeVisible();
+
+  // Entrée valide ce choix : le maillon entre dans la chaîne.
+  await page.keyboard.press("Enter");
+  await expect(page.getByText(/Acteur précédent/i)).toBeVisible();
+  await expect(page.getByText("Leonardo DiCaprio", { exact: true })).toBeVisible();
+});
+
+// Le mode classique sans défis de bluff n'avait aucune couverture d'interface : c'est pourtant lui qui remplace le
+// buzzer par une vérification automatique, et qui ouvre la VAR quand rien ne peut être prouvé.
+test("without bluff challenges the game verifies each link and hands the doubt to the table", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Un seul navigateur suffit pour ce parcours.");
+  await page.route("**/api/verify-link?*", async (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ verdict: "NOT_FOUND", source: "none", films: [], evidence: [], durationMs: 400, steps: [], searchLinks: {} }),
+  }));
+  await page.goto("/setup");
+  await page.getByPlaceholder("Nom du joueur 1").fill("Alice");
+  await page.getByPlaceholder("Nom du joueur 2").fill("Bob");
+  await page.locator("#allow-bluff").uncheck();
+  await page.getByRole("button", { name: /Lancer la partie/i }).click();
+
+  const play = async (name) => {
+    const field = page.getByLabel("Ton artiste");
+    await field.fill(name);
+    await field.press("Enter");
+  };
+
+  // Le premier maillon ouvre la chaîne : rien à vérifier, et surtout aucun écran de défi.
+  await play("Leonardo DiCaprio");
+  await expect(page.getByText(/Acteur précédent/i)).toBeVisible();
+  // Le bouton de défi du mode avec bluff ne doit apparaître à aucun moment de ce parcours.
+  await expect(page.locator("[data-call-bluff]")).toHaveCount(0);
+
+  // Le second n'a aucune liaison prouvable : la VAR s'ouvre d'elle-même, sans que personne ait buzzé.
+  await play("Louis de Funès");
+  await expect(page.getByRole("button", { name: /Laisser passer sans trancher/i })).toBeVisible();
+  await expect(page.locator("[data-call-bluff]")).toHaveCount(0);
+
+  // « Laisser passer » accepte le maillon faute de preuve, sans sanctionner personne.
+  await page.getByRole("button", { name: /Laisser passer sans trancher/i }).click();
+  await expect(page.getByLabel("Ton artiste")).toBeVisible();
+  const chain = await page.evaluate(() => JSON.parse(localStorage.getItem("cinelink.current.v1") ?? "{}"));
+  expect(chain.chain).toEqual(["Leonardo DiCaprio", "Louis de Funès"]);
+  expect(chain.players.every((player) => player.lives === 3)).toBe(true);
 });

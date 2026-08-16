@@ -33,6 +33,8 @@ on:
 
 permissions:
   contents: write
+  # Pour relancer la quality gate après le commit de données.
+  actions: write
 
 # Shared with "Enrich TMDb catalogue": both waves rewrite the same two data files and push to the same branch.
 concurrency:
@@ -86,4 +88,9 @@ jobs:
           else
             git commit -m "Import contemporary French cast into the catalogue"
             git push
+            # Un push signé du GITHUB_TOKEN ne déclenche rien : on réveille la quality gate à la main, qui
+            # entraîne à son tour le déploiement Cloud Run.
+            gh workflow run ci.yml --ref "${{ github.ref_name }}"
           fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

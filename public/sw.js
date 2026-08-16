@@ -1,4 +1,6 @@
-const CACHE_NAME = "cinefil-v16-perimetre";
+// Le nom porte la version : le handler activate purge tout cache dont le nom diffère. Il faut donc le changer à
+// chaque correction du service worker — ici pour évincer les app shells qu'une réponse en erreur avait empoisonnés.
+const CACHE_NAME = "cinefil-v17-cache-sain";
 const BASE_URL = new URL(self.registration.scope);
 const APP_SHELL = new URL("index.html", BASE_URL).href;
 const CORE = [
@@ -78,8 +80,13 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith(apiPath)) return;
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).then((response) => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then((cache) => cache.put(APP_SHELL, copy));
+      // Sans ce contrôle — que les deux autres branches font déjà — n'importe quelle page HTML non-2xx de même
+      // origine remplaçait l'app shell installé : un 503 de démarrage à froid devenait la page hors ligne
+      // permanente, et le handler activate ne purge que les caches d'un autre nom.
+      if (response.ok && !response.redirected) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(APP_SHELL, copy));
+      }
       return response;
     }).catch(() => caches.match(APP_SHELL)));
     return;
@@ -90,6 +97,23 @@ self.addEventListener("fetch", (event) => {
       if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
       return response;
     }).catch(() => caches.match(request)));
+    return;
+  }
+  // Le catalogue est un instantané, pas un module. Le servir depuis le cache garde le lancement instantané — c'est
+  // huit méga-octets —, mais le laisser purement cache-first le figeait au jour de l'installation pendant que les
+  // modules, eux, suivaient chaque déploiement : le joueur installé jouait indéfiniment sur le catalogue de son
+  // premier lancement. On le rend donc depuis le cache ET on le rafraîchit derrière, pour le lancement suivant.
+  const dataSnapshot = /\/src\/data\/.*\.json$/.test(url.pathname);
+  if (dataSnapshot) {
+    event.respondWith(caches.match(request).then((cached) => {
+      const network = fetch(request).then((response) => {
+        if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
+        return response;
+      });
+      if (!cached) return network;
+      event.waitUntil(network.catch(() => {}));
+      return cached;
+    }));
     return;
   }
   event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {

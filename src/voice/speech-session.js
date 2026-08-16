@@ -42,6 +42,14 @@ export function createSpeechSession({
   let epoch = 0;
 
   recognition.onstart = () => {
+    // `onstart` est asynchrone dans les navigateurs. Un « Pause micro » appuyé pendant cette fenêtre a déjà remis
+    // `desired` à false sans que stop() ait rien pu couper, faute de `listening`. Sans cette relecture, la session
+    // repartait à l'écoute pour toujours — micro réellement ouvert — pendant que l'interface affichait « Micro en
+    // pause » et que rien, en aval, ne revérifiait le consentement.
+    if (!desired || destroyed) {
+      try { recognition.stop(); } catch { /* Already closing. */ }
+      return;
+    }
     listening = true;
     onState({ listening: true, reason: "started" });
   };
@@ -91,7 +99,9 @@ export function createSpeechSession({
     },
     stop() {
       desired = false;
-      if (listening) recognition.stop();
+      // Inconditionnel : `listening` est encore faux entre start() et onstart, et c'est précisément la fenêtre où
+      // l'appui se perdait. `desired` est la seule autorité, ce drapeau ne fait que refléter l'état publié.
+      try { recognition.stop(); } catch { /* Pas encore démarré, ou déjà en train de se fermer. */ }
     },
     destroy() {
       desired = false;

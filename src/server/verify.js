@@ -143,13 +143,20 @@ LIMIT 20`.trim();
 
 const sparqlBoolean = (binding) => binding?.value === "true" || binding?.value === "1";
 
+// Q11424 a pour sous-classes le film documentaire et le téléfilm : la requête les ramène donc forcément, et ne
+// demander que l'appartenance faisait du QID un simple portail. La nature était alors décidée par les seules
+// catégories Wikipédia, qui rendent « cinéma » par défaut — y compris sur une liste vide — si bien qu'un
+// documentaire était présenté à une table qui les avait explicitement refusés. On projette les deux sous-classes,
+// exactement comme le fait déjà la requête des films communs.
 function classifyFilmsQuery(qids) {
   return `
 PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
-SELECT DISTINCT ?film WHERE {
+SELECT DISTINCT ?film ?documentary ?television WHERE {
   VALUES ?film { ${qids.map((qid) => `wd:${qid}`).join(" ")} }
   ?film wdt:P31/wdt:P279* wd:Q11424 .
+  BIND(EXISTS { ?film wdt:P31/wdt:P279* wd:${WIKIDATA_DOCUMENTARY_FILM} } AS ?documentary)
+  BIND(EXISTS { ?film wdt:P31/wdt:P279* wd:${WIKIDATA_TELEVISION_FILM} } AS ?television)
 }`.trim();
 }
 
@@ -204,6 +211,11 @@ export function createLinkVerifier({
   now = Date.now,
   userAgent = DEFAULT_USER_AGENT,
   timeoutMs = 6_000,
+  // `timeoutMs` ne borne qu'une requête isolée. Rien ne bornait la cascade : Wikipédia parcourait ses langues l'une
+  // après l'autre et chaque interrogation Wikidata essaie deux endpoints SPARQL en série, si bien que les délais
+  // s'additionnaient — mesuré à quatre fois le timeout unitaire. Le jeu restait bloqué sur « Consultation des
+  // archives » sans abandon possible, et comme le verdict tombait en UNKNOWN, la lenteur se rejouait au tour suivant.
+  maxVerificationMs = 12_000,
   networkEnabled = process.env.VERIFY_LINK_NETWORK !== "0",
   maxConcurrentUpstream = 12,
 } = {}) {
@@ -223,14 +235,25 @@ export function createLinkVerifier({
   const upstreamLimit = Math.max(1, Math.min(50, Number(maxConcurrentUpstream) || 12));
   let activeUpstream = 0;
 
-  async function fetchJson(url, { accept = "application/json", timeout = timeoutMs } = {}) {
-    if (!networkEnabled || !fetchImpl) throw Object.assign(new Error("network-disabled"), { code: "NETWORK_DISABLED" });
+  // Le compteur ne vivait que dans fetchJson — donc Wikidata et Wikipédia seulement. TMDb, la seule source à quota,
+  // passait à côté : quinze vérifications parallèles y lançaient soixante appels sans aucune borne. Le garde-fou est
+  // donc sorti de fetchJson pour couvrir aussi les appels TMDb.
+  async function withUpstreamSlot(run) {
     if (activeUpstream >= upstreamLimit) {
       metrics.upstreamRejected += 1;
       throw Object.assign(new Error("upstream-overloaded"), { code: "UPSTREAM_OVERLOADED" });
     }
     activeUpstream += 1;
     try {
+      return await run();
+    } finally {
+      activeUpstream -= 1;
+    }
+  }
+
+  async function fetchJson(url, { accept = "application/json", timeout = timeoutMs } = {}) {
+    if (!networkEnabled || !fetchImpl) throw Object.assign(new Error("network-disabled"), { code: "NETWORK_DISABLED" });
+    return withUpstreamSlot(async () => {
       const response = await fetchImpl(url, {
         headers: { Accept: accept, "User-Agent": userAgent },
         signal: AbortSignal.timeout(timeout),
@@ -242,9 +265,7 @@ export function createLinkVerifier({
         throw error;
       }
       return response.json();
-    } finally {
-      activeUpstream -= 1;
-    }
+    });
   }
 
   async function querySparql(query) {
@@ -290,10 +311,10 @@ export function createLinkVerifier({
   async function resolveTmdbPeople(name, id) {
     if (!tmdb?.configured) return [];
     const explicitId = numericId(id);
-    if (explicitId) return [await tmdb.getPerson(explicitId)];
-    const candidates = await tmdb.searchPeople(name, { locale: "fr-FR", limit: 5 });
+    if (explicitId) return [await withUpstreamSlot(() => tmdb.getPerson(explicitId))];
+    const candidates = await withUpstreamSlot(() => tmdb.searchPeople(name, { locale: "fr-FR", limit: 5 }));
     const exact = candidates.filter((candidate) => normalizeText(candidate.name) === normalizeText(name)).slice(0, 3);
-    return Promise.all(exact.map((candidate) => tmdb.getPerson(candidate.externalIds.tmdb)));
+    return Promise.all(exact.map((candidate) => withUpstreamSlot(() => tmdb.getPerson(candidate.externalIds.tmdb))));
   }
 
   async function verifyTmdb(left, right, leftTmdbId, rightTmdbId, scope) {
@@ -382,11 +403,19 @@ export function createLinkVerifier({
     const detailsPayload = await fetchJson(detailsUrl);
     const details = new Map(Object.values(detailsPayload.query?.pages ?? {}).map((page) => [Number(page.pageid), page]));
     const qids = [...new Set([...details.values()].map((page) => page.pageprops?.wikibase_item).filter((qid) => /^Q\d+$/.test(qid)))];
-    let filmQids = new Set();
+    // La nature que Wikidata attribue à chaque fiche, quand elle la connaît.
+    const filmKinds = new Map();
     if (qids.length) {
       try {
         const { payload } = await querySparql(classifyFilmsQuery(qids));
-        filmQids = new Set((payload.results?.bindings ?? []).map((binding) => qidFromUri(binding.film?.value)).filter(Boolean));
+        for (const binding of payload.results?.bindings ?? []) {
+          const qid = qidFromUri(binding.film?.value);
+          if (!qid) continue;
+          filmKinds.set(qid, classifyWikidataFilm({
+            documentary: sparqlBoolean(binding.documentary),
+            television: sparqlBoolean(binding.television),
+          }));
+        }
       } catch {
         // Category evidence below remains useful as a probable, never definitive, result.
       }
@@ -400,32 +429,36 @@ export function createLinkVerifier({
         const professionCategory = /\b(actor|actress|director|producer|screenwriter|composer|editor|cinematographer|critics?|festival|award)\b/i.test(category);
         return filmCategory && !professionCategory;
       });
-      if (!filmQids.has(qid) && !categoryLooksLikeFilm) return [];
+      if (!filmKinds.has(qid) && !categoryLooksLikeFilm) return [];
       return [{
         title: entry.title,
         year: null,
         // « Film documentaire de 2016 » commence par « Film » : l'ancienne lecture n'y voyait qu'un film. Les
         // catégories, elles, disent souvent la nature en toutes lettres — c'est un indice, à la hauteur de ce que
         // vaut cette étape, qui n'a jamais le droit de valider seule.
-        kind: classifyWikipediaCategories(categories),
+        // Quand Wikidata connaît la fiche, c'est elle qui tranche : les catégories ne sont qu'un indice de repli,
+        // pour les pages qu'aucun QID ne rattache.
+        kind: filmKinds.get(qid) ?? classifyWikipediaCategories(categories),
         url: wikipediaUrl(language, entry.title),
         source: "wikipedia",
         language,
         qid,
         snippet: decodeSnippet(entry.snippet),
-        classification: filmQids.has(qid) ? "wikidata-film" : "category-film",
+        classification: filmKinds.has(qid) ? "wikidata-film" : "category-film",
       }];
     });
   }
 
   async function verifyWikipedia(left, right, scope) {
     try {
-      const evidence = [];
-      for (const language of WIKIPEDIA_LANGUAGES) {
-        const found = await searchWikipediaLanguage(language, left, right);
-        evidence.push(...found.filter((entry) => isWorkInScope(entry, scope)));
-        if (evidence.length >= 10) break;
-      }
+      // Les langues sont interrogées de front : elles sont indépendantes, et les enchaîner ajoutait un timeout
+      // complet au budget de la cascade pour un gain nul.
+      const settled = await Promise.allSettled(WIKIPEDIA_LANGUAGES.map((language) => searchWikipediaLanguage(language, left, right)));
+      // Une langue qui échoue n'est pas une absence de preuve ; toutes qui échouent, si.
+      if (settled.every((entry) => entry.status === "rejected")) throw settled[0].reason;
+      const evidence = settled
+        .flatMap((entry) => (entry.status === "fulfilled" ? entry.value : []))
+        .filter((entry) => isWorkInScope(entry, scope));
       const uniqueEvidence = [...new Map(evidence.map((entry) => [`${entry.language}:${entry.title}`, entry])).values()].slice(0, 10);
       return uniqueEvidence.length
         ? { status: "ok", verdict: VERIFICATION_VERDICTS.PROBABLE, source: "wikipedia", films: uniqueEvidence.map(({ snippet, classification, language, qid, ...film }) => film), evidence: uniqueEvidence }
@@ -459,7 +492,37 @@ export function createLinkVerifier({
 
   const unreachedStep = (source, outcome = "not-reached") => ({ source, outcome, durationMs: 0, films: 0, error: null });
 
-  async function performVerification({ left, right, leftTmdbId, rightTmdbId, locale, scope }) {
+  // Le budget total de la cascade. Les requêtes déjà parties continuent de se vider — chacune reste bornée par
+  // `timeoutMs` — mais la table, elle, cesse d'attendre : sans preuve dans le temps imparti, la réponse est
+  // « on ne sait pas », qui est exactement ce que la cascade aurait fini par dire.
+  const verificationBudget = Math.max(timeoutMs, Number(maxVerificationMs) || timeoutMs * 2);
+
+  async function performVerification(input) {
+    let expire = null;
+    const deadline = new Promise((_, reject) => {
+      expire = setTimeout(() => reject(Object.assign(new Error("verification-deadline"), { code: "DEADLINE" })), verificationBudget);
+    });
+    try {
+      return await Promise.race([runCascade(input), deadline]);
+    } catch (error) {
+      if (error?.code !== "DEADLINE") throw error;
+      metrics.deadlines = (metrics.deadlines ?? 0) + 1;
+      return {
+        verdict: VERIFICATION_VERDICTS.UNKNOWN,
+        source: "none",
+        films: [],
+        evidence: [],
+        searchLinks: createVerificationSearchLinks(input.left, input.right),
+        steps: [unreachedStep("tmdb", "abandoned"), unreachedStep("wikidata", "abandoned"), unreachedStep("wikipedia", "abandoned")],
+        locale: input.locale,
+        scope: [...input.scope].sort(),
+      };
+    } finally {
+      clearTimeout(expire);
+    }
+  }
+
+  async function runCascade({ left, right, leftTmdbId, rightTmdbId, locale, scope }) {
     const searchLinks = createVerificationSearchLinks(left, right);
     const tmdb = await timedStep("tmdb", verifyTmdb(left, right, leftTmdbId, rightTmdbId, scope));
     if (tmdb.result.verdict === VERIFICATION_VERDICTS.CONFIRMED) {

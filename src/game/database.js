@@ -6,6 +6,12 @@ export { normalizeText } from "./identity.js";
 const unique = (values) => [...new Set((values ?? []).filter((value) => value !== null && value !== undefined && value !== ""))];
 const externalKey = (source, id) => source && id !== null && id !== undefined && id !== "" ? `${source}:${id}` : null;
 
+// Un identifiant d'œuvre prend deux formes : « work_0g8sb5b » côté snapshot, « tmdb-movie:100 » côté overlay.
+// Un crédit qui en cite un sans qu'on le retrouve est un identifiant mort, pas un titre : en faire une œuvre
+// créerait une fiche dont le titre est l'identifiant, et ce titre finirait affiché aux joueurs comme preuve
+// de liaison. Mieux vaut perdre le crédit que polluer le catalogue.
+const IDENTIFIER_SHAPE = /^(?:work|person)_[0-9a-z]{7}$|^tmdb(?:-movie|-tv)?:\d+$/;
+
 function addToMultiMap(map, key, value) {
   if (!key) return;
   const values = map.get(key) ?? new Set();
@@ -115,6 +121,9 @@ export function createDatabase(data = {}, options = {}) {
       if (incomingKind !== WORK_KINDS.UNKNOWN) candidate.kind = incomingKind;
       candidate.externalIds = mergeExternalIds(candidate.externalIds, rawWork.externalIds);
       candidate.source = incomingPriority > currentPriority ? source : candidate.source;
+      // L'œuvre absorbée cesse d'exister, mais les crédits déjà écrits continuent de la citer par son identifiant.
+      // Sans cet alias, resolveCredit ne la retrouve plus et fabrique une œuvre dont le titre est l'identifiant.
+      if (rawWork.id && rawWork.id !== candidate.id) worksById.set(rawWork.id, candidate);
       indexWork(candidate);
       return candidate;
     }
@@ -169,6 +178,7 @@ export function createDatabase(data = {}, options = {}) {
   function resolveCredit(rawCredit, source) {
     if (typeof rawCredit === "string") {
       if (worksById.has(rawCredit)) return worksById.get(rawCredit);
+      if (IDENTIFIER_SHAPE.test(rawCredit)) return null;
       return upsertWork({ title: rawCredit }, { source });
     }
     if (rawCredit?.workId && worksById.has(rawCredit.workId)) return worksById.get(rawCredit.workId);
@@ -212,6 +222,8 @@ export function createDatabase(data = {}, options = {}) {
       candidate.profilePath ||= rawPerson.profilePath ?? null;
       candidate.popularity = Math.max(Number(candidate.popularity ?? 0), Number(rawPerson.popularity ?? 0));
       candidate.source = incomingPriority > currentPriority ? source : candidate.source;
+      // Même raison que pour les œuvres : une fiche absorbée reste citée par son identifiant d'origine.
+      if (rawPerson.id && rawPerson.id !== candidate.id) peopleById.set(rawPerson.id, candidate);
       indexPerson(candidate);
       return refreshPerson(candidate);
     }

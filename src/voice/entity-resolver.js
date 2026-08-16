@@ -10,7 +10,9 @@ const FILLER_WORDS = new Set([
   "sais", "suivant", "tiens", "toi", "tour", "vais", "voila", "voir", "acteur", "actrice", "artiste",
   "cinema", "film", "films",
   // Turn-taking words: they open a sentence around a name and must never end up inside the heard name.
-  "ensuite", "puis", "maintenant", "apres", "vasy", "reponds", "reponse", "essaie", "tente",
+  // « vas » et non « vasy » : le trait d'union de « vas-y » devient une espace à la normalisation, l'entrée collée
+  // ne pouvait donc jamais correspondre et « vas » se retrouvait dans le nom proposé. (« y » est déjà stopword.)
+  "ensuite", "puis", "maintenant", "apres", "vas", "reponds", "reponse", "essaie", "tente",
 ]);
 
 // Words that may appear inside a name but can never be a name on their own.
@@ -81,7 +83,12 @@ function scoreSpanAgainstForm(span, form) {
   // vocabulary — "Camille" inside "Camille Chamoux" happens to be an alias of Prince. Such a fragment is damped
   // below the acceptance floor rather than merely demoted.
   const nickname = form.kind === "alias" && form.tokens === 1 ? NICKNAME_PENALTY : 1;
-  const penalty = nickname * (partial ? (form.tokens === 1 ? FRAGMENT_PENALTY : PARTIAL_PENALTY) : 1);
+  // La peine de fragment ne vise que les alias : « Camille » dans « Camille Chamoux » est un alias de Prince, pas
+  // une proposition. L'appliquer à toute forme d'un seul mot enterrait les mononymes du catalogue — Bourvil,
+  // Coluche, Fernandel, Arletty, Zendaya — sous le plancher d'acceptation dès qu'un autre mot informatif était
+  // prononcé : « je prends bourvil pardon » ne rendait plus rien du tout.
+  const fragment = form.tokens === 1 && form.kind === "alias" ? FRAGMENT_PENALTY : PARTIAL_PENALTY;
+  const penalty = nickname * (partial ? fragment : 1);
   if (span.normalized === form.normalized) return { score: penalty, via: form.kind, exact: !partial };
   let score = compareCodes(span.code, form.code);
   let via = form.kind;
@@ -273,11 +280,20 @@ export function spokenNameGuess(transcript) {
     .filter((entry) => entry.key);
   // Only the conversational wrapper is stripped, and only from the ends: a particle in the middle is part of
   // the name, while "du" in "du coup" never survives at an edge.
-  const droppable = (entry) => STOPWORDS.has(entry.key) || entry.key.length < 2 || PARTICLES.has(entry.key);
+  // Un jeton peut porter un trait d'union — « vas-y », « Jean-Pierre » — que la normalisation transforme en espace.
+  // On juge donc chaque morceau : tous jetables, le jeton l'est ; un seul mot informatif et il reste.
+  const everyPart = (entry, test) => entry.key.split(" ").filter(Boolean).every(test);
+  const isStop = (part) => STOPWORDS.has(part) || part.length < 2;
+  // Une particule qui ouvre un patronyme en fait partie : « Van Damme », « De Niro », « Le Bihan ». Les retirer en
+  // tête donnait « Damme », « Niro », « Bihan » — un nom qui n'existe pas, sur lequel la table votait et que la
+  // requête TMDb reprenait tel quel. Elle ne saute que si c'est aussi un mot-outil de la phrase (« du coup »).
+  const droppableAtStart = (entry) => everyPart(entry, (part) => (isStop(part) && !PARTICLES.has(part)) || FILLER_WORDS.has(part));
+  // En fin de segment, en revanche, une particule est toujours un résidu de phrase.
+  const droppableAtEnd = (entry) => everyPart(entry, (part) => isStop(part) || PARTICLES.has(part));
   let start = 0;
   let end = words.length;
-  while (start < end && droppable(words[start])) start += 1;
-  while (end > start && droppable(words[end - 1])) end -= 1;
+  while (start < end && droppableAtStart(words[start])) start += 1;
+  while (end > start && droppableAtEnd(words[end - 1])) end -= 1;
   const kept = words.slice(start, end).slice(0, MAX_SPAN_TOKENS);
   if (!kept.length || kept.every((entry) => STOPWORDS.has(entry.key))) return null;
   if (kept.reduce((total, entry) => total + entry.key.length, 0) < 4) return null;

@@ -15,6 +15,7 @@
 import { normalizeText } from "../../game/database.js";
 import {
   adjudicatePending,
+  applyLinkVerification,
   configExtensions,
   currentPlayer,
   nextAliveIndex,
@@ -27,6 +28,7 @@ import { candidateConfidenceLabel, createVoiceResolver, spokenNameGuess } from "
 import { createSpeechSession } from "../../voice/speech-session.js";
 import {
   app,
+  archiveFinishedGame,
   catalogStatusLabel,
   navigate,
   queueCreditsRefresh,
@@ -369,13 +371,18 @@ function voiceReviewMarkup() {
   const review = state.voice.review;
   const left = review?.left;
   const right = review?.right;
+  const auto = Boolean(review?.auto);
   const decision = review?.verification
     ? `${verificationPanelMarkup(review.verification)}<div class="decision-grid decision-grid--var"><button class="button button--gold" data-voice-var-valid>Le lien est valide</button><button class="button button--red" data-voice-var-invalid>Bluff confirmé</button><button class="button button--ghost" data-voice-var-pass>Laisser passer sans trancher</button></div>`
-    : `<div class="decision-grid"><button class="button button--ghost" data-cancel-voice-review ${review?.checking ? "disabled" : ""}>Reprendre l’écoute</button><button class="button button--red" data-resolve-voice-review ${review?.checking ? "disabled" : ""}>${review?.checking ? "Consultation…" : "Vérifier le bluff"}</button></div>`;
+    : auto
+      ? `<div class="decision-grid"><button class="button button--ghost" disabled>Consultation des archives…</button></div>`
+      : `<div class="decision-grid"><button class="button button--ghost" data-cancel-voice-review ${review?.checking ? "disabled" : ""}>Reprendre l’écoute</button><button class="button button--red" data-resolve-voice-review ${review?.checking ? "disabled" : ""}>${review?.checking ? "Consultation…" : "Vérifier le bluff"}</button></div>`;
   return shell(`<section class="voice-review">
-    <span class="stamp stamp--rouge">Buzzer bluff</span>
-    <h1 class="marquee">Qu’avez-vous vraiment dit&nbsp;?</h1>
-    <p class="prose">Sélectionnez les deux dernières identités, puis laissez le moteur vérifier la liaison.</p>
+    <span class="stamp ${auto ? "stamp--ambre" : "stamp--rouge"}">${auto ? "Vérification" : "Buzzer bluff"}</span>
+    <h1 class="marquee">${auto ? "Cette liaison tient-elle&nbsp;?" : "Qu’avez-vous vraiment dit&nbsp;?"}</h1>
+    <p class="prose">${auto
+      ? "Les défis de bluff sont coupés : le jeu vérifie chaque maillon. Si les archives ne prouvent rien, c’est à la table de trancher."
+      : "Sélectionnez les deux dernières identités, puis laissez le moteur vérifier la liaison."}</p>
     <div class="voice-review__grid">
       <article><small>Nom précédent · ${escapeHtml(left?.playerName ?? "Joueur")}</small><strong>${escapeHtml(left?.transcript ?? "")}</strong>${voiceCandidateList(left, { review: true, side: "left" })}</article>
       <span class="voice-review__link" aria-hidden="true">ET</span>
@@ -548,6 +555,8 @@ function syncVoiceTurn() {
   state.voice.turn = createVoiceTurn(active.id);
   state.voice.interim = "";
   state.timeLeft = null;
+  // Le tour a changé de main : son échéance meurt avec lui, la suivante s'ouvrira au premier tic.
+  if (state.game) state.game.turnDeadlineAt = null;
   return true;
 }
 
@@ -601,6 +610,11 @@ async function validateVoiceCandidate(reference) {
   if (!candidate) return;
   state.voice.processing = true;
   state.voice.error = null;
+  // Le joueur a touché sa carte : le chrono s'arrête ici, pas après l'hydratation. Il continuait de tourner pendant
+  // l'aller-retour réseau, expirait, passait la main — et la validation arrivée juste après était refusée par la
+  // garde « le tour a changé », coûtant une vie à un joueur qui avait répondu à temps.
+  const remainingMs = Math.max(0, (state.game.turnDeadlineAt ?? 0) - Date.now());
+  stopTimer();
   try {
     const speaker = voiceActivePlayer();
     const before = voiceSnapshot();
@@ -634,10 +648,20 @@ async function validateVoiceCandidate(reference) {
     syncVoiceTurn();
     app.storage.saveCurrent(state.game);
     queueCreditsRefresh(state.game);
-    if (state.game.status === "finished") navigate("/credits");
-    else renderRoute();
+    // Sans défis de bluff, personne ne va lever la main : c'est au jeu de vérifier la liaison avant que la chaîne
+    // ne s'allonge. Le coup reste en attente le temps de cette consultation.
+    if (result.type === "pending" && result.pending.autoVerify) {
+      await runVoiceAutoVerification();
+      return;
+    }
+    if (state.game.status === "finished") {
+      archiveFinishedGame(state.game);
+      navigate("/credits");
+    } else renderRoute();
   } catch (error) {
     state.voice.error = error.message;
+    // La proposition est refusée : le joueur récupère le temps qu'il avait, sans l'aller-retour réseau.
+    if (state.game?.turnDeadlineAt) state.game.turnDeadlineAt = Date.now() + remainingMs;
     renderRoute();
   } finally {
     state.voice.processing = false;
@@ -675,7 +699,7 @@ async function selectCurrentVoiceCandidate(entryId, candidateIndex) {
    The buzzer review
    -------------------------------------------------------------------------- */
 
-function openVoiceReview() {
+function openVoiceReview({ auto = false } = {}) {
   if (!state.pending) return;
   stopVoiceSession({ destroy: false });
   // A reloaded page has no spoken history: the pending move and the chain still describe both sides.
@@ -712,7 +736,49 @@ function openVoiceReview() {
     left: previousEntry,
     right: currentEntry,
     selected: { left: previousEntry.selected ?? 0, right: currentEntry?.selected ?? 0 },
+    // Une vérification automatique n'est pas un buzz : personne n'accuse, et l'écran ne propose pas de corriger
+    // ce qui a été dit. Seul l'en-tête et le pied de page changent.
+    auto,
   };
+  renderRoute();
+}
+
+// Le pendant vocal de runAutoVerification du mode classique. Une preuve positive valide le coup en silence ; à
+// défaut, la table tranche sur l'écran de revue — jamais un verdict négatif automatique, fidèle au principe
+// « une absence n'est pas une preuve ».
+async function runVoiceAutoVerification() {
+  if (!state.pending) return;
+  if (state.pending.wasValid) {
+    // Le catalogue local atteste déjà la paire : le coup passe sans déranger la table.
+    completeVoiceReview(state.game, state.pending, { challenged: false });
+    return;
+  }
+  // L'écran de revue se reconstruit depuis la chaîne et le coup en attente, sans avoir besoin d'un buzz.
+  openVoiceReview({ auto: true });
+  const review = state.voice.review;
+  if (!review) return;
+  review.checking = true;
+  renderRoute();
+  let verified = null;
+  try {
+    verified = await verifyPendingLink(state.game, state.pending);
+  } catch (error) {
+    app.diagnostics.capture(error, { phase: "voice-auto-verify" });
+    verified = applyLinkVerification(state.pending, { verdict: "UNKNOWN", source: "none", films: [], evidence: [], searchLinks: {} });
+  }
+  // La table a pu quitter l'écran pendant la consultation.
+  if (state.voice.review !== review) return;
+  review.checking = false;
+  if (verified.wasValid) {
+    // La cascade a trouvé une preuve : on valide sans écran de décision.
+    state.voice.review = null;
+    completeVoiceReview(state.game, verified, { challenged: false });
+    return;
+  }
+  // Rien n'a pu être prouvé : la décision revient aux joueurs.
+  review.game = state.game;
+  review.verification = verified.verification ?? { verdict: "UNKNOWN", source: "none", films: [], evidence: [] };
+  state.pending = verified;
   renderRoute();
 }
 
@@ -752,9 +818,13 @@ function completeVoiceReview(game, pending, { challenged }) {
   };
   state.voice.review = null;
   state.timeLeft = null;
+  state.game.turnDeadlineAt = null;
   app.storage.saveCurrent(state.game);
   // The reel is rebuilt between turns so the closing roll is ready before the last life is even spent.
   queueCreditsRefresh(state.game);
+  // Le verdict du buzzer garde la table sur cet écran quand il termine la partie : sans cet appel, une sortie par
+  // le lien retour laissait la partie hors de l'historique, hors des profils et hors des succès.
+  archiveFinishedGame(state.game);
   renderRoute();
 }
 
@@ -770,11 +840,19 @@ async function resolveVoiceReview() {
     const [leftPerson, rightPerson] = await Promise.all([hydrateVoiceCandidate(leftCandidate), hydrateVoiceCandidate(rightCandidate)]);
     // Correcting the previous name is an option; verifying the bluff is the point. A correction the engine
     // refuses — because it would break the link before it — must not strand the players on this screen.
+    // Le buzz sert à vérifier la liaison ; corriger le maillon précédent n'est qu'une option de cet écran, et
+    // review.selected.left part déjà sur la sélection d'origine. Tant que replaceLastActor était appelé sans
+    // condition, un buzz où personne ne touchait à la liste relançait une « correction » du tour déjà accepté :
+    // sharedFilms était recalculé contre le seul catalogue local, ce qui effaçait les preuves venues de la cascade
+    // ou d'une décision VAR, basculait wasValid à false et décomptait un film au joueur.
     let corrected = state.game;
-    try {
-      corrected = replaceLastActor(state.game, leftPerson?.name ?? leftCandidate.name, app.database);
-    } catch (refusal) {
-      review.refusal = refusal.message;
+    const leftName = leftPerson?.name ?? leftCandidate.name;
+    if (normalizeText(leftName) !== normalizeText(state.game.chain.at(-1) ?? "")) {
+      try {
+        corrected = replaceLastActor(state.game, leftName, app.database);
+      } catch (refusal) {
+        review.refusal = refusal.message;
+      }
     }
     const result = proposeActor(corrected, rightPerson?.name ?? rightCandidate.name, app.database);
     if (result.type !== "pending") throw new Error("La liaison à vérifier est incomplète.");
@@ -795,20 +873,38 @@ async function resolveVoiceReview() {
   }
 }
 
-function resolveVoiceVar(valid, challenged = true) {
+function resolveVoiceVar(valid, { letPass = false } = {}) {
   const review = state.voice.review;
   if (!review?.game || !state.pending) return;
-  const pending = challenged ? adjudicatePending(state.pending, { valid }) : state.pending;
-  completeVoiceReview(review.game, pending, { challenged });
+  // Le buzz a bien eu lieu : il reste au journal dans les trois cas. « Laisser passer » porte simplement le coup à
+  // valide faute de preuve, sans sanctionner ni le proposant ni le buzzeur.
+  const adjudicated = adjudicatePending(state.pending, letPass ? { valid: true, source: "let-pass" } : { valid });
+  completeVoiceReview(review.game, letPass ? { ...adjudicated, letPass: true } : adjudicated, { challenged: true });
 }
 
 function ensureVoiceTimer() {
-  if (state.timer || !state.voice.consent || state.voice.review || !state.game.config.turnSeconds) return;
-  if (state.timeLeft === null) state.timeLeft = state.game.config.turnSeconds;
-  state.timer = window.setInterval(() => {
-    state.timeLeft -= 1;
+  // Sur un navigateur sans reconnaissance vocale, la saisie de secours est le seul mode de jeu et le bouton
+  // « Activer le micro » n'est même pas rendu : exiger le consentement laissait le chrono désarmé pour toujours,
+  // et la durée de tour choisie à la mise en place n'était jamais appliquée. On n'attend donc le consentement que
+  // là où il peut être donné.
+  const awaitingMicrophone = state.voice.supported && !state.voice.consent;
+  if (state.timer || awaitingMicrophone || state.voice.review || !state.game.config.turnSeconds || state.voice.processing) return;
+  // Même échéance que le mode classique, portée par la partie : un aller-retour par « ← Accueil » rendait un chrono
+  // neuf au joueur à court de temps.
+  if (!state.game.turnDeadlineAt) {
+    state.game.turnDeadlineAt = Date.now() + state.game.config.turnSeconds * 1000;
+    app.storage.saveCurrent(state.game);
+  }
+  // Peint tout de suite, pour la même raison qu'en mode classique : le siège vient d'être rendu sur l'ancienne
+  // valeur, et attendre le premier tic afficherait une seconde durant un chrono qui n'est pas celui qui court.
+  const paint = () => {
+    state.timeLeft = Math.max(0, Math.ceil((state.game.turnDeadlineAt - Date.now()) / 1000));
     document.querySelectorAll(".voice-player--active .voice-clock span").forEach((element) => { element.textContent = `${state.timeLeft}s`; });
     document.querySelector(".voice-player--active .voice-clock")?.classList.toggle("voice-clock--urgent", state.timeLeft <= 5);
+  };
+  paint();
+  state.timer = window.setInterval(() => {
+    paint();
     if (state.timeLeft > 0) return;
     stopTimer();
     const before = voiceSnapshot();
@@ -820,10 +916,13 @@ function ensureVoiceTimer() {
     state.voice.verdict = "Temps écoulé";
     flashVoiceTransition(before);
     state.timeLeft = null;
+    state.game.turnDeadlineAt = null;
     app.storage.saveCurrent(state.game);
     queueCreditsRefresh(state.game);
-    if (state.game.status === "finished") navigate("/credits");
-    else renderRoute();
+    if (state.game.status === "finished") {
+      archiveFinishedGame(state.game);
+      navigate("/credits");
+    } else renderRoute();
   }, 1000);
 }
 
@@ -894,7 +993,7 @@ export function bindVoice() {
   document.querySelector("[data-resolve-voice-review]")?.addEventListener("click", resolveVoiceReview);
   document.querySelector("[data-voice-var-valid]")?.addEventListener("click", () => resolveVoiceVar(true));
   document.querySelector("[data-voice-var-invalid]")?.addEventListener("click", () => resolveVoiceVar(false));
-  document.querySelector("[data-voice-var-pass]")?.addEventListener("click", () => resolveVoiceVar(false, false));
+  document.querySelector("[data-voice-var-pass]")?.addEventListener("click", () => resolveVoiceVar(true, { letPass: true }));
 
   ensureVoiceTimer();
 }

@@ -14,6 +14,8 @@ export function createTurnBuffer({
   let utterances = [];
   let heard = [];
   let pool = [];
+  // Les identifiants qu'une phrase plus complète a fait disparaître : ils ne peuvent plus revenir.
+  let supersededIds = new Set();
 
   function candidateKey(candidate) {
     return candidate.id ?? `spoken:${normalizeText(candidate.name)}`;
@@ -53,6 +55,11 @@ export function createTurnBuffer({
 
   return {
     ingest({ id, transcript = "", final = false, candidates = [], at = 0 } = {}) {
+      // Un énoncé déjà remplacé par sa version complète ne revient pas. L'écran ré-injecte volontairement le MÊME
+      // identifiant après son aller-retour réseau : si la phrase complète est arrivée entre-temps, le fragment
+      // périmé se réinstallait avec ses candidats, et `lastTranscript()` régressait jusqu'à lui — la carte
+      // « hors catalogue » proposait alors au vote le fragment plutôt que le nom complet.
+      if (id !== undefined && supersededIds.has(id)) return pool;
       const utterance = { id: id ?? `utterance-${utterances.length}`, transcript, final, candidates, at };
       if (transcript.trim()) {
         heard = [...heard.filter((entry) => entry.id !== utterance.id), { id: utterance.id, transcript: transcript.trim(), final, at }].slice(-maxHeard);
@@ -62,9 +69,20 @@ export function createTurnBuffer({
       // all, when the completed sentence matches nothing at all.
       const spoken = normalizeText(transcript);
       const kept = spoken
-        ? utterances.filter((entry) => entry.id === utterance.id || !`${spoken} `.startsWith(`${normalizeText(entry.transcript)} `))
+        ? utterances.filter((entry) => {
+          if (entry.id === utterance.id) return true;
+          const previous = normalizeText(entry.transcript);
+          // Seuls les préfixes STRICTS cèdent la place. Un énoncé identique n'est pas une phrase à moitié entendue
+          // mais une répétition — le joueur redit le nom parce que rien ne se passe — et doit compter comme une
+          // seconde mention, ce que le bonus de répétition attend précisément.
+          return previous === spoken || !`${spoken} `.startsWith(`${previous} `);
+        })
         : utterances;
       const superseded = kept.length !== utterances.length;
+      if (superseded) {
+        const survivors = new Set(kept.map((entry) => entry.id));
+        for (const entry of utterances) if (!survivors.has(entry.id)) supersededIds.add(entry.id);
+      }
       utterances = kept;
       const index = utterances.findIndex((entry) => entry.id === utterance.id);
       if (index >= 0) {
@@ -92,12 +110,14 @@ export function createTurnBuffer({
     clearCandidates() {
       utterances = [];
       pool = [];
+      supersededIds = new Set();
       return pool;
     },
     reset() {
       utterances = [];
       heard = [];
       pool = [];
+      supersededIds = new Set();
       return pool;
     },
   };

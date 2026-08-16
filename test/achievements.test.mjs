@@ -102,6 +102,40 @@ test("an empty profile earns nothing, and a missing counter never throws", () =>
   assert.equal(achievementsFor(null, blankProfile("X")).length, 0);
 });
 
+// L'écran des scores se revisite — il porte lui-même « Revoir le générique », qui y ramène. Le second passage
+// rappelait recordFinishedGame, tombait sur la garde d'idempotence et écrasait les cartons avec un tableau vide :
+// le classement restait, le bloc « Nouveaux succès » disparaissait.
+test("the cards earned by a game are still owed on a second visit", () => {
+  const storage = createStorage(fakeStorage());
+  const game = playedGame();
+  const first = recordFinishedGame(game, storage);
+  assert.equal(first.newAchievements.length > 0, true);
+  const second = recordFinishedGame(game, storage);
+  assert.deepEqual(second.newAchievements, first.newAchievements);
+  // Et rien n'a été recompté au passage.
+  assert.equal(storage.loadHistory().length, 1);
+});
+
+// recordFinishedGame reconstruisait le rouleau sans la base, alors que l'écran du générique le bâtit avec. Une même
+// partie produisait donc deux rouleaux, et c'est le plus pauvre — sans les films retrouvés aux archives — qui
+// alimentait les compteurs de profil et les succès. Le rouleau est désormais celui qu'on lui remet.
+test("the roll handed in is the one the game is judged on", () => {
+  const storage = createStorage(fakeStorage());
+  const game = playedGame();
+  const roll = buildCredits(game, { database });
+  assert.equal(roll.tally.acts >= 6, true);
+
+  // Jugée sur un rouleau écourté, la partie n'est plus « valable » : la série de soirée ne démarre pas.
+  const shortened = recordFinishedGame(game, storage, { credits: { ...roll, tally: { ...roll.tally, acts: 2 } } });
+  const winnerKey = game.players.find((player) => player.id === game.winnerId).name.toLowerCase();
+  assert.equal(shortened.profiles[winnerKey].streakRun, 0);
+
+  // Jugée sur le vrai rouleau, elle la démarre.
+  const other = createStorage(fakeStorage());
+  const full = recordFinishedGame(game, other, { credits: roll });
+  assert.equal(full.profiles[winnerKey].streakRun, 1);
+});
+
 test("a first finished game opens the career, and only the career", () => {
   const storage = createStorage(fakeStorage());
   const game = playedGame();
@@ -154,6 +188,27 @@ test("a win streak, a comeback, and the day counter follow the results", () => {
   // Le vaincu accumule des défaites, en négatif, sur le même entier.
   const other = Object.keys(storage.loadProfiles()).find((candidate) => candidate !== key);
   assert.equal(storage.loadProfiles()[other].streakRun, -2);
+});
+
+// Le test ci-dessous ne portait que le cas négatif, sur une partie qui n'avait de toute façon aucun bluff passé :
+// il restait vert même si la garde disparaissait. Voici la moitié qui manquait — un bluff réellement passé sous les
+// yeux d'une table autorisée à buzzer, qui lui, doit compter.
+test("a bluff nobody challenged is counted when the table could have", () => {
+  const storage = createStorage(fakeStorage());
+  // Le dernier maillon est un nom qu'aucun catalogue ne relie au précédent, et personne ne conteste.
+  let game = playedGame({ config: { allowBluffChallenge: true }, lives: 3, kill: null });
+  const slipped = proposeActor(game, "Nom Totalement Inconnu", database);
+  assert.equal(slipped.type, "pending");
+  assert.equal(slipped.pending.wasValid, false);
+  game = resolvePending(slipped.game, slipped.pending, { challenged: false });
+  // Il faut que la partie se termine pour être enregistrée.
+  while (game.status !== "finished") game = resolvePending(game, timeoutPending(game), { challenged: false });
+
+  const { profiles } = recordFinishedGame(game, storage);
+  const bluffer = Object.values(profiles).find((profile) => profile.bluffsSlipped > 0);
+  assert.ok(bluffer, "un bluff passé doit être porté par une fiche");
+  assert.equal(bluffer.bluffsSlipped >= 1, true);
+  assert.equal(bluffer.achievements.includes("bluff-premier-trucage"), true);
 });
 
 test("the honour roll only counts a bluff that slipped past a table allowed to buzz", () => {

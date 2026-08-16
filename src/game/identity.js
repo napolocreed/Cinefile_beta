@@ -49,7 +49,13 @@ export function stableId(prefix, value) {
 }
 
 export function parseYear(value) {
-  const match = String(value ?? "").match(/(?:\(|\[|\s)(18\d{2}|19\d{2}|20\d{2})(?:\)|\]|\s*$)/);
+  // L'ancienne lecture acceptait une simple espace à gauche et la fin de chaîne à droite : tout titre se terminant
+  // par un nombre à quatre chiffres devenait une année. « Blade Runner 2049 » sortait en 2049, « Wonder Woman
+  // 1984 » en 1984 — sur le snapshot livré, 64 des 69 œuvres datées portaient une année fausse. Or la fusion
+  // refuse tout rapprochement dès que deux années se contredisent : le crédit TMDb du même film créait une œuvre
+  // de plus, les crédits s'éclataient entre les deux, et la liaison cessait d'être prouvable hors ligne. L'année
+  // doit donc être explicitement délimitée ; un titre nu la laisse à null, et la base sait fusionner sur le titre.
+  const match = String(value ?? "").match(/[([][^)\]]*\b(18\d{2}|19\d{2}|20\d{2})\b[^)\]]*[)\]]/);
   return match ? Number(match[1]) : null;
 }
 

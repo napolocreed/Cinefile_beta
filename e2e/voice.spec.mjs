@@ -61,7 +61,7 @@ async function stubCatalog(page, { hydrateDelayMs = 0 } = {}) {
   });
 }
 
-async function startVoiceGame(page, { withClock = false, lives = null, players = ["Alice", "Bob"] } = {}) {
+async function startVoiceGame(page, { withClock = false, lives = null, players = ["Alice", "Bob"], bluffChallenges = true } = {}) {
   if (withClock) await page.clock.install();
   await page.addInitScript(RECOGNISER);
   await stubCatalog(page);
@@ -72,6 +72,7 @@ async function startVoiceGame(page, { withClock = false, lives = null, players =
     await page.getByPlaceholder(`Nom du joueur ${index + 1}`).fill(name);
   }
   if (lives) await page.locator("#lives-range").fill(String(lives));
+  if (!bluffChallenges) await page.locator("#allow-bluff").uncheck();
   await page.getByRole("button", { name: /Lancer la partie/i }).click();
   await expect(page.locator("[data-voice-stage]")).toHaveAttribute("data-voice-turn", /\w/);
 }
@@ -117,17 +118,23 @@ test("a correction that lands after its turn is refused instead of arming a phan
 
   // Slow hydration is what opens the window: the correction resolves long after the chrono took the turn.
   await stubCatalog(page, { hydrateDelayMs: 4000 });
+  // Un nom que le catalogue lit de deux façons : il garantit qu'une puce de correction existe. Tout le corps de ce
+  // test vivait sous un `if (await chip.count())` — sans seconde puce, il ne s'exécutait jamais et le test passait
+  // au vert sans avoir rien joué.
+  await validate(page, "depardieu", /Depardieu/);
   const chip = page.locator("[data-voice-candidate]").nth(1);
-  if (await chip.count()) {
-    await chip.click({ noWaitAfter: true });
-    await page.clock.runFor(31_000);
-    await page.waitForTimeout(200);
-    await page.clock.runFor(6_000);
-    await expect(page.locator(".voice-error")).toBeVisible();
-  }
+  await expect(chip).toBeVisible();
+
+  await chip.click({ noWaitAfter: true });
+  await page.clock.runFor(31_000);
+  await page.waitForTimeout(200);
+  await page.clock.runFor(6_000);
+  await expect(page.locator(".voice-error")).toBeVisible();
+
   const after = await chainOf(page);
-  // The chrono may legitimately accept the outstanding proposition; nothing beyond it may appear.
-  expect(after.length).toBeLessThanOrEqual(before.length + 1);
+  // Le chrono peut légitimement accepter la proposition en attente ; rien au-delà ne doit apparaître, et surtout
+  // pas le nom corrigé, qui arrive après que le tour a changé de main.
+  expect(after.length).toBeLessThanOrEqual(before.length + 2);
   expect(after.slice(0, before.length)).toEqual(before);
 });
 
@@ -333,4 +340,37 @@ test("losing the last life is played as an exit, not as one more life lost", asy
   await expect(out).toHaveCount(1);
   await expect(out).toContainText(doomed);
   await expect(out).toContainText("éliminé");
+});
+
+// Le vocal était dispensé de la vérification automatique au motif que son buzzer central tenait lieu de défi. Or ce
+// buzzer exige un coup en attente, que le raccourci ne posait jamais : rien n'était vérifié, deux cents noms
+// inventés entraient dans la chaîne sans coût, et « sans chrono » rendait la partie infinie.
+test("voice without bluff challenges verifies each link instead of accepting it blindly", async ({ page }) => {
+  await startVoiceGame(page, { bluffChallenges: false, lives: 3 });
+  await page.getByRole("button", { name: /Activer le micro/i }).click();
+
+  // Le premier maillon ouvre la chaîne : il n'y a rien à vérifier.
+  await validate(page, "leonardo dicaprio", /Leonardo DiCaprio/i);
+  expect(await chainOf(page)).toEqual(["Leonardo DiCaprio"]);
+
+  // Le second n'a aucune liaison prouvable : la consultation s'ouvre au lieu d'allonger la chaîne.
+  await page.evaluate(() => window.__say("bernard tapie"));
+  const pick = page.locator(".voice-pick").filter({ hasText: /Bernard Tapie/i });
+  await expect(pick.first()).toBeVisible();
+  await pick.first().click();
+
+  const review = page.locator(".voice-review");
+  await expect(review).toBeVisible();
+  await expect(review.getByText(/Cette liaison tient-elle/i)).toBeVisible();
+  // Aucun joueur n'a buzzé : l'écran ne doit pas s'annoncer comme un buzzer de bluff.
+  await expect(review.getByText(/Buzzer bluff/i)).toHaveCount(0);
+  // La chaîne n'a pas bougé tant que la table n'a pas tranché.
+  expect(await chainOf(page)).toEqual(["Leonardo DiCaprio"]);
+
+  // La cascade n'a rien trouvé : la table tranche, et le maillon refusé coûte une vie.
+  await expect(page.getByRole("button", { name: /Bluff confirmé/i })).toBeVisible();
+  await page.getByRole("button", { name: /Bluff confirmé/i }).click();
+  expect(await chainOf(page)).toEqual(["Leonardo DiCaprio"]);
+  const lives = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? "{}").players.map((player) => player.lives), CURRENT_GAME_KEY);
+  expect(lives).toContain(2);
 });

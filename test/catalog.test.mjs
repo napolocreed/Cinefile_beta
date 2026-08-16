@@ -29,6 +29,36 @@ test("hybrid search combines local matches with remote artists and disambiguatio
   assert.equal(result.remote.configured, true);
 });
 
+// Deux artistes TMDb distincts portent parfois le même nom. Tant que le rapprochement retombait sur le nom dès que
+// les identifiants différaient, le second homonyme se recollait sur la fiche déjà enrichie et lui laissait SON
+// identifiant : l'acteur héritait du numéro de l'animateur et devenait inatteignable.
+test("two remote namesakes stay two distinct people", async () => {
+  const database = createDatabase({ actors: [{ name: "Chris Evans", films: ["Film Local"], tags: [] }], films: ["Film Local"] });
+  const fetchImpl = async () => jsonResponse({ configured: true, source: "tmdb", results: [
+    { id: "tmdb:16828", name: "Chris Evans", knownFor: ["Le Bouclier"], roles: ["acting"], externalIds: { tmdb: 16828 }, origin: "tmdb" },
+    { id: "tmdb:1215774", name: "Chris Evans", knownFor: ["Le Plateau"], roles: ["acting"], externalIds: { tmdb: 1215774 }, origin: "tmdb" },
+  ] });
+  const catalog = createHybridCatalog({ database, fetchImpl, storage: memoryStorage() });
+  const { results } = await catalog.search("Chris", { limit: 8 });
+  assert.equal(results.length, 2);
+  // La fiche locale est enrichie par le premier homonyme, et le second ne peut plus s'y recoller.
+  assert.equal(String(results[0].externalIds.tmdb), "16828");
+  assert.deepEqual(results[0].knownFor, ["Le Bouclier"]);
+  assert.equal(String(results[1].externalIds.tmdb), "1215774");
+});
+
+// Le filtre des artistes déjà joués ne s'appliquait qu'au catalogue local : TMDb réinjectait le maillon qu'on venait
+// d'en retirer, et la suggestion menait droit à « Cet acteur a déjà été utilisé », chrono en cours.
+test("an artist already in the chain is not re-proposed by the remote catalogue", async () => {
+  const database = createDatabase({ actors: [{ name: "Kate Winslet", films: ["Titanic"], tags: [] }], films: ["Titanic"] });
+  const fetchImpl = async () => jsonResponse({ configured: true, source: "tmdb", results: [
+    { id: "tmdb:204", name: "Kate Winslet", roles: ["acting"], externalIds: { tmdb: 204 }, origin: "tmdb" },
+  ] });
+  const catalog = createHybridCatalog({ database, fetchImpl, storage: memoryStorage() });
+  const { results } = await catalog.search("Kate", { limit: 8, excluded: ["Leonardo DiCaprio", "Kate Winslet"] });
+  assert.deepEqual(results, []);
+});
+
 test("hydrating a TMDb result adds credits and persists an offline cache", async () => {
   const storage = memoryStorage();
   const database = createDatabase({ actors: [], films: [] });
@@ -233,6 +263,40 @@ test("positive fallback evidence teaches the local catalogue across sessions", a
   assert.deepEqual(reloadedDatabase.sharedFilms("Alice", "Bob"), ["Film retrouvé"]);
   assert.equal((await offlineCatalog.verifyLink("Alice", "Bob")).source, "local");
   assert.equal(offlineCatalog.getVerificationCache().links.length, 1);
+});
+
+// La fiche existante porte `films`, une liste de TITRES bruts. La renvoyer à upsertPerson les faisait re-résoudre
+// par le titre, et un homonyme indexé sous la même clé récupérait la place : une preuve confirmée sur une paire
+// raccrochait l'artiste à des œuvres qu'il n'a jamais tournées, pour toutes les autres paires.
+test("a confirmed proof never rewrites the rest of an artist's filmography", async () => {
+  const seed = {
+    works: [
+      { id: "work_film", title: "Beau Geste", type: "movie", kind: "cinema", source: "snapshot" },
+      { id: "work_show", title: "Beau geste", type: "tv", kind: "series", source: "snapshot" },
+    ],
+    people: [
+      { id: "person_alice", name: "Alice Un", credits: ["work_show"], source: "snapshot" },
+      { id: "person_bob", name: "Bob Deux", credits: [], source: "snapshot" },
+      { id: "person_carl", name: "Carl Trois", credits: ["work_film"], source: "snapshot" },
+    ],
+  };
+  const database = createDatabase(seed);
+  // Au départ Alice tient l'émission, Carl le film : ils n'ont rien en commun au socle.
+  assert.deepEqual(database.sharedFilms("Alice Un", "Carl Trois"), []);
+
+  const catalog = createHybridCatalog({ database, storage: memoryStorage(), fetchImpl: async () => jsonResponse({
+    verdict: "CONFIRMED",
+    source: "wikidata",
+    films: [{ title: "Preuve Commune", year: 2001, qid: "Q1" }],
+    evidence: [],
+  }) });
+  assert.equal((await catalog.verifyLink("Alice Un", "Bob Deux")).verdict, "CONFIRMED");
+
+  // La preuve entre bien, et rien d'autre ne bouge : Alice n'a pas hérité du film homonyme de Carl.
+  assert.deepEqual(database.sharedFilms("Alice Un", "Bob Deux"), ["Preuve Commune"]);
+  assert.deepEqual(database.sharedFilms("Alice Un", "Carl Trois"), []);
+  assert.equal(database.findActor("Alice Un").films.includes("Beau geste"), true);
+  assert.equal(database.findActor("Alice Un").films.includes("Beau Geste"), false);
 });
 
 /* -----------------------------------------------------------------------------

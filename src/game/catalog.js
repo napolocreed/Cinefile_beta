@@ -93,8 +93,11 @@ function applyVerifiedLink(database, link) {
   for (const reference of [link.left, link.right]) {
     const existing = database.findActor(reference?.id) ?? database.findActor(reference?.name);
     if (!existing && !reference?.name) continue;
+    // Ne jamais renvoyer la fiche existante en bloc : elle porte `films`, une liste de titres bruts qu'upsertPerson
+    // concatène aux crédits et re-résout par le titre. Un homonyme indexé sous la même clé récupérait alors la
+    // place, et une preuve confirmée sur une paire contaminait la filmographie pour toutes les autres. Les crédits
+    // déjà acquis sont conservés par la fusion d'upsertPerson, il n'y a rien à réinjecter ici.
     database.upsertPerson({
-      ...(existing ?? {}),
       id: existing?.id ?? reference.id ?? undefined,
       name: existing?.name ?? reference.name,
       externalIds: { ...(existing?.externalIds ?? {}), ...(reference.externalIds ?? {}) },
@@ -236,10 +239,31 @@ export function createHybridCatalog({
       const payload = await fetchJson(`/api/catalog/search?${parameters}`, { signal: options.signal });
       setRemoteState({ checked: true, configured: Boolean(payload.configured), online: true, source: payload.source ?? "tmdb" });
       const merged = [...local];
+      // Le filtre des artistes déjà joués n'était appliqué qu'au catalogue local : TMDb réinjectait ensuite le
+      // maillon qu'on venait d'en retirer, et la suggestion menait droit à « Cet acteur a déjà été utilisé ».
+      // Résolu comme searchPeople le fait, alias compris : sinon le même artiste revient sous un autre de ses noms.
+      const excludedKeys = new Set((options.excluded ?? []).flatMap((value) => {
+        const person = database.findActor(value);
+        return person
+          ? [person.name, ...(person.aliases ?? [])].map((name) => normalizeText(name))
+          : [normalizeText(value?.name ?? value)];
+      }).filter(Boolean));
+      // Deux artistes TMDb distincts portent parfois le même nom. Un résultat distant ne peut donc se rapprocher
+      // d'une fiche que si leurs identifiants TMDb concordent — le nom seul ne tranche que lorsqu'au moins l'un des
+      // deux n'a pas d'identifiant, ce qui est le cas d'une fiche locale qu'on vient justement enrichir. Et une
+      // fiche déjà appariée est verrouillée, sans quoi le second homonyme écrasait l'identifiant du premier.
+      const claimed = new Set();
       for (const person of payload.results ?? []) {
-        const tmdbKey = person.externalIds?.tmdb ? `tmdb:${person.externalIds.tmdb}` : null;
-        const index = merged.findIndex((entry) => (tmdbKey && String(entry.externalIds?.tmdb) === String(person.externalIds?.tmdb)) || normalizeText(entry.name) === normalizeText(person.name));
+        if (excludedKeys.has(normalizeText(person.name))) continue;
+        const remoteTmdb = person.externalIds?.tmdb ?? null;
+        const index = merged.findIndex((entry, position) => {
+          if (claimed.has(position)) return false;
+          const entryTmdb = entry.externalIds?.tmdb ?? null;
+          if (remoteTmdb !== null && entryTmdb !== null) return String(entryTmdb) === String(remoteTmdb);
+          return normalizeText(entry.name) === normalizeText(person.name);
+        });
         if (index >= 0) {
+          claimed.add(index);
           merged[index] = {
             ...merged[index],
             profilePath: merged[index].profilePath || person.profilePath,
@@ -247,7 +271,10 @@ export function createHybridCatalog({
             externalIds: { ...merged[index].externalIds, ...person.externalIds },
             origin: "local+tmdb",
           };
-        } else merged.push(person);
+        } else {
+          merged.push(person);
+          claimed.add(merged.length - 1);
+        }
       }
       return { results: merged.slice(0, limit), remote: { ...remoteState } };
     } catch (error) {

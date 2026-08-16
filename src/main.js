@@ -30,14 +30,42 @@ const diagnostics = createDiagnostics();
 diagnostics.install(window);
 document.documentElement.toggleAttribute("data-large-text", storage.loadSettings().largeText === true);
 
-const [data, synonyms, portraits] = await Promise.all([
-  fetch(assetUrl("src/data/cinema-knowledge.json"))
-    .then((response) => response.ok ? response.json() : Promise.reject(new Error("snapshot")))
-    .catch(() => fetch(assetUrl("src/data/cinema-database.json")).then((response) => response.json())),
-  fetch(assetUrl("src/data/cinema-synonyms.json")).then((response) => response.json()).catch(() => ({ people: [], works: [] })),
-  // Portraits are a nicety: a failed fetch costs an engraved initial, never a broken screen.
-  fetch(assetUrl("src/data/tmdb-portraits.json")).then((response) => response.ok ? response.json() : null).catch(() => null),
-]);
+// L'écran de chargement du document n'a rien qui l'enlève : si le démarrage jette, la page reste indéfiniment sur
+// « Chargement de la bobine… », sans le moindre message. Le repli sur l'ancien instantané ne vérifiait pas non plus
+// son propre statut, si bien qu'une page d'erreur HTML le faisait échouer sur un JSON illisible.
+function bootFailure(error) {
+  diagnostics.capture(error, { phase: "boot" });
+  if (!root) return;
+  root.innerHTML = `<main class="screen empty-state">
+    <span class="stamp stamp--rouge">Bobine coincée</span>
+    <h1 class="marquee">Le catalogue n’a pas pu être chargé</h1>
+    <p class="prose">Le fichier du catalogue est introuvable ou illisible. Vérifiez votre connexion, puis relancez.</p>
+    <button class="button button--gold" type="button" data-boot-retry>Réessayer</button>
+  </main>`;
+  root.querySelector("[data-boot-retry]")?.addEventListener("click", () => window.location.reload());
+}
+
+const readJson = async (url) => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`${url} → ${response.status}`);
+  return response.json();
+};
+
+let data;
+let synonyms;
+let portraits;
+try {
+  [data, synonyms, portraits] = await Promise.all([
+    readJson(assetUrl("src/data/cinema-knowledge.json"))
+      .catch(() => readJson(assetUrl("src/data/cinema-database.json"))),
+    readJson(assetUrl("src/data/cinema-synonyms.json")).catch(() => ({ people: [], works: [] })),
+    // Portraits are a nicety: a failed fetch costs an engraved initial, never a broken screen.
+    readJson(assetUrl("src/data/tmdb-portraits.json")).catch(() => null),
+  ]);
+} catch (error) {
+  bootFailure(error);
+  throw error;
+}
 
 const database = createDatabase(data, { synonyms });
 if (portraits) database.attachPortraits(portraits);

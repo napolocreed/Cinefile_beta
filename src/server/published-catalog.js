@@ -41,7 +41,10 @@ export function createPublishedCatalog({ overlayUrl = new URL("../data/tmdb-over
       // L'identité locale prime : c'est elle que la partie a en main, et le catalogue distant ne vient ici que
       // pour la filmographie. Renommer l'artiste au passage casserait la chaîne en cours.
       const fresh = await tmdb.getPerson(person.externalIds.tmdb);
-      return { ...published, credits: fresh.credits ?? published.credits };
+      // `??` ne retenait la version publiée que sur null/undefined, or getPerson rend toujours un tableau : une
+      // réponse 200 sans combined_credits donnait credits: [], qui passait la garde et vidait la fiche. L'artiste
+      // ressortait injouable sans qu'aucun catch ne se déclenche.
+      return { ...published, credits: fresh.credits?.length ? fresh.credits : published.credits };
     } catch {
       // Un quota atteint ou un réseau coupé ne valent pas une fiche vide : la version publiée reste jouable.
       return published;

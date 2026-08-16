@@ -41,7 +41,15 @@ function playerTemplate(id, name, lives) {
 export function createGame({ names, config = {}, random = Math.random, now = Date.now, idFactory = fallbackId } = {}) {
   const cleanNames = [...new Set((names ?? []).map((name) => String(name).trim()).filter(Boolean))].slice(0, MAX_PLAYERS);
   if (cleanNames.length < 2) throw new Error("Une partie nécessite au moins deux joueurs.");
-  const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+  // Le tri se fait ici plutôt qu'à l'appel : l'écran de mise en place passait son propre objet d'état, dont le
+  // spread superficiel emportait le tableau brut des champs de saisie — cases vides comprises — et la clé de focus
+  // jusque dans la configuration de la partie. Cette configuration part ensuite dans la sauvegarde courante, dans
+  // l'historique et dans les exports, et le tableau restait partagé avec l'écran : retaper un nom sur la mise en
+  // place modifiait la partie en cours. Seules les clés que le jeu connaît sont retenues.
+  const mergedConfig = { ...DEFAULT_CONFIG };
+  for (const key of Object.keys(DEFAULT_CONFIG)) {
+    if (config[key] !== undefined) mergedConfig[key] = config[key];
+  }
   mergedConfig.extensions = normalizeExtensions(config.extensions);
   const players = cleanNames.map((name) => playerTemplate(idFactory(), name, mergedConfig.livesPerPlayer));
   return {
@@ -94,7 +102,12 @@ function applyResolution(game, pending, { challenged }) {
   // Without bluff challenges the automatic check is the sole referee: an unchallenged move never "gets away", only a
   // proven link stands. With challenges, an unchallenged proposition is accepted as before.
   const acceptedAsMove = !pending.forceInvalid && (valid || (!challenged && !pending.autoVerify));
-  const attemptedBluff = !valid;
+  // Un chrono expiré n'est pas une tentative de bluff : personne n'a proposé de liaison. Le compter comme tel
+  // gonflait bluffsAttempted, qui est cumulatif et sert de dénominateur permanent à la jauge « Bluffs réussis ».
+  const attemptedBluff = !valid && pending.method !== "timeout";
+  // « Laisser passer sans trancher » enregistre la contestation mais ne sanctionne personne : faute de preuve, le
+  // coup est porté à valide sans que le buzzeur y laisse une vie ni que le proposant décroche un bluff.
+  const letPass = Boolean(pending.letPass);
 
   if (pending.opening) {
     next.chain.push(pending.proposedActor);
@@ -110,19 +123,25 @@ function applyResolution(game, pending, { challenged }) {
   // bluff counters.
   if (attemptedBluff && !pending.autoVerify) proposer.bluffsAttempted += 1;
 
+  // Qui paie ce tour, décidé ici et gravé dans le tour. Le générique le déduisait de wasValid, qu'une correction
+  // ultérieure pouvait réécrire : la vie perdue disparaissait alors du grand livre, et avec elle le rang final.
+  let struckId = null;
+
   if (acceptedAsMove) {
     next.chain.push(pending.proposedActor);
     proposer.filmsFound += pending.sharedFilms.length || 1;
-    proposer.score += challenged && valid ? 2 : 1;
+    proposer.score += challenged && valid && !letPass ? 2 : 1;
     proposer.streak += 1;
     proposer.bestStreak = Math.max(proposer.bestStreak, proposer.streak);
     if (attemptedBluff) proposer.bluffsSucceeded += 1;
-    if (challenged && valid && challenger) {
+    if (challenged && valid && challenger && !letPass) {
       challenger.lives = Math.max(0, challenger.lives - 1);
+      struckId = challenger.id;
     }
   } else {
     proposer.streak = 0;
     proposer.lives = Math.max(0, proposer.lives - 1);
+    struckId = proposer.id;
     if (challenged) {
       proposer.bluffsCaught += 1;
       if (challenger) {
@@ -139,6 +158,8 @@ function applyResolution(game, pending, { challenged }) {
     // Hors du jeu de bluff, une liaison non prouvée est un maillon invalide, pas un bluff : le générique et ses
     // compteurs ne doivent pas l'y confondre.
     wasBluff: attemptedBluff && !pending.autoVerify,
+    struckId,
+    letPass,
   });
 
   if (!resolveWinner(next)) next.currentPlayerIdx = nextAliveIndex(next, next.currentPlayerIdx);
@@ -173,10 +194,12 @@ export function proposeActor(game, actorName, database) {
 
   if (!previousActor) return { type: "resolved", game: applyResolution(game, pending, { challenged: false }), pending: null };
   if (!game.config.allowBluffChallenge) {
-    // Le vocal garde son acceptation directe : son buzzer central tient lieu de défi et il n'a pas d'écran VAR de
-    // repli. En classique en revanche, couper les défis de bluff ne doit pas laisser passer les liaisons : chaque
-    // maillon est vérifié automatiquement, et le coup reste en attente le temps de cette vérification.
-    if (game.config.mode === "voice") return { type: "resolved", game: applyResolution(game, pending, { challenged: false }), pending: null };
+    // Couper les défis de bluff ne doit pas laisser passer les liaisons : chaque maillon est vérifié
+    // automatiquement, et le coup reste en attente le temps de cette vérification. Le vocal en était dispensé au
+    // motif que son buzzer central tenait lieu de défi — or ce buzzer est précisément inerte dans cette
+    // configuration, puisqu'il exige un coup en attente que ce raccourci ne posait jamais. Rien ne vérifiait donc
+    // quoi que ce soit : deux cents noms inventés entraient dans la chaîne sans coût, et sans chrono la partie
+    // n'avait plus aucun moyen de se terminer.
     pending.autoVerify = true;
   }
   return { type: "pending", game, pending };

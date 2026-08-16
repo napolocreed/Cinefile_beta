@@ -108,10 +108,11 @@ export function buildCredits(game, { database = null } = {}) {
     const challengerId = turn.challenged ? turn.challengerId ?? null : null;
     const challengerStats = challengerId ? tallies.get(challengerId) : null;
 
-    // Nothing records a lost life turn by turn, but the rule that spends one is the same rule that accepted or
-    // refused the move, so the ledger is rebuilt rather than guessed.
-    let struckId = null;
-    if (!turn.opening) {
+    // Le moteur grave désormais qui paie le tour, au moment où il le fait payer. La déduction ci-dessous ne sert
+    // plus qu'aux parties enregistrées avant ce changement : elle se lisait sur wasValid, qu'une correction
+    // ultérieure du maillon précédent pouvait réécrire, et la vie perdue disparaissait alors du grand livre.
+    let struckId = turn.struckId ?? null;
+    if (struckId === null && !("struckId" in turn) && !turn.opening) {
       if (!turn.accepted) struckId = turn.playerId;
       else if (turn.challenged && turn.wasValid) struckId = turn.challengerId ?? null;
     }
@@ -126,7 +127,11 @@ export function buildCredits(game, { database = null } = {}) {
 
     // The turn keeps whatever proof it was decided on. When it has none — a link taken on a vote, or a bluff that
     // was never questioned — the archive is asked again now, because the catalogue may have learnt the pair since.
-    const recorded = uniqueTitles(turn.sharedFilms?.length ? turn.sharedFilms : turn.verification?.films);
+    // Le moteur refuse de valider sur autre chose qu'un verdict CONFIRMED. Les pages remontées par l'étape
+    // Wikipédia — un indice, jamais une preuve — arrivaient pourtant ici : elles rachetaient le bluff, effaçaient
+    // son badge, affichaient « retrouvé aux archives » et gonflaient le compteur de films.
+    const proven = turn.verification?.verdict === "CONFIRMED" ? turn.verification.films : null;
+    const recorded = uniqueTitles(turn.sharedFilms?.length ? turn.sharedFilms : proven);
     let archived = [];
     if (!recorded.length && previousActor && database && turn.proposedActor && turn.proposedActor !== TIMEOUT_ACTOR) {
       try {
@@ -156,6 +161,10 @@ export function buildCredits(game, { database = null } = {}) {
       challenged: Boolean(turn.challenged),
       accepted: Boolean(turn.accepted),
       bluff: Boolean(turn.wasBluff),
+      // Un bluff que les archives ont fini par racheter reste un bluff au moment où il a été joué, mais le
+      // générique ne peut pas à la fois lui créditer ses films, écrire « retrouvé aux archives », et affirmer deux
+      // blocs plus loin que la liaison n'a jamais existé. Les agrégats de bluff l'excluent donc.
+      redeemed: kind === "bluff-slipped" && films.length > 0,
       struckId,
       struckName: nameOf(struckId),
       livesLeft: struckId ? lives.get(struckId) ?? 0 : null,
@@ -166,7 +175,7 @@ export function buildCredits(game, { database = null } = {}) {
     if (stats) {
       if (kind === "timeout") stats.timeouts += 1;
       if (turn.wasBluff && !turn.opening) stats.bluffsAttempted += 1;
-      if (kind === "bluff-slipped") stats.bluffsSlipped += 1;
+      if (kind === "bluff-slipped" && !films.length) stats.bluffsSlipped += 1;
       if (kind === "bluff-unmasked") stats.bluffsUnmasked += 1;
       if (turn.accepted && !turn.opening) stats.links += 1;
     }
@@ -234,7 +243,7 @@ export function buildCredits(game, { database = null } = {}) {
     links: reel.filter((entry) => entry.from).length,
     films: distinctFilms.size,
     bluffsAttempted: scenes.filter((scene) => scene.bluff && scene.kind !== "opening").length,
-    bluffsSlipped: scenes.filter((scene) => scene.kind === "bluff-slipped").length,
+    bluffsSlipped: scenes.filter((scene) => scene.kind === "bluff-slipped" && !scene.redeemed).length,
     bluffsUnmasked: scenes.filter((scene) => scene.kind === "bluff-unmasked").length,
     challenges: scenes.filter((scene) => scene.challenged).length,
     challengesRight: scenes.filter((scene) => scene.challenged && !scene.accepted).length,
@@ -265,7 +274,7 @@ export function buildCredits(game, { database = null } = {}) {
     guests,
     scenes,
     bluffs: {
-      slipped: scenes.filter((scene) => scene.kind === "bluff-slipped"),
+      slipped: scenes.filter((scene) => scene.kind === "bluff-slipped" && !scene.redeemed),
       unmasked: scenes.filter((scene) => scene.kind === "bluff-unmasked"),
       falseAlarms: scenes.filter((scene) => scene.kind === "challenge-failed"),
     },

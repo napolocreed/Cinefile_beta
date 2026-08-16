@@ -2,10 +2,11 @@
 
 import { achievementById } from "../../game/achievements.js";
 import { createGame } from "../../game/engine.js";
-import { recordFinishedGame } from "../../game/storage.js";
-import { app, navigate, routeUrl, state } from "../runtime.js";
+import { app, archiveFinishedGame, creditsFor, navigate, routeUrl, state } from "../runtime.js";
 import { escapeHtml, portraitMarkup } from "../format.js";
 import { shell } from "../shell.js";
+import { createVoiceState } from "../voice-state.js";
+import { stopVoiceSession } from "./voice.js";
 
 export function renderResults() {
   const game = state.game ?? app.storage.loadCurrent();
@@ -19,9 +20,22 @@ export function renderResults() {
   }
 
   state.game = game;
-  const result = recordFinishedGame(game, app.storage);
-  state.newAchievements = result.newAchievements;
-  const ordered = [...game.players].sort((left, right) => (right.id === game.winnerId) - (left.id === game.winnerId) || right.score - left.score);
+  // Filet : la partie est normalement déjà entrée aux archives à l'instant où elle s'est terminée. L'appel est
+  // idempotent, et il rend les cartons de cette partie même quand on revient ici par « Revoir le générique ».
+  archiveFinishedGame(game);
+  // La même clé que le rang enregistré dans les profils : vainqueur d'abord, puis à l'envers de l'ordre
+  // d'élimination — le dernier tombé est deuxième. L'écran triait par score, si bien que la même partie affichait
+  // un classement et en gravait un autre dans « Place moyenne ». L'épinglage du vainqueur existait justement
+  // parce que le score ne désigne pas le premier ; seule la première place avait été corrigée.
+  const seatRank = new Map((creditsFor(game)?.cast ?? []).map((seat, index) => [seat.id, index]));
+  const eliminationOrder = [...(creditsFor(game)?.cast ?? [])]
+    .sort((left, right) => (right.winner === true) - (left.winner === true) || (right.eliminatedAt ?? 0) - (left.eliminatedAt ?? 0))
+    .map((seat) => seat.id);
+  const placeOf = (playerId) => {
+    const place = eliminationOrder.indexOf(playerId);
+    return place === -1 ? seatRank.size + (seatRank.get(playerId) ?? 0) : place;
+  };
+  const ordered = [...game.players].sort((left, right) => placeOf(left.id) - placeOf(right.id) || right.score - left.score);
   const winner = game.players.find((player) => player.id === game.winnerId);
   // Toute la table a droit à son carton, pas seulement le vainqueur : un succès décroché en perdant est souvent
   // le plus mérité de la soirée.
@@ -63,6 +77,11 @@ export function renderResults() {
 
   document.querySelector("[data-replay]")?.addEventListener("click", () => {
     const names = game.players.map((player) => player.name);
+    // La mise en place fait déjà exactement ceci. Sans cette remise à zéro, la nouvelle partie vocale démarrait avec
+    // le verdict de la précédente à la place de sa consigne, et le tiroir de secours déjà déplié.
+    stopVoiceSession();
+    state.voice = createVoiceState();
+    state.newAchievements = [];
     state.game = createGame({ names, config: game.config });
     app.storage.saveCurrent(state.game);
     navigate("/play");
