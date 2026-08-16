@@ -2,21 +2,43 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 
+// Les « bad ports » de la spécification fetch : le client refuse de s'y connecter avant même d'ouvrir la socket,
+// et l'échec ne ressemble pas à un serveur absent — c'est un « bad port » sec. Le tirage 4300-5299 contenait 5060
+// et 5061 (SIP), soit deux chances sur mille par démarrage de rendre la CI rouge sans qu'aucun code applicatif ne
+// soit en cause. Le serveur, lui, écoutait parfaitement.
+const BLOCKED_PORTS = new Set([4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668, 6669, 6679, 6697, 10080]);
+
+function testPort() {
+  let port;
+  do {
+    port = 4300 + Math.floor(Math.random() * 1000);
+  } while (BLOCKED_PORTS.has(port));
+  return port;
+}
+
 async function startServer(env = {}) {
-  const port = 4300 + Math.floor(Math.random() * 1000);
+  const port = testPort();
   const server = spawn(process.execPath, ["server.mjs"], {
     cwd: process.cwd(),
     env: { ...process.env, PORT: String(port), ...env },
     stdio: "ignore",
   });
+  let lastError = null;
   let response;
   for (let attempt = 0; attempt < 30; attempt += 1) {
     try {
       response = await fetch(`http://127.0.0.1:${port}/`);
       break;
-    } catch {
+    } catch (error) {
+      lastError = error;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
+  }
+  // Sans cette garde, un démarrage manqué rendait `response` à undefined et l'échec ne se voyait que bien plus
+  // loin, sous la forme d'un « fetch failed » sans rapport apparent avec le port.
+  if (!response) {
+    server.kill();
+    throw new Error(`Le serveur de test n'a pas répondu sur le port ${port} : ${lastError?.cause?.message ?? lastError?.message ?? "cause inconnue"}`);
   }
   return { server, port, response };
 }
